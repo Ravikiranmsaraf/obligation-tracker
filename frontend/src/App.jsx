@@ -2,25 +2,35 @@ import { useEffect, useState } from "react";
 
 function App() {
   const [apiMessage, setApiMessage] = useState(null);
+  const [obligations, setObligations] = useState([]);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     const controller = new AbortController();
 
-    fetch(`/api/`, { signal: controller.signal })
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((data) => {
-        setApiMessage(data.message || JSON.stringify(data));
-        setError(null);
-      })
-      .catch((err) => {
-        if (err.name !== "AbortError") {
-          setError(err.message || String(err));
-        }
-      });
+    Promise.all([
+      fetch(`/api/`, { signal: controller.signal })
+        .then((res) => {
+          if (!res.ok) throw new Error(`API root: HTTP ${res.status}`);
+          return res.json();
+        })
+        .then((data) => {
+          setApiMessage(data.message || JSON.stringify(data));
+        }),
+
+      fetch(`/api/obligations`, { signal: controller.signal })
+        .then((res) => {
+          if (!res.ok) throw new Error(`Obligations: HTTP ${res.status}`);
+          return res.json();
+        })
+        .then((data) => {
+          setObligations(data);
+        }),
+    ]).catch((err) => {
+      if (err.name !== "AbortError") {
+        setError(err.message || String(err));
+      }
+    });
 
     return () => controller.abort();
   }, []);
@@ -41,6 +51,19 @@ function App() {
         <p>
           API says: <strong>{apiMessage}</strong>
         </p>
+      )}
+
+      <h2>Sample Obligations</h2>
+      {obligations.length === 0 ? (
+        <p>Loading obligations…</p>
+      ) : (
+        <ul>
+          {obligations.map((ob) => (
+            <li key={ob.id}>
+              <strong>{ob.name}</strong> – {ob.category} – ₹{ob.amount} – Due day: {ob.dueDay} – Status: {ob.status}
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
