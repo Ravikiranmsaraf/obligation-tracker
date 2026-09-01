@@ -11,7 +11,6 @@ services:
       - NODE_ENV=development
     volumes:
       - ./backend:/app
-      - /app/node_modules
     command: npm run dev
 
   frontend:
@@ -25,5 +24,4 @@ services:
       - VITE_API_BASE_URL=http://localhost:3000
     volumes:
       - ./frontend:/app
-      - /app/node_modules
     command: npm run dev -- --host 0.0.0.0
