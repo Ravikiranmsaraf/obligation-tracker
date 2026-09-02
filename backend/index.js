@@ -14,6 +14,8 @@ app.use(
   })
 );
 
+app.use(express.json()); 
+
 app.get('/', (req, res) => {
   res.json({ message: 'Hello from Obligation Tracker API' });
 });
@@ -51,6 +53,12 @@ app.get('/obligations', (req, res) => {
     },
   ];
   res.json(obligations);
+});
+
+// Echo endpoint — repeats back whatever text you send it
+app.post('/echo', (req, res) => {
+  const { text } = req.body;
+  res.json({ youSaid: text });
 });
 
 app.listen(PORT, HOST, () => {
