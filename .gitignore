@@ -1,4 +1,7 @@
-# Environment
+node_modules/
+dist/
+build/
 .env
 .env.local
-.env.production
+*.log
+.DS_Store
