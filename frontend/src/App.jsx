@@ -1,71 +1,152 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from './lib/supabase';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import NextActionCard from './components/NextActionCard';
+import ObligationsPage from './pages/ObligationsPage';
 
-function App() {
-  const [apiMessage, setApiMessage] = useState(null);
-  const [obligations, setObligations] = useState([]);
-  const [error, setError] = useState(null);
+function ProtectedRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  }
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+  return <>{children}</>;
+}
+
+function LoginPage() {
+  const { signInWithGoogle, user } = useAuth();
+  if (user) {
+    return <Navigate to="/" />;
+  }
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen">
+      <h1 className="text-2xl font-semibold mb-8">Obligation Tracker</h1>
+      <button onClick={signInWithGoogle} className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-3 rounded-xl transition-colors">
+        Sign in with Google
+      </button>
+    </div>
+  );
+}
+
+function Home() {
+  const { user, signOut } = useAuth();
+  const [cycle, setCycle] = useState(null);
+  const [remainingCount, setRemainingCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  const loadNextAction = useCallback(async () => {
+    try {
+      // Fetch next pending cycle
+      const { data: cycles } = await supabase
+        .from('obligation_cycles')
+        .select(`
+          id,
+          due_date,
+          expected_amount,
+          status,
+          obligation:obligations (
+            name
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('status', 'pending')
+        .order('due_date', { ascending: true })
+        .limit(1)
+        .single();
+
+      if (cycles) {
+        setCycle({
+          id: cycles.id,
+          obligation_name: cycles.obligation.name,
+          due_date: cycles.due_date,
+          expected_amount: cycles.expected_amount,
+          status: cycles.status,
+        });
+      }
+
+      // Count remaining
+      const { count } = await supabase
+        .from('obligation_cycles')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('status', 'pending');
+
+      setRemainingCount(count || 0);
+    } catch (error) {
+      console.error('Error loading next action:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
 
   useEffect(() => {
-    const controller = new AbortController();
+    if (!user) return;
+    loadNextAction();
+  }, [loadNextAction, user]);
 
-    Promise.all([
-      fetch(`/api/`, { signal: controller.signal })
-        .then((res) => {
-          if (!res.ok) throw new Error(`API root: HTTP ${res.status}`);
-          return res.json();
+  const handleMarkPaid = async (cycleId, amount, note) => {
+    try {
+      const { error } = await supabase
+        .from('obligation_cycles')
+        .update({
+          status: 'paid',
+          actual_amount: amount,
+          paid_at: new Date().toISOString(),
+          payment_note: note,
         })
-        .then((data) => {
-          setApiMessage(data.message || JSON.stringify(data));
-        }),
+        .eq('id', cycleId)
+        .eq('user_id', user.id);
 
-      fetch(`/api/obligations`, { signal: controller.signal })
-        .then((res) => {
-          if (!res.ok) throw new Error(`Obligations: HTTP ${res.status}`);
-          return res.json();
-        })
-        .then((data) => {
-          setObligations(data);
-        }),
-    ]).catch((err) => {
-      if (err.name !== "AbortError") {
-        setError(err.message || String(err));
-      }
-    });
+      if (error) throw error;
+      await loadNextAction();
+    } catch (error) {
+      console.error('Error marking paid:', error);
+      alert('Failed to mark as paid. Please try again.');
+    }
+  };
 
-    return () => controller.abort();
-  }, []);
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  }
 
   return (
-    <div style={{ fontFamily: "system-ui, sans-serif", padding: "2rem" }}>
-      <h1>Hello from Obligation Tracker UI</h1>
-      <p>Frontend is running on Vite + React.</p>
+    <div className="min-h-screen bg-gray-50">
+      <div className="p-4 flex justify-between items-center">
+        <h1 className="text-xl font-semibold">Obligation Tracker</h1>
+        <div className="flex gap-4">
+          <a href="/obligations" className="text-blue-600 hover:text-blue-800">My Obligations</a>
+          <button
+            onClick={signOut}
+            className="text-gray-600 hover:text-gray-800"
+          >
+            Sign Out
+          </button>
+        </div>
+      </div>
 
-      <h2>Backend API response</h2>
-      {error && (
-        <p style={{ color: "red" }}>
-          Error calling API: {error}
-        </p>
-      )}
-      {!error && !apiMessage && <p>Loading API response…</p>}
-      {!error && apiMessage && (
-        <p>
-          API says: <strong>{apiMessage}</strong>
-        </p>
-      )}
-
-      <h2>Sample Obligations</h2>
-      {obligations.length === 0 ? (
-        <p>Loading obligations…</p>
-      ) : (
-        <ul>
-          {obligations.map((ob) => (
-            <li key={ob.id}>
-              <strong>{ob.name}</strong> – {ob.category} – ₹{ob.amount} – Due day: {ob.dueDay} – Status: {ob.status}
-            </li>
-          ))}
-        </ul>
-      )}
+      <NextActionCard
+        cycle={cycle}
+        remainingCount={remainingCount}
+        onMarkPaid={handleMarkPaid}
+      />
     </div>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+          <Route path="/obligations" element={<ProtectedRoute><ObligationsPage /></ProtectedRoute>} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
 
