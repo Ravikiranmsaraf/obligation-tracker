@@ -110,7 +110,8 @@ function Home() {
 
   const testEcho = async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/echo`, {
+      // const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/echo`, {
+      const res = await fetch(`/api/echo`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: 'Hello from React!' }),
