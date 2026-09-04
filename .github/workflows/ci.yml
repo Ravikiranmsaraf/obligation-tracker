@@ -35,7 +35,7 @@ jobs:
           script: |
             cd ${{ secrets.VM_PROJECT_PATH }}
             git pull origin main
-            docker compose up --build -d
+            docker-compose up --build -d
 
       - name: Verify backend is healthy
         run: |
