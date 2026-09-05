@@ -56,7 +56,7 @@ app.get('/obligations', (req, res) => {
 });
 
 // Echo endpoint — repeats back whatever text you send it
-app.post('/echo', (req, res) => {
+app.post('/api/echo', (req, res) => {
   const { text } = req.body;
   res.json({ youSaid: text });
 });
