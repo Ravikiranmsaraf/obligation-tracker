@@ -5,10 +5,28 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import NextActionCard from './components/NextActionCard';
 import ObligationsPage from './pages/ObligationsPage';
 
+function useDarkMode() {
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('settld-theme') === 'dark';
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', isDark);
+    localStorage.setItem('settld-theme', isDark ? 'dark' : 'light');
+  }, [isDark]);
+
+  return [isDark, setIsDark];
+}
+
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-white dark:bg-gray-950 text-gray-500 dark:text-gray-400">
+        Loading...
+      </div>
+    );
   }
   if (!user) {
     return <Navigate to="/login" />;
@@ -22,35 +40,31 @@ function LoginPage() {
     return <Navigate to="/" />;
   }
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen">
-      <h1 className="text-2xl font-semibold mb-8">Obligation Tracker</h1>
-      <button onClick={signInWithGoogle} className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-3 rounded-xl transition-colors">
+    <div className="flex flex-col items-center justify-center min-h-screen px-6 bg-white dark:bg-gray-950">
+      <h1 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">Settld</h1>
+      <p className="text-gray-500 dark:text-gray-400 mb-8 text-center">Bills? Handled. No cap.</p>
+      <button
+        onClick={signInWithGoogle}
+        className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-medium px-6 py-3 rounded-2xl transition-colors w-full max-w-xs"
+      >
         Sign in with Google
       </button>
     </div>
   );
 }
 
-function Home() {
+function Home({ isDark, setIsDark }) {
   const { user, signOut } = useAuth();
   const [cycle, setCycle] = useState(null);
   const [remainingCount, setRemainingCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [pingStatus, setPingStatus] = useState(null); // null | 'ok' | 'error'
 
   const loadNextAction = useCallback(async () => {
     try {
-      // Fetch next pending cycle
       const { data: cycles } = await supabase
         .from('obligation_cycles')
-        .select(`
-          id,
-          due_date,
-          expected_amount,
-          status,
-          obligation:obligations (
-            name
-          )
-        `)
+        .select('id, due_date, expected_amount, status, obligation:obligations(name)')
         .eq('user_id', user.id)
         .eq('status', 'pending')
         .order('due_date', { ascending: true })
@@ -67,7 +81,6 @@ function Home() {
         });
       }
 
-      // Count remaining
       const { count } = await supabase
         .from('obligation_cycles')
         .select('*', { count: 'exact', head: true })
@@ -108,60 +121,85 @@ function Home() {
     }
   };
 
-  const testEcho = async () => {
+  const pingServer = async () => {
+    setPingStatus(null);
     try {
-      // const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/echo`, {
-      const res = await fetch(`/api/echo`, {
+      const res = await fetch('/api/echo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: 'Hello from React!' }),
+        body: JSON.stringify({ text: 'ping' }),
       });
       const data = await res.json();
-      alert(data.youSaid);
+      setPingStatus(data.youSaid === 'ping' ? 'ok' : 'error');
     } catch (error) {
-      console.error('Error calling backend:', error);
-      alert('Failed to reach backend');
+      console.error('Error pinging backend:', error);
+      setPingStatus('error');
     }
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-white dark:bg-gray-950 text-gray-500 dark:text-gray-400">
+        Loading...
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="p-4 flex justify-between items-center">
-        <h1 className="text-xl font-semibold">Obligation Tracker</h1>
-        <div className="flex gap-4">
-          <a href="/obligations" className="text-blue-600 hover:text-blue-800">My Obligations</a>
-          <button onClick={testEcho} className="text-gray-600 hover:text-gray-800">
-            Test Echo
-          </button>
-          <button
-            onClick={signOut}
-            className="text-gray-600 hover:text-gray-800"
-          >
-            Sign Out
-          </button>
-        </div>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pb-24">
+      <div className="px-4 py-4 flex justify-between items-center">
+        <h1 className="text-xl font-bold text-gray-900 dark:text-white">Settld</h1>
+        <button
+          onClick={() => setIsDark(!isDark)}
+          className="text-sm w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200"
+          aria-label="Toggle dark mode"
+        >
+          {isDark ? 'Light' : 'Dark'}
+        </button>
       </div>
 
-      <NextActionCard
-        cycle={cycle}
-        remainingCount={remainingCount}
-        onMarkPaid={handleMarkPaid}
-      />
+      <NextActionCard cycle={cycle} remainingCount={remainingCount} onMarkPaid={handleMarkPaid} />
+
+      {/* Backend connectivity check — small, dev-facing, visible on purpose */}
+      <div className="max-w-md mx-auto mt-6 px-4 flex items-center justify-center gap-2">
+        <button
+          onClick={pingServer}
+          className="text-xs text-gray-500 dark:text-gray-400 underline underline-offset-2"
+        >
+          Ping Server
+        </button>
+        {pingStatus === 'ok' && <span className="text-xs text-green-600 dark:text-green-400">● backend reachable</span>}
+        {pingStatus === 'error' && <span className="text-xs text-red-500 dark:text-red-400">● backend unreachable</span>}
+      </div>
+
+      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 flex justify-around py-3 px-4">
+        <a href="/obligations" className="flex flex-col items-center text-sm text-gray-600 dark:text-gray-300">
+          My Reminders
+        </a>
+        <button onClick={signOut} className="flex flex-col items-center text-sm text-gray-600 dark:text-gray-300">
+          Sign Out
+        </button>
+      </div>
     </div>
   );
 }
 
 function App() {
+  const [isDark, setIsDark] = useDarkMode();
+
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Home isDark={isDark} setIsDark={setIsDark} />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/obligations" element={<ProtectedRoute><ObligationsPage /></ProtectedRoute>} />
         </Routes>
       </BrowserRouter>
