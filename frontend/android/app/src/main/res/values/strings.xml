@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Settld</string>
+    <string name="title_activity_main">Settld</string>
+    <string name="package_name">com.ravikiran.settld</string>
+    <string name="custom_url_scheme">com.ravikiran.settld</string>
+</resources>
