@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import NextActionCard from './components/NextActionCard';
 import ObligationsPage from './pages/ObligationsPage';
+import { useAuthCallback } from './hooks/useAuthCallback';
 
 function useDarkMode() {
   const [isDark, setIsDark] = useState(() => {
@@ -186,7 +187,7 @@ function Home({ isDark, setIsDark }) {
 
 function App() {
   const [isDark, setIsDark] = useDarkMode();
-
+  useAuthCallback();
   return (
     <AuthProvider>
       <BrowserRouter>
