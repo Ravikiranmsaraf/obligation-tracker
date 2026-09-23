@@ -23,9 +23,6 @@ services:
     restart: always
     ports:
       - "8081:80"
-    volumes:
-      # Mount the plain HTTP config to overwrite the container's internal SSL config
-      - ./frontend/nginx.prod.conf:/etc/nginx/conf.d/default.conf:ro
     networks:
       - blue-net
     depends_on:
