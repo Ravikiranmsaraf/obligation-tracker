@@ -174,7 +174,7 @@ function Home({ isDark, setIsDark }) {
 
       <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 flex justify-around py-3 px-4">
         <a href="/obligations" className="flex flex-col items-center text-sm text-gray-600 dark:text-gray-300">
-          My Reminders
+          My Reminders_
         </a>
         <button onClick={signOut} className="flex flex-col items-center text-sm text-gray-600 dark:text-gray-300">
           Sign Out
