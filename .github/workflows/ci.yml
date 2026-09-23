@@ -42,4 +42,4 @@ jobs:
         run: |
           sleep 5
           # Verify that the public production site is up and responsive
-          curl -f https://${{ secrets.VM_HOST }} || curl -f https://settld.duckdns.org || exit 1
+          curl -f https://settld.duckdns.org || exit 1
