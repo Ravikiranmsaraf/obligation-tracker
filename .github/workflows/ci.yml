@@ -40,6 +40,6 @@ jobs:
 
       - name: Verify Live Endpoint
         run: |
-          sleep 5
+          sleep 15
           # Verify that the public production site is up and responsive
-          curl -f https://settld.duckdns.org || exit 1
+          curl --retry 5 --retry-delay 3 --retry-all-errors -f https://settld.duckdns.org || exit 1
