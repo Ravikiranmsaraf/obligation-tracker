@@ -1,0 +1,32 @@
+services:
+  backend-green:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: obligation-backend-green
+    restart: always
+    ports:
+      - "3002:3000"
+    networks:
+      green-net:
+        aliases:
+          - backend
+    environment:
+      - NODE_ENV=production
+      - APP_COLOR=green
+
+  frontend-green:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    container_name: obligation-frontend-green
+    restart: always
+    ports:
+      - "8082:80"
+    networks:
+      - green-net
+    depends_on:
+      - backend-green
+
+networks:
+  green-net:

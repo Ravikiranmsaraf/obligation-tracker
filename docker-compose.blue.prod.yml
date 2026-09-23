@@ -1,0 +1,32 @@
+services:
+  backend-blue:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: obligation-backend-blue
+    restart: always
+    ports:
+      - "3001:3000"
+    networks:
+      blue-net:
+        aliases:
+          - backend
+    environment:
+      - NODE_ENV=production
+      - APP_COLOR=blue
+
+  frontend-blue:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    container_name: obligation-frontend-blue
+    restart: always
+    ports:
+      - "8081:80"
+    networks:
+      - blue-net
+    depends_on:
+      - backend-blue
+
+networks:
+  blue-net:
