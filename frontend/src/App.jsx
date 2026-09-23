@@ -41,7 +41,7 @@ function LoginPage() {
   }
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-6 bg-white dark:bg-gray-950">
-      <h1 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">Settld</h1>
+      <h1 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">Settld!</h1>
       <p className="text-gray-500 dark:text-gray-400 mb-8 text-center">Bills? Handled. No cap.</p>
       <button
         onClick={signInWithGoogle}

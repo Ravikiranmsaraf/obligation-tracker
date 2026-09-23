@@ -21,12 +21,12 @@ jobs:
       - name: Build frontend image
         run: docker build -t obligation-frontend ./frontend
 
-  deploy:
+    deploy:
     needs: [build-backend, build-frontend]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy to Oracle VM
+      - name: Deploy to Oracle VM via Blue-Green Script
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VM_HOST }}
@@ -35,11 +35,11 @@ jobs:
           command_timeout: 20m
           script: |
             cd ${{ secrets.VM_PROJECT_PATH }}
-            git pull origin main
-            docker-compose -f docker-compose.blue.prod.yml down
-            docker-compose -f docker-compose.blue.prod.yml up --build -d
+            # Run the automated deployment script
+            ./deploy-bg.sh
 
-      - name: Verify backend is healthy
+      - name: Verify Live Endpoint
         run: |
-          sleep 10
-          curl -f http://${{ secrets.VM_HOST }}:3000/health || exit 1
+          sleep 5
+          # Verify that the public production site is up and responsive
+          curl -f https://${{ secrets.VM_HOST }} || curl -f https://settld.duckdns.org || exit 1
