@@ -21,7 +21,7 @@ jobs:
       - name: Build frontend image
         run: docker build -t obligation-frontend ./frontend
 
-    deploy:
+  deploy:
     needs: [build-backend, build-frontend]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
