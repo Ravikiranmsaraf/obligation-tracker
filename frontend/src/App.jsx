@@ -4,7 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import NextActionCard from './components/NextActionCard';
 import ObligationsPage from './pages/ObligationsPage';
-import { initialize, Event } from '@harnessio/ff-javascript-client-sdk';
+import { SplitFactory } from '@splitsoftware/splitio';
 // --- Harness Feature Flag Configuration ---
 // TODO: Replace with your actual Client-side SDK Key from Harness
 const HARNESS_CLIENT_SDK_KEY = "4unhpfdr4o1hh4mv2oir44t1931pvti0gmfh";
@@ -213,47 +213,50 @@ function App() {
   const [sdkReady, setSdkReady] = useState(false);
 
   useEffect(() => {
-    let cf;
-    
-    // Prevent the SDK from initializing multiple times during development
-    if (!window.harnessClient) {
-      console.log("Initializing Harness SDK...");
-      cf = initialize(HARNESS_CLIENT_SDK_KEY, HARNESS_TARGET);
-      window.harnessClient = cf;
+    let splitClient;
 
-      // When the Harness SDK is ready, fetch the active variation
-      cf.on(Event.READY, flags => {
-        console.log('Harness SDK is ready.', flags);
-        setSdkReady(true);
-        
-        // Fetch 'app_theme1' variation, fallback to 'default' if offline
-        const initialTheme = cf.stringVariation('app_theme1', 'default');
-        setTheme(initialTheme);
-      });
+    if (!window.fmeClient) {
+      console.log("Initializing Harness FME SDK...");
 
-      // Listen for real-time toggle changes from the Harness dashboard
-      cf.on(Event.CHANGED, flagInfo => {
-        if (flagInfo.flag === 'app_theme1') {
-          console.log('Theme flag changed to:', flagInfo.value);
-          setTheme(flagInfo.value);
+      // Configure SplitFactory with your FME Client Key
+      const factory = SplitFactory({
+        core: {
+          authorizationKey: "4unhpfdr4o1hh4mv2oir44t1931pvti0gmfh", // Paste your copied Client key here
+          key: 'test-user' // Matches the identifier tested via curl
         }
       });
 
-      cf.on(Event.ERROR, (err) => {
-        console.error('Harness SDK Error:', err);
+      splitClient = factory.client();
+      window.fmeClient = splitClient;
+
+      // Fires as soon as the flag valuations are received from the CDN
+      splitClient.on(splitClient.Event.SDK_READY, () => {
+        console.log('Harness FME is ready.');
+        setSdkReady(true);
+        
+        // Retrieve the live value for your app_theme1 flag (falls back to 'default')
+        const activeTheme = splitClient.getTreatment('app_theme1');
+        setTheme(activeTheme);
+      });
+
+      // Fires immediately whenever you toggle values on the dashboard
+      splitClient.on(splitClient.Event.SDK_UPDATE, () => {
+        const activeTheme = splitClient.getTreatment('app_theme1');
+        console.log('Harness FME updated theme to:', activeTheme);
+        setTheme(activeTheme);
       });
     }
 
     return () => {
-      if (window.harnessClient) {
-        window.harnessClient.close();
-        window.harnessClient = null;
-        console.log('Harness SDK connection closed.');
+      if (window.fmeClient) {
+        window.fmeClient.destroy();
+        window.fmeClient = null;
+        console.log('Harness FME client destroyed.');
       }
     };
   }, []);
 
-  // Update root element classes dynamically based on the active theme
+  // Sync class state with the active theme value
   useEffect(() => {
     document.documentElement.classList.remove('dark', 'light', 'blue-accent');
     document.documentElement.classList.add(theme);
@@ -274,7 +277,6 @@ function App() {
             path="/"
             element={
               <ProtectedRoute>
-                {/* Pass theme and connection status down to the Home component */}
                 <Home theme={theme} sdkReady={sdkReady} />
               </ProtectedRoute>
             }
@@ -285,6 +287,7 @@ function App() {
     </AuthProvider>
   );
 }
+
 
 
 export default App;
