@@ -161,7 +161,7 @@ function Home({ theme, sdkReady }) {
     );
   }
 
-/ 1. Calculate dynamic classes based on the theme value from Harness
+// / 1. Calculate dynamic classes based on the theme value from Harness
   const mainBgClass = theme === 'dark' ? 'bg-gray-950' : (theme === 'blue-accent' ? 'bg-blue-50' : 'bg-gray-50');
   const titleColorClass = theme === 'dark' ? 'text-white' : 'text-gray-900';
   const statusColorClass = theme === 'dark' ? 'text-gray-400' : 'text-gray-500';
