@@ -4,6 +4,18 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import NextActionCard from './components/NextActionCard';
 import ObligationsPage from './pages/ObligationsPage';
+import { initialize, Event } from '@harnessio/ff-javascript-client-sdk';
+// --- Harness Feature Flag Configuration ---
+// TODO: Replace with your actual Client-side SDK Key from Harness
+const HARNESS_CLIENT_SDK_KEY = "4unhpfdr4o1hh4mv2oir44t1931pvti0gmfh";
+
+const HARNESS_TARGET = {
+  identifier: 'test-user', // Can be a unique user ID or anonymous session ID
+  name: 'Test User',
+  attributes: {
+    host: 'settld.duckdns.org',
+  },
+};
 
 function useDarkMode() {
   const [isDark, setIsDark] = useState(() => {
@@ -43,6 +55,10 @@ function LoginPage() {
     <div className="flex flex-col items-center justify-center min-h-screen px-6 bg-white dark:bg-gray-950">
       <h1 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">Settld!</h1>
       <p className="text-gray-500 dark:text-gray-400 mb-8 text-center">Bills? Handled. No cap.</p>
+      <div className="text-xs text-right text-gray-500">
+         <p>Active Theme: <strong>{theme}</strong></p>
+          {sdkReady ? <p className="text-green-600">● Harness Connected</p> : <p>○ Connecting...</p>}
+      </div>
       <button
         onClick={signInWithGoogle}
         className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-medium px-6 py-3 rounded-2xl transition-colors w-full max-w-xs"
@@ -53,7 +69,7 @@ function LoginPage() {
   );
 }
 
-function Home({ isDark, setIsDark }) {
+function Home({ theme, sdkReady }) {
   const { user, signOut } = useAuth();
   const [cycle, setCycle] = useState(null);
   const [remainingCount, setRemainingCount] = useState(0);
@@ -145,17 +161,25 @@ function Home({ isDark, setIsDark }) {
     );
   }
 
+/ 1. Calculate dynamic classes based on the theme value from Harness
+  const mainBgClass = theme === 'dark' ? 'bg-gray-950' : (theme === 'blue-accent' ? 'bg-blue-50' : 'bg-gray-50');
+  const titleColorClass = theme === 'dark' ? 'text-white' : 'text-gray-900';
+  const statusColorClass = theme === 'dark' ? 'text-gray-400' : 'text-gray-500';
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pb-24">
+    <div className={`min-h-screen pb-24 transition-colors duration-500 ${mainBgClass}`}>
       <div className="px-4 py-4 flex justify-between items-center">
-        <h1 className="text-xl font-bold text-gray-900 dark:text-white">Settld</h1>
-        <button
-          onClick={() => setIsDark(!isDark)}
-          className="text-sm w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200"
-          aria-label="Toggle dark mode"
-        >
-          {isDark ? 'Light' : 'Dark'}
-        </button>
+        <h1 className={`text-xl font-bold ${titleColorClass}`}>Settld</h1>
+        
+        {/* 2. Replaced the manual button with the Harness status and theme indicator */}
+        <div className={`text-xs text-right ${statusColorClass}`}>
+          <p>Theme: <strong className="capitalize">{theme}</strong></p>
+          {sdkReady ? (
+            <span className="text-green-600 dark:text-green-400 font-medium">● Harness Live</span>
+          ) : (
+            <span className="text-gray-400">○ Connecting...</span>
+          )}
+        </div>
       </div>
 
       <NextActionCard cycle={cycle} remainingCount={remainingCount} onMarkPaid={handleMarkPaid} />
@@ -185,18 +209,73 @@ function Home({ isDark, setIsDark }) {
 }
 
 function App() {
-  const [isDark, setIsDark] = useDarkMode();
+  const [theme, setTheme] = useState('default');
+  const [sdkReady, setSdkReady] = useState(false);
+
+  useEffect(() => {
+    let cf;
+    
+    // Prevent the SDK from initializing multiple times during development
+    if (!window.harnessClient) {
+      console.log("Initializing Harness SDK...");
+      cf = initialize(HARNESS_CLIENT_SDK_KEY, HARNESS_TARGET);
+      window.harnessClient = cf;
+
+      // When the Harness SDK is ready, fetch the active variation
+      cf.on(Event.READY, flags => {
+        console.log('Harness SDK is ready.', flags);
+        setSdkReady(true);
+        
+        // Fetch 'app_theme1' variation, fallback to 'default' if offline
+        const initialTheme = cf.stringVariation('app_theme1', 'default');
+        setTheme(initialTheme);
+      });
+
+      // Listen for real-time toggle changes from the Harness dashboard
+      cf.on(Event.CHANGED, flagInfo => {
+        if (flagInfo.flag === 'app_theme1') {
+          console.log('Theme flag changed to:', flagInfo.value);
+          setTheme(flagInfo.value);
+        }
+      });
+
+      cf.on(Event.ERROR, (err) => {
+        console.error('Harness SDK Error:', err);
+      });
+    }
+
+    return () => {
+      if (window.harnessClient) {
+        window.harnessClient.close();
+        window.harnessClient = null;
+        console.log('Harness SDK connection closed.');
+      }
+    };
+  }, []);
+
+  // Update root element classes dynamically based on the active theme
+  useEffect(() => {
+    document.documentElement.classList.remove('dark', 'light', 'blue-accent');
+    document.documentElement.classList.add(theme);
+    
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
 
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/login" element={<LoginPage />} />
+          <Route path="/login" element={<LoginPage theme={theme} />} />
           <Route
             path="/"
             element={
               <ProtectedRoute>
-                <Home isDark={isDark} setIsDark={setIsDark} />
+                {/* Pass theme and connection status down to the Home component */}
+                <Home theme={theme} sdkReady={sdkReady} />
               </ProtectedRoute>
             }
           />
@@ -206,5 +285,6 @@ function App() {
     </AuthProvider>
   );
 }
+
 
 export default App;
