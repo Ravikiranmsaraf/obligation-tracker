@@ -1,3 +1,4 @@
+name: obligation-tracker-blue
 services:
   backend-blue:
     build:

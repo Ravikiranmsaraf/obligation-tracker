@@ -1,3 +1,4 @@
+name: obligation-tracker-green
 services:
   backend-green:
     build:
