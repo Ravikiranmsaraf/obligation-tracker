@@ -35,8 +35,9 @@ jobs:
           command_timeout: 20m
           script: |
             cd ${{ secrets.VM_PROJECT_PATH }}
+            chmod +x deploy-bg.sh || true
             # Run the automated deployment script
-            ./deploy-bg.sh
+            bash deploy-bg.sh
 
       - name: Verify Live Endpoint
         run: |
