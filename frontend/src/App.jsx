@@ -42,7 +42,7 @@ function LoginPage() {
     <div className="flex flex-col items-center justify-center min-h-screen px-6 bg-white dark:bg-gray-950">
       <h1 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">Settld!</h1>
       <p className="text-gray-500 dark:text-gray-400 mb-8 text-center">Bills? Handled. No cap.</p>
-      <div className="text-xs text-right text-gray-500">
+      
       <button
         onClick={signInWithGoogle}
         className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-medium px-6 py-3 rounded-2xl transition-colors w-full max-w-xs"
@@ -145,6 +145,13 @@ function Home({ theme, sdkReady }) {
     );
   }
 
+// // / 1. Calculate dynamic classes based on the theme value from Harness
+//   const mainBgClass = theme === 'dark' ? 'bg-gray-950' : (theme === 'blue-accent' ? 'bg-blue-50' : 'bg-gray-50');
+//   const titleColorClass = theme === 'dark' ? 'text-white' : 'text-gray-900';
+//   const statusColorClass = theme === 'dark' ? 'text-gray-400' : 'text-gray-500';
+
+//   return (
+//     <div className={`min-h-screen pb-24 transition-colors duration-500 ${mainBgClass}`}>
   // 1. Define a function to return the correct color based on the theme from Harness
   const getBackgroundColor = () => {
     if (theme === 'dark') return '#030712'; // Tailwind's gray-950 color
@@ -162,8 +169,7 @@ function Home({ theme, sdkReady }) {
       style={{ backgroundColor: getBackgroundColor() }}
       className="min-h-screen pb-24 transition-colors duration-500"
     >
-
-      <div className="px-4 py-4 flex justify-between items-center">
+    <div className="px-4 py-4 flex justify-between items-center">
         <h1 className={`text-xl font-bold ${titleColorClass}`}>Settld</h1>
         
         {/* 2. Replaced the manual button with the Harness status and theme indicator */}
