@@ -17,19 +17,6 @@ const HARNESS_TARGET = {
   },
 };
 
-function useDarkMode() {
-  const [isDark, setIsDark] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return localStorage.getItem('settld-theme') === 'dark';
-  });
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', isDark);
-    localStorage.setItem('settld-theme', isDark ? 'dark' : 'light');
-  }, [isDark]);
-
-  return [isDark, setIsDark];
-}
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -56,9 +43,6 @@ function LoginPage() {
       <h1 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">Settld!</h1>
       <p className="text-gray-500 dark:text-gray-400 mb-8 text-center">Bills? Handled. No cap.</p>
       <div className="text-xs text-right text-gray-500">
-         <p>Active Theme: <strong>{theme}</strong></p>
-          {sdkReady ? <p className="text-green-600">● Harness Connected</p> : <p>○ Connecting...</p>}
-      </div>
       <button
         onClick={signInWithGoogle}
         className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-medium px-6 py-3 rounded-2xl transition-colors w-full max-w-xs"
@@ -161,13 +145,24 @@ function Home({ theme, sdkReady }) {
     );
   }
 
-// / 1. Calculate dynamic classes based on the theme value from Harness
-  const mainBgClass = theme === 'dark' ? 'bg-gray-950' : (theme === 'blue-accent' ? 'bg-blue-50' : 'bg-gray-50');
-  const titleColorClass = theme === 'dark' ? 'text-white' : 'text-gray-900';
-  const statusColorClass = theme === 'dark' ? 'text-gray-400' : 'text-gray-500';
+  // 1. Define a function to return the correct color based on the theme from Harness
+  const getBackgroundColor = () => {
+    if (theme === 'dark') return '#030712'; // Tailwind's gray-950 color
+    if (theme === 'on' || theme === 'blue-accent') return '#eff6ff'; // Tailwind's blue-100 color
+    // The default theme from your flag, or the fallback 'off'/'control'
+    return '#f9fafb'; // Default light gray-50 color
+  };
+
+  const isDark = theme === 'dark';
+  const titleColorClass = isDark ? 'text-white' : 'text-gray-900';
+  const statusColorClass = isDark ? 'text-gray-400' : 'text-gray-500';
 
   return (
-    <div className={`min-h-screen pb-24 transition-colors duration-500 ${mainBgClass}`}>
+    <div 
+      style={{ backgroundColor: getBackgroundColor() }}
+      className="min-h-screen pb-24 transition-colors duration-500"
+    >
+
       <div className="px-4 py-4 flex justify-between items-center">
         <h1 className={`text-xl font-bold ${titleColorClass}`}>Settld</h1>
         
