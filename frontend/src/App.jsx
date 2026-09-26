@@ -5,18 +5,16 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import NextActionCard from './components/NextActionCard';
 import ObligationsPage from './pages/ObligationsPage';
 import { SplitFactory } from '@splitsoftware/splitio';
-// --- Harness Feature Flag Configuration ---
-// TODO: Replace with your actual Client-side SDK Key from Harness
+
 const HARNESS_CLIENT_SDK_KEY = "4unhpfdr4o1hh4mv2oir44t1931pvti0gmfh";
 
 const HARNESS_TARGET = {
-  identifier: 'test-user', // Can be a unique user ID or anonymous session ID
+  identifier: 'test-user',
   name: 'Test User',
   attributes: {
     host: 'settld.duckdns.org',
   },
 };
-
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -55,45 +53,49 @@ function LoginPage() {
 
 function Home({ theme, sdkReady }) {
   const { user, signOut } = useAuth();
-  const [cycle, setCycle] = useState(null);
+  const [cycles, setCycles] = useState([]);
   const [remainingCount, setRemainingCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [pingStatus, setPingStatus] = useState(null); // null | 'ok' | 'error'
+  const [pingStatus, setPingStatus] = useState(null);
 
-  const loadNextAction = useCallback(async () => {
-    try {
-      const { data: cycles } = await supabase
-        .from('obligation_cycles')
-        .select('id, due_date, expected_amount, status, obligation:obligations(name)')
-        .eq('user_id', user.id)
-        .eq('status', 'pending')
-        .order('due_date', { ascending: true })
-        .limit(1)
-        .single();
+const loadNextAction = useCallback(async () => {
+  try {
+    const { data: cyclesData } = await supabase
+      .from('obligation_cycles')
+      .select('id, due_date, expected_amount, status, obligation:obligations(name, category, type)')
+      .eq('user_id', user.id)
+      .eq('status', 'pending')
+      .order('due_date', { ascending: true })
+      .limit(5);
 
-      if (cycles) {
-        setCycle({
-          id: cycles.id,
-          obligation_name: cycles.obligation.name,
-          due_date: cycles.due_date,
-          expected_amount: cycles.expected_amount,
-          status: cycles.status,
-        });
-      }
-
-      const { count } = await supabase
-        .from('obligation_cycles')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .eq('status', 'pending');
-
-      setRemainingCount(count || 0);
-    } catch (error) {
-      console.error('Error loading next action:', error);
-    } finally {
-      setLoading(false);
+    if (cyclesData) {
+      const formattedCycles = cyclesData.map(c => ({
+        id: c.id,
+        obligation_name: c.obligation ? c.obligation.name : 'Obligation',
+        category: c.obligation ? c.obligation.category : 'Default',
+        type: c.obligation ? c.obligation.type : 'bill',
+        due_date: c.due_date,
+        expected_amount: c.expected_amount,
+        status: c.status,
+      }));
+      setCycles(formattedCycles);
+    } else {
+      setCycles([]);
     }
-  }, [user]);
+
+    const { count } = await supabase
+      .from('obligation_cycles')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('status', 'pending');
+
+    setRemainingCount(count || 0);
+  } catch (error) {
+    console.error('Error loading next action:', error);
+  } finally {
+    setLoading(false);
+  }
+}, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -121,6 +123,31 @@ function Home({ theme, sdkReady }) {
     }
   };
 
+  const handleSnooze = async (cycleId, days) => {
+    try {
+      // Fetch current due_date first to offset from it
+      const current = cycles.find(c => c.id === cycleId);
+      if (!current) return;
+
+      const newDueDate = new Date(current.due_date);
+      newDueDate.setDate(newDueDate.getDate() + days);
+
+      const { error } = await supabase
+        .from('obligation_cycles')
+        .update({
+          due_date: newDueDate.toISOString(),
+        })
+        .eq('id', cycleId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      await loadNextAction();
+    } catch (error) {
+      console.error('Error snoozing obligation:', error);
+      alert('Failed to snooze. Please try again.');
+    }
+  };
+
   const pingServer = async () => {
     setPingStatus(null);
     try {
@@ -145,19 +172,10 @@ function Home({ theme, sdkReady }) {
     );
   }
 
-// // / 1. Calculate dynamic classes based on the theme value from Harness
-//   const mainBgClass = theme === 'dark' ? 'bg-gray-950' : (theme === 'blue-accent' ? 'bg-blue-50' : 'bg-gray-50');
-//   const titleColorClass = theme === 'dark' ? 'text-white' : 'text-gray-900';
-//   const statusColorClass = theme === 'dark' ? 'text-gray-400' : 'text-gray-500';
-
-//   return (
-//     <div className={`min-h-screen pb-24 transition-colors duration-500 ${mainBgClass}`}>
-  // 1. Define a function to return the correct color based on the theme from Harness
   const getBackgroundColor = () => {
-    if (theme === 'dark') return '#030712'; // Tailwind's gray-950 color
-    if (theme === 'on' || theme === 'blue-accent') return '#eff6ff'; // Tailwind's blue-100 color
-    // The default theme from your flag, or the fallback 'off'/'control'
-    return '#f9fafb'; // Default light gray-50 color
+    if (theme === 'dark') return '#030712';
+    if (theme === 'on' || theme === 'blue-accent') return '#eff6ff';
+    return '#f9fafb';
   };
 
   const isDark = theme === 'dark';
@@ -169,10 +187,9 @@ function Home({ theme, sdkReady }) {
       style={{ backgroundColor: getBackgroundColor() }}
       className="min-h-screen pb-24 transition-colors duration-500"
     >
-    <div className="px-4 py-4 flex justify-between items-center">
+      <div className="px-4 py-4 flex justify-between items-center">
         <h1 className={`text-xl font-bold ${titleColorClass}`}>Settld</h1>
         
-        {/* 2. Replaced the manual button with the Harness status and theme indicator */}
         <div className={`text-xs text-right ${statusColorClass}`}>
           <p>Theme: <strong className="capitalize">{theme}</strong></p>
           {sdkReady ? (
@@ -183,9 +200,13 @@ function Home({ theme, sdkReady }) {
         </div>
       </div>
 
-      <NextActionCard cycle={cycle} remainingCount={remainingCount} onMarkPaid={handleMarkPaid} />
+      <NextActionCard 
+        cycles={cycles} 
+        remainingCount={remainingCount} 
+        onMarkPaid={handleMarkPaid}
+        onSnooze={handleSnooze}
+      />
 
-      {/* Backend connectivity check — small, dev-facing, visible on purpose */}
       <div className="max-w-md mx-auto mt-6 px-4 flex items-center justify-center gap-2">
         <button
           onClick={pingServer}
@@ -199,7 +220,7 @@ function Home({ theme, sdkReady }) {
 
       <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 flex justify-around py-3 px-4">
         <a href="/obligations" className="flex flex-col items-center text-sm text-gray-600 dark:text-gray-300">
-          My Reminders_
+          My Reminders
         </a>
         <button onClick={signOut} className="flex flex-col items-center text-sm text-gray-600 dark:text-gray-300">
           Sign Out
@@ -219,28 +240,23 @@ function App() {
     if (!window.fmeClient) {
       console.log("Initializing Harness FME SDK...");
 
-      // Configure SplitFactory with your FME Client Key
       const factory = SplitFactory({
         core: {
-          authorizationKey: "4unhpfdr4o1hh4mv2oir44t1931pvti0gmfh", // Paste your copied Client key here
-          key: 'test-user' // Matches the identifier tested via curl
+          authorizationKey: "4unhpfdr4o1hh4mv2oir44t1931pvti0gmfh",
+          key: 'test-user'
         }
       });
 
       splitClient = factory.client();
       window.fmeClient = splitClient;
 
-      // Fires as soon as the flag valuations are received from the CDN
       splitClient.on(splitClient.Event.SDK_READY, () => {
         console.log('Harness FME is ready.');
         setSdkReady(true);
-        
-        // Retrieve the live value for your app_theme1 flag (falls back to 'default')
         const activeTheme = splitClient.getTreatment('app_theme1');
         setTheme(activeTheme);
       });
 
-      // Fires immediately whenever you toggle values on the dashboard
       splitClient.on(splitClient.Event.SDK_UPDATE, () => {
         const activeTheme = splitClient.getTreatment('app_theme1');
         console.log('Harness FME updated theme to:', activeTheme);
@@ -257,7 +273,6 @@ function App() {
     };
   }, []);
 
-  // Sync class state with the active theme value
   useEffect(() => {
     document.documentElement.classList.remove('dark', 'light', 'blue-accent');
     document.documentElement.classList.add(theme);
@@ -288,7 +303,5 @@ function App() {
     </AuthProvider>
   );
 }
-
-
 
 export default App;
