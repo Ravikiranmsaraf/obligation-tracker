@@ -1,7 +1,6 @@
 import { useState, useRef } from 'react';
 import PaymentModal from './PaymentModal';
 
-// Soothing category configs (Icons, badges, & themed background images)
 const CATEGORY_CONFIG = {
   Utilities: {
     icon: '⚡',
@@ -39,10 +38,17 @@ export default function NextActionCard({ cycles = [], remainingCount = 0, onMark
   const [deck, setDeck] = useState(cycles);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showSnoozeModal, setShowSnoozeModal] = useState(false);
-  
+
+  // Card Swipe State
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const startPos = useRef({ x: 0, y: 0 });
+
+  // Uber Slider Drag State
+  const [sliderX, setSliderX] = useState(0);
+  const [isSliderDragging, setIsSliderDragging] = useState(false);
+  const sliderStartPos = useRef(0);
+  const sliderMaxTrack = 220; // Width of slide track
 
   if (cycles !== deck && (cycles.length !== deck.length || cycles[0]?.id !== deck[0]?.id)) {
     setDeck(cycles);
@@ -61,10 +67,9 @@ export default function NextActionCard({ cycles = [], remainingCount = 0, onMark
     );
   }
 
-  const SWIPE_THRESHOLD_X = 100;
-  const SWIPE_THRESHOLD_Y = -80;
-
+  // Card Gestures (Left = Snooze, Up = Skip)
   const handleTouchStart = (e) => {
+    if (isSliderDragging) return;
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     startPos.current = { x: clientX, y: clientY };
@@ -72,7 +77,7 @@ export default function NextActionCard({ cycles = [], remainingCount = 0, onMark
   };
 
   const handleTouchMove = (e) => {
-    if (!isDragging) return;
+    if (!isDragging || isSliderDragging) return;
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     setDragOffset({
@@ -85,15 +90,44 @@ export default function NextActionCard({ cycles = [], remainingCount = 0, onMark
     if (!isDragging) return;
     setIsDragging(false);
 
-    if (dragOffset.x > SWIPE_THRESHOLD_X) {
-      setShowPaymentModal(true);
-    } else if (dragOffset.x < -SWIPE_THRESHOLD_X) {
+    // Swipe Left -> Snooze
+    if (dragOffset.x < -80 && Math.abs(dragOffset.y) < 60) {
       setShowSnoozeModal(true);
-    } else if (dragOffset.y < SWIPE_THRESHOLD_Y) {
+    } 
+    // Swipe Up -> Skip to Back
+    else if (dragOffset.y < -60 && Math.abs(dragOffset.x) < 80) {
       cycleToBack();
     }
 
     setDragOffset({ x: 0, y: 0 });
+  };
+
+  // Uber Slider Drag Handlers
+  const handleSliderStart = (e) => {
+    e.stopPropagation();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    sliderStartPos.current = clientX;
+    setIsSliderDragging(true);
+  };
+
+  const handleSliderMove = (e) => {
+    if (!isSliderDragging) return;
+    e.stopPropagation();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const deltaX = clientX - sliderStartPos.current;
+    const clampedX = Math.max(0, Math.min(deltaX, sliderMaxTrack));
+    setSliderX(clampedX);
+  };
+
+  const handleSliderEnd = (e) => {
+    if (!isSliderDragging) return;
+    e.stopPropagation();
+    setIsSliderDragging(false);
+
+    if (sliderX >= sliderMaxTrack - 20) {
+      setShowPaymentModal(true);
+    }
+    setSliderX(0);
   };
 
   const cycleToBack = () => {
@@ -104,18 +138,14 @@ export default function NextActionCard({ cycles = [], remainingCount = 0, onMark
     });
   };
 
-  const isSwipingRight = dragOffset.x > 40;
-  const isSwipingLeft = dragOffset.x < -40;
-  const isSwipingUp = dragOffset.y < -40 && Math.abs(dragOffset.x) < 40;
-
   return (
     <>
       <div className="max-w-md mx-auto mt-4 px-4">
-        <div className="text-sm text-gray-500 dark:text-gray-400 mb-4 text-center select-none">
-          {remainingCount} items left • <span className="text-xs opacity-75">Swipe ➔ Settle | ⬅ Snooze | ⬆ Browse</span>
+        <div className="text-xs text-gray-500 dark:text-gray-400 mb-4 text-center select-none font-medium">
+          {remainingCount} items remaining • <span className="text-gray-400 dark:text-gray-500">Slide ➔ to Settle | Swipe ⬅ Snooze | Swipe ⬆ Skip</span>
         </div>
 
-        <div className="relative min-h-[380px] flex items-center justify-center">
+        <div className="relative min-h-[420px] flex items-center justify-center">
           {deck.slice(0, 3).map((item, index) => {
             const isFront = index === 0;
             const scale = 1 - index * 0.05;
@@ -126,7 +156,7 @@ export default function NextActionCard({ cycles = [], remainingCount = 0, onMark
             const isOverdue = new Date(item.due_date) < new Date();
 
             const transformStyle = isFront
-              ? `translate3d(${dragOffset.x}px, ${dragOffset.y}px, 0px) rotate(${dragOffset.x * 0.05}deg)`
+              ? `translate3d(${dragOffset.x}px, ${dragOffset.y}px, 0px) rotate(${dragOffset.x * 0.04}deg)`
               : `translate3d(0px, ${translateY}px, 0px) scale(${scale})`;
 
             return (
@@ -144,36 +174,31 @@ export default function NextActionCard({ cycles = [], remainingCount = 0, onMark
                   zIndex: 30 - index,
                   transition: isDragging && isFront ? 'none' : 'all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)',
                 }}
-                className={`absolute w-full top-0 overflow-hidden rounded-3xl shadow-xl dark:shadow-none border border-gray-100 dark:border-gray-800 select-none touch-none cursor-grab active:cursor-grabbing bg-white dark:bg-gray-900 ${
+                className={`absolute w-full top-0 overflow-hidden rounded-3xl shadow-xl dark:shadow-none border border-gray-100 dark:border-gray-800 select-none touch-none bg-white dark:bg-gray-900 ${
                   isFront ? 'ring-2 ring-blue-500/20' : ''
                 }`}
               >
-                {/* Background Image Layer with Overlay */}
+                {/* Background Image Layer */}
                 <div 
                   className="absolute inset-0 bg-cover bg-center opacity-15 dark:opacity-20 pointer-events-none" 
                   style={{ backgroundImage: `url(${config.bgImage})` }} 
                 />
 
                 <div className="relative p-7 z-10">
-                  {/* Category Badge & Drag Feedback */}
+                  {/* Category Badge & Gesture Feedback */}
                   <div className="flex justify-between items-center mb-4">
                     <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${config.badge}`}>
                       <span>{config.icon}</span>
                       <span>{item.category}</span>
                     </span>
 
-                    {/* Drag Action Badges */}
-                    {isFront && isSwipingRight && (
-                      <span className="bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider animate-pulse">
-                        Settld ✅
-                      </span>
-                    )}
-                    {isFront && isSwipingLeft && (
-                      <span className="bg-yellow-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider animate-pulse">
+                    {/* Drag Action Feedback */}
+                    {isFront && dragOffset.x < -40 && (
+                      <span className="bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider animate-pulse">
                         Snooze 💤
                       </span>
                     )}
-                    {isFront && isSwipingUp && (
+                    {isFront && dragOffset.y < -40 && Math.abs(dragOffset.x) < 40 && (
                       <span className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider animate-pulse">
                         Skip ⬆
                       </span>
@@ -192,8 +217,8 @@ export default function NextActionCard({ cycles = [], remainingCount = 0, onMark
                       : `Due ${new Date(item.due_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`}
                   </p>
 
-                  {/* Dynamic Amount Section: Hide if non-monetary or 0 */}
-                  <div className="min-h-[52px] mb-6 flex items-center">
+                  {/* Dynamic Amount Section */}
+                  <div className="min-h-[48px] mb-6 flex items-center">
                     {item.expected_amount && Number(item.expected_amount) > 0 ? (
                       <p className="text-4xl font-extrabold text-gray-900 dark:text-white pointer-events-none">
                         ₹{Number(item.expected_amount).toLocaleString('en-IN')}
@@ -205,21 +230,37 @@ export default function NextActionCard({ cycles = [], remainingCount = 0, onMark
                     )}
                   </div>
 
-                  {/* Interactive Action Buttons */}
+                  {/* Uber-style "Slide to Settle" Track */}
                   {isFront && (
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setShowSnoozeModal(true)}
-                        className="w-1/3 bg-gray-100/80 dark:bg-gray-800/80 backdrop-blur hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 font-medium py-3 rounded-2xl transition-colors"
+                    <div 
+                      className="relative w-full h-14 bg-gray-100 dark:bg-gray-800/90 rounded-2xl flex items-center px-2 select-none overflow-hidden"
+                      onMouseMove={handleSliderMove}
+                      onMouseUp={handleSliderEnd}
+                      onTouchMove={handleSliderMove}
+                      onTouchEnd={handleSliderEnd}
+                    >
+                      {/* Animated Track Fill */}
+                      <div 
+                        className="absolute left-0 top-0 bottom-0 bg-emerald-500/20 transition-all pointer-events-none"
+                        style={{ width: `${sliderX + 28}px` }}
+                      />
+
+                      <span className="w-full text-center text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 pointer-events-none pl-6">
+                        Slide to Settle ➔
+                      </span>
+
+                      {/* Sliding Handle */}
+                      <div
+                        onMouseDown={handleSliderStart}
+                        onTouchStart={handleSliderStart}
+                        style={{
+                          transform: `translateX(${sliderX}px)`,
+                          transition: isSliderDragging ? 'none' : 'transform 0.2s ease-out',
+                        }}
+                        className="absolute left-2 w-10 h-10 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white rounded-xl shadow-md flex items-center justify-center cursor-grab active:cursor-grabbing font-bold text-lg"
                       >
-                        Snooze 💤
-                      </button>
-                      <button
-                        onClick={() => setShowPaymentModal(true)}
-                        className="w-2/3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold py-3 rounded-2xl transition-colors text-lg shadow-lg shadow-blue-500/20"
-                      >
-                        Settld ✅
-                      </button>
+                        ✓
+                      </div>
                     </div>
                   )}
                 </div>
@@ -235,7 +276,9 @@ export default function NextActionCard({ cycles = [], remainingCount = 0, onMark
           cycle={currentCycle}
           onClose={() => setShowPaymentModal(false)}
           onConfirm={async (amount, note) => {
-            await onMarkPaid(currentCycle.id, amount, note);
+            if (onMarkPaid) {
+              await onMarkPaid(currentCycle.id, amount, note);
+            }
             setShowPaymentModal(false);
           }}
         />
@@ -251,13 +294,15 @@ export default function NextActionCard({ cycles = [], remainingCount = 0, onMark
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
               Select how many days to push this obligation back:
             </p>
-            
+
             <div className="grid grid-cols-3 gap-3 mb-4">
               {[1, 3, 7].map((days) => (
                 <button
                   key={days}
                   onClick={async () => {
-                    await onSnooze(currentCycle.id, days);
+                    if (onSnooze) {
+                      await onSnooze(currentCycle.id, days);
+                    }
                     setShowSnoozeModal(false);
                   }}
                   className="bg-blue-50 dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-gray-700 text-blue-600 dark:text-blue-400 font-semibold py-3 rounded-2xl transition-colors"

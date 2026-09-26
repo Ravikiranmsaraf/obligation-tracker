@@ -102,26 +102,56 @@ const loadNextAction = useCallback(async () => {
     loadNextAction();
   }, [loadNextAction, user]);
 
-  const handleMarkPaid = async (cycleId, amount, note) => {
-    try {
-      const { error } = await supabase
-        .from('obligation_cycles')
-        .update({
-          status: 'paid',
-          actual_amount: amount,
-          paid_at: new Date().toISOString(),
-          payment_note: note,
-        })
-        .eq('id', cycleId)
-        .eq('user_id', user.id);
+const handleMarkPaid = async (cycleId, amount, note) => {
+  try {
+    // 1. Fetch current cycle details including obligation frequency
+    const { data: currentCycle } = await supabase
+      .from('obligation_cycles')
+      .select('*, obligation:obligations(frequency)')
+      .eq('id', cycleId)
+      .single();
 
-      if (error) throw error;
-      await loadNextAction();
-    } catch (error) {
-      console.error('Error marking paid:', error);
-      alert('Failed to mark as paid. Please try again.');
+    if (!currentCycle) return;
+
+    // 2. Mark current cycle as paid
+    await supabase
+      .from('obligation_cycles')
+      .update({
+        status: 'paid',
+        actual_amount: amount || null,
+        paid_at: new Date().toISOString(),
+        payment_note: note || 'Settled via Settle Deck',
+      })
+      .eq('id', cycleId);
+
+    // 3. If recurring (monthly/yearly), schedule next cycle
+    const frequency = currentCycle.obligation?.frequency;
+    if (frequency && frequency !== 'one_time') {
+      const currentDueDate = new Date(currentCycle.due_date);
+      let nextDueDate = new Date(currentDueDate);
+
+      if (frequency === 'yearly') {
+        nextDueDate.setFullYear(nextDueDate.getFullYear() + 1);
+      } else if (frequency === 'monthly') {
+        nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+      }
+
+      await supabase.from('obligation_cycles').insert({
+        obligation_id: currentCycle.obligation_id,
+        user_id: user.id,
+        cycle_month: nextDueDate.toISOString().slice(0, 10),
+        due_date: nextDueDate.toISOString().slice(0, 10),
+        expected_amount: currentCycle.expected_amount,
+        status: 'pending',
+      });
     }
-  };
+
+    // 4. Refresh deck state
+    await loadNextAction();
+  } catch (err) {
+    console.error('Failed to settle obligation:', err);
+  }
+};
 
   const handleSnooze = async (cycleId, days) => {
     try {
