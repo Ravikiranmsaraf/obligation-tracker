@@ -20,28 +20,91 @@ export default function ObligationsPage() {
   const [obligations, setObligations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [inputMode, setInputMode] = useState('quick'); // 'quick' or 'voice'
+
+  // Touch gesture state for swipe left (browse)
+  const [touchStartX, setTouchStartX] = useState(0);
+  const [swipingId, setSwipingId] = useState(null);
+  const [swipeOffset, setSwipeOffset] = useState(0);
 
   // Voice I/O Hook
   const { isListening, transcript, startListening, stopListening, speak, stopSpeaking, isSpeaking } = useVoiceIO();
 
   const todayStr = new Date().toISOString().split('T')[0];
 
-  const [formData, setFormData] = useState({
+  const defaultFormState = {
     name: '',
     type: 'bill',
     category: STANDARD_CATEGORIES[0],
     expected_amount: '',
     startDate: todayStr,
     frequency: 'monthly',
-  });
+  };
+
+  const [formData, setFormData] = useState(defaultFormState);
   const [saving, setSaving] = useState(false);
 
-  // Update form name when voice recognition returns transcript
+  // Handle clean mode switching with state reset
+  const handleModeSwitch = (mode) => {
+    setInputMode(mode);
+    setFormData(defaultFormState);
+    if (isListening) stopListening();
+  };
+
+  // Auto-parse spoken text via Regex whenever speech-to-text outputs a result
   useEffect(() => {
-    if (transcript) {
-      setFormData((prev) => ({ ...prev, name: transcript }));
+    if (transcript && inputMode === 'voice') {
+      parseVoiceInput(transcript);
     }
-  }, [transcript]);
+  }, [transcript, inputMode]);
+
+  const parseVoiceInput = (rawText) => {
+    const text = rawText.toLowerCase();
+
+    // 1. Extract Amount
+    const amountMatch = text.match(/(?:₹|rs\.?|rupees|amount|cost)?\s*(\d+(?:\.\d+)?)\s*(?:rupees|rs)?/i);
+    const amount = amountMatch ? amountMatch[1] : '';
+
+    // 2. Extract Category
+    const matchedCategory = STANDARD_CATEGORIES.find((cat) =>
+      text.includes(cat.toLowerCase())
+    ) || STANDARD_CATEGORIES[0];
+
+    // 3. Extract Frequency
+    let frequency = 'monthly';
+    if (text.includes('yearly') || text.includes('annual')) frequency = 'yearly';
+    if (text.includes('quarterly')) frequency = 'quarterly';
+
+    // 4. Extract Due Date / Day of Month
+    const dayMatch = text.match(/(?:due|on|day)?\s*(\d{1,2})(?:st|nd|rd|th)?/i);
+    let startDate = todayStr;
+    if (dayMatch) {
+      const day = parseInt(dayMatch[1], 10);
+      if (day >= 1 && day <= 31) {
+        const d = new Date();
+        d.setDate(day);
+        startDate = d.toISOString().split('T')[0];
+      }
+    }
+
+    // 5. Clean up title
+    let cleanedName = rawText
+      .replace(/(?:₹|rs\.?|rupees|amount|cost)?\s*\d+(?:\.\d+)?\s*(?:rupees|rs)?/gi, '')
+      .replace(/monthly|yearly|quarterly|annual/gi, '')
+      .replace(new RegExp(STANDARD_CATEGORIES.join('|'), 'gi'), '')
+      .replace(/(?:due|on|day)?\s*\d{1,2}(?:st|nd|rd|th)?/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    setFormData({
+      name: cleanedName || rawText,
+      type: amount ? 'bill' : 'reminder',
+      category: matchedCategory,
+      expected_amount: amount,
+      startDate: startDate,
+      frequency: frequency,
+    });
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -123,14 +186,7 @@ export default function ObligationsPage() {
 
       await createCycles(obligationData.id, formData.startDate);
 
-      setFormData({
-        name: '',
-        type: 'bill',
-        category: STANDARD_CATEGORIES[0],
-        expected_amount: '',
-        startDate: todayStr,
-        frequency: 'monthly',
-      });
+      setFormData(defaultFormState);
       setShowForm(false);
       await loadObligations();
     } catch (error) {
@@ -141,22 +197,40 @@ export default function ObligationsPage() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm('Remove this obligation? This also clears its future cycles.')) return;
+  const handleSnooze = (id) => {
+    alert(`Snoozed obligation #${id}`);
+  };
 
-    try {
-      const { error } = await supabase
-        .from('obligations')
-        .update({ is_active: false })
-        .eq('id', id)
-        .eq('user_id', user.id);
+  const handleComplete = (id) => {
+    alert(`Completed obligation #${id}`);
+  };
 
-      if (error) throw error;
-      await loadObligations();
-    } catch (error) {
-      console.error('Error deleting obligation:', error);
-      alert('Failed to delete obligation.');
+  const handleBrowse = (id) => {
+    alert(`Browsing obligation details #${id}`);
+  };
+
+  // Dynamic Touch Handlers with Visual Drag Feedback
+  const handleTouchStart = (e, id) => {
+    setTouchStartX(e.touches[0].clientX);
+    setSwipingId(id);
+    setSwipeOffset(0);
+  };
+
+  const handleTouchMove = (e, id) => {
+    if (swipingId !== id) return;
+    const currentX = e.touches[0].clientX;
+    const diffX = touchStartX - currentX;
+    if (diffX > 0) { // Only track drag to the left
+      setSwipeOffset(Math.min(diffX, 100));
     }
+  };
+
+  const handleTouchEnd = (e, id) => {
+    if (swipeOffset > 75) {
+      handleBrowse(id);
+    }
+    setSwipingId(null);
+    setSwipeOffset(0);
   };
 
   const handleReadAloud = () => {
@@ -222,11 +296,53 @@ export default function ObligationsPage() {
       <div className="max-w-4xl mx-auto p-4">
         {showForm && (
           <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm dark:border dark:border-gray-800 p-5 mb-6">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
-              New {formData.type === 'bill' ? 'Bill' : 'Reminder'}
-            </h2>
+            
+            <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl mb-5">
+              <button
+                type="button"
+                onClick={() => handleModeSwitch('quick')}
+                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
+                  inputMode === 'quick'
+                    ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm'
+                    : 'text-gray-500 dark:text-gray-400'
+                }`}
+              >
+                1. Quick Form
+              </button>
+              <button
+                type="button"
+                onClick={() => handleModeSwitch('voice')}
+                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
+                  inputMode === 'voice'
+                    ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm'
+                    : 'text-gray-500 dark:text-gray-400'
+                }`}
+              >
+                2. Speech-to-Text (Regex)
+              </button>
+            </div>
+
+            {inputMode === 'voice' && (
+              <div className="mb-5 p-4 bg-blue-50 dark:bg-blue-950/40 rounded-xl border border-blue-100 dark:border-blue-900/50">
+                <p className="text-xs text-blue-700 dark:text-blue-300 mb-2">
+                  <strong>Example voice command:</strong> "Airtel broadband bill 799 housing monthly on 15th"
+                </p>
+                <button
+                  type="button"
+                  onClick={isListening ? stopListening : startListening}
+                  className={`w-full py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${
+                    isListening
+                      ? 'bg-red-500 text-white animate-pulse'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  }`}
+                >
+                  🎙️ {isListening ? 'Listening... Speak now' : 'Tap to Speak Details'}
+                </button>
+              </div>
+            )}
+
+            {/* Re-connected handleSubmit */}
             <form onSubmit={handleSubmit} className="space-y-4">
-              
               <div>
                 <label className="block text-xs font-semibold mb-1 text-gray-700 dark:text-gray-300">Type</label>
                 <div className="grid grid-cols-2 gap-2 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
@@ -257,25 +373,14 @@ export default function ObligationsPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
-                <div className="relative flex items-center">
-                  <input
-                    type="text"
-                    required
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-xl pl-3 pr-24 py-2 focus:ring-2 focus:ring-blue-500"
-                    placeholder={formData.type === 'bill' ? 'e.g., Airtel Mobile Bill' : "e.g., Mom's Birthday or Dentist"}
-                  />
-                  <button
-                    type="button"
-                    onClick={isListening ? stopListening : startListening}
-                    className={`absolute right-2 px-2 py-1 rounded-lg text-xs font-bold transition-all ${
-                      isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                    }`}
-                  >
-                    {isListening ? '🎙️ Listening...' : '🎙️ Speak'}
-                  </button>
-                </div>
+                <input
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-xl px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g. Airtel Mobile Bill"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -354,34 +459,55 @@ export default function ObligationsPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {obligations.map((obligation) => (
-              <div
-                key={obligation.id}
-                className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm dark:border dark:border-gray-800 p-4 flex justify-between items-center"
-              >
-                <div>
-                  <p className="font-medium text-gray-900 dark:text-white">{obligation.name}</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {obligation.category} · {obligation.due_day}{getDaySuffix(obligation.due_day)} · {obligation.frequency}
-                  </p>
+            {obligations.map((obligation) => {
+              const isSwiping = swipingId === obligation.id;
+              const currentOffset = isSwiping ? swipeOffset : 0;
+
+              return (
+                <div
+                  key={obligation.id}
+                  onTouchStart={(e) => handleTouchStart(e, obligation.id)}
+                  onTouchMove={(e) => handleTouchMove(e, obligation.id)}
+                  onTouchEnd={(e) => handleTouchEnd(e, obligation.id)}
+                  style={{
+                    transform: `translateX(-${currentOffset}px)`,
+                    transition: isSwiping ? 'none' : 'transform 0.2s ease-out',
+                  }}
+                  className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm dark:border dark:border-gray-800 p-4 flex justify-between items-center touch-pan-x"
+                >
+                  <div>
+                    <p className="font-medium text-gray-900 dark:text-white">{obligation.name}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {obligation.category} · {obligation.due_day}{getDaySuffix(obligation.due_day)} · {obligation.frequency}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleSnooze(obligation.id)}
+                      className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 hover:bg-amber-100"
+                    >
+                      ⏰ Snooze
+                    </button>
+
+                    <button
+                      onClick={() => handleComplete(obligation.id)}
+                      className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100"
+                    >
+                      ✓ Complete
+                    </button>
+
+                    <button
+                      onClick={() => speak(`${obligation.name} is due on the ${obligation.due_day}${getDaySuffix(obligation.due_day)}`)}
+                      className="text-lg pl-1 hover:scale-110 transition-transform"
+                      title="Read item"
+                    >
+                      🔊
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => speak(`${obligation.name} is due on the ${obligation.due_day}${getDaySuffix(obligation.due_day)}`)}
-                    className="text-lg hover:scale-110 transition-transform"
-                    title="Read item"
-                  >
-                    🔊
-                  </button>
-                  <button
-                    onClick={() => handleDelete(obligation.id)}
-                    className="text-red-500 dark:text-red-400 text-sm"
-                  >
-                    Remove
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
