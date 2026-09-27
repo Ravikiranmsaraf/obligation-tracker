@@ -1,359 +1,91 @@
-import { useState, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import PaymentModal from './PaymentModal';
+import CycleCard from './CycleCard';
+import { triggerFeedback } from '../utils/feedbackUtils';
 
-const CATEGORY_CONFIG = {
-  Utilities: {
-    icon: '⚡',
-    badge: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
-    bgImage: 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?auto=format&fit=crop&w=600&q=80',
-  },
-  Subscriptions: {
-    icon: '🎧',
-    badge: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
-    bgImage: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=600&q=80',
-  },
-  Health: {
-    icon: '🩺',
-    badge: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
-    bgImage: 'https://images.unsplash.com/photo-1505751172876-fa1923c5c528?auto=format&fit=crop&w=600&q=80',
-  },
-  Personal: {
-    icon: '🎂',
-    badge: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
-    bgImage: 'https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=600&q=80',
-  },
-  Documents: {
-    icon: '📑',
-    badge: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
-    bgImage: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80',
-  },
-  Default: {
-    icon: '📌',
-    badge: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20',
-    bgImage: 'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=600&q=80',
-  },
-};
-
-// Step 5: Sound & Vibration Helpers
-const triggerFeedback = (type = 'settle') => {
-  // Vibration
-  if (typeof window !== 'undefined' && 'vibrate' in navigator) {
-    if (type === 'settle') navigator.vibrate([40, 30, 80]); // Success pattern
-    else navigator.vibrate(50); // Single tap
-  }
-
-  // Web Audio Chime Synthesis (No external MP3 files required)
-  try {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return;
-    const ctx = new AudioContext();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    if (type === 'settle') {
-      osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
-      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
-      gain.gain.setValueAtTime(0.2, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.3);
-    } else {
-      osc.frequency.setValueAtTime(300, ctx.currentTime);
-      gain.gain.setValueAtTime(0.15, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.15);
-    }
-  } catch (e) {
-    console.log('Audio feedback skipped', e);
-  }
-};
-
-export default function NextActionCard({ cycles = [], remainingCount = 0, onMarkPaid, onSnooze }) {
-  const [deck, setDeck] = useState(cycles);
+export default function NextActionCard({
+  cycles = [],
+  onMarkPaid,
+  currencySymbol = '₹',
+}) {
+  const [activeIndex, setActiveIndex] = useState(0);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [showSnoozeModal, setShowSnoozeModal] = useState(false);
 
-  // Card Touch State
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const startPos = useRef({ x: 0, y: 0 });
+  useEffect(() => {
+    if (activeIndex >= cycles.length) {
+      setActiveIndex(Math.max(0, cycles.length - 1));
+    }
+  }, [cycles, activeIndex]);
 
-  // Slider State
-  const [sliderX, setSliderX] = useState(0);
-  const [isSliderDragging, setIsSliderDragging] = useState(false);
-  const sliderStartPos = useRef(0);
-  const sliderMaxTrack = 200;
+  const currentCycle = cycles[activeIndex];
 
-  if (cycles !== deck && (cycles.length !== deck.length || cycles[0]?.id !== deck[0]?.id)) {
-    setDeck(cycles);
-  }
-
-  const currentCycle = deck[0];
-
-  if (!currentCycle) {
+  if (!currentCycle || cycles.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6">
-        <h2 className="text-2xl font-semibold mb-2 text-gray-900 dark:text-white">
-          You're all caught up! 🎉
-        </h2>
-        <p className="text-gray-500 dark:text-gray-400">Nothing due right now. Living your best life.</p>
+      <div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-6">
+        <h2 className="text-2xl font-bold mb-2 text-white">You're all caught up! 🎉</h2>
+        <p className="text-gray-400 text-sm">Nothing due right now. Living your best life.</p>
       </div>
     );
   }
 
-  // Touch Handlers for Card Dragging
-  const handleTouchStart = (e) => {
-    if (isSliderDragging) return;
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    startPos.current = { x: clientX, y: clientY };
-    setIsDragging(true);
-  };
-
-  const handleTouchMove = (e) => {
-    if (!isDragging || isSliderDragging) return;
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    
-    // Prevent screen scroll while dragging cards vertically/horizontally
-    if (e.cancelable) e.preventDefault();
-
-    setDragOffset({
-      x: clientX - startPos.current.x,
-      y: clientY - startPos.current.y,
-    });
-  };
-
-  const handleTouchEnd = () => {
-    if (!isDragging) return;
-    setIsDragging(false);
-
-    // Swipe Left -> Snooze
-    if (dragOffset.x < -70 && Math.abs(dragOffset.y) < 70) {
-      triggerFeedback('snooze');
-      setShowSnoozeModal(true);
-    } 
-    // Step 3 Fix: Swipe Up -> Skip to Back
-    else if (dragOffset.y < -50 && Math.abs(dragOffset.x) < 70) {
-      triggerFeedback('snooze');
-      cycleToBack();
-    }
-
-    setDragOffset({ x: 0, y: 0 });
-  };
-
-  // Uber Slider Handlers
-  const handleSliderStart = (e) => {
-    e.stopPropagation();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    sliderStartPos.current = clientX;
-    setIsSliderDragging(true);
-  };
-
-  const handleSliderMove = (e) => {
-    if (!isSliderDragging) return;
-    e.stopPropagation();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const deltaX = clientX - sliderStartPos.current;
-    const clampedX = Math.max(0, Math.min(deltaX, sliderMaxTrack));
-    setSliderX(clampedX);
-  };
-
-  const handleSliderEnd = (e) => {
-    if (!isSliderDragging) return;
-    e.stopPropagation();
-    setIsSliderDragging(false);
-
-    if (sliderX >= sliderMaxTrack - 20) {
-      triggerFeedback('settle');
-      setShowPaymentModal(true);
-    }
-    setSliderX(0);
-  };
-
-  const cycleToBack = () => {
-    if (deck.length <= 1) return;
-    setDeck((prevDeck) => {
-      const [first, ...rest] = prevDeck;
-      return [...rest, first];
-    });
-  };
-
   return (
     <>
-      <div className="max-w-md mx-auto mt-4 px-4">
-        <div className="text-xs text-gray-500 dark:text-gray-400 mb-4 text-center select-none font-medium">
-          {remainingCount} items remaining • <span className="text-gray-400 dark:text-gray-500">Slide ➔ Settle | ⬅ Snooze | ⬆ Skip</span>
+      <div className="w-full max-w-md mx-auto mt-2 px-1">
+        <div className="text-xs text-gray-400 mb-2 text-center select-none font-medium">
+          {cycles.length} items remaining • Card {activeIndex + 1} of {cycles.length}
         </div>
 
-        <div className="relative min-h-[420px] flex items-center justify-center">
-          {deck.slice(0, 3).map((item, index) => {
-            const isFront = index === 0;
-            const scale = 1 - index * 0.05;
-            const translateY = index * 12;
-            const opacity = 1 - index * 0.2;
-
-            const config = CATEGORY_CONFIG[item.category] || CATEGORY_CONFIG.Default;
-            const isOverdue = new Date(item.due_date) < new Date();
-
-            const transformStyle = isFront
-              ? `translate3d(${dragOffset.x}px, ${dragOffset.y}px, 0px) rotate(${dragOffset.x * 0.04}deg)`
-              : `translate3d(0px, ${translateY}px, 0px) scale(${scale})`;
-
-            return (
-              <div
+        {/* Film Strip Viewport */}
+        <div className="relative overflow-hidden py-4 w-full">
+          <div
+            className="flex transition-transform duration-300 ease-out"
+            style={{
+              transform: `translateX(${-activeIndex * 80 + 10}%)`,
+            }}
+          >
+            {cycles.map((item, index) => (
+              <CycleCard
                 key={item.id}
-                onMouseDown={isFront ? handleTouchStart : undefined}
-                onMouseMove={isFront ? handleTouchMove : undefined}
-                onMouseUp={isFront ? handleTouchEnd : undefined}
-                onTouchStart={isFront ? handleTouchStart : undefined}
-                onTouchMove={isFront ? handleTouchMove : undefined}
-                onTouchEnd={isFront ? handleTouchEnd : undefined}
-                style={{
-                  transform: transformStyle,
-                  opacity: opacity,
-                  zIndex: 30 - index,
-                  transition: isDragging && isFront ? 'none' : 'all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)',
-                }}
-                className={`absolute w-full top-0 overflow-hidden rounded-3xl shadow-xl dark:shadow-none border border-gray-100 dark:border-gray-800 select-none touch-none bg-white dark:bg-gray-900 ${
-                  isFront ? 'ring-2 ring-blue-500/20' : ''
-                }`}
-              >
-                <div 
-                  className="absolute inset-0 bg-cover bg-center opacity-15 dark:opacity-20 pointer-events-none" 
-                  style={{ backgroundImage: `url(${config.bgImage})` }} 
-                />
+                item={item}
+                isActive={index === activeIndex}
+                onClick={() => setActiveIndex(index)}
+                currencySymbol={currencySymbol}
+                onOpenPaymentModal={() => setShowPaymentModal(true)}
+              />
+            ))}
+          </div>
+        </div>
 
-                <div className="relative p-7 z-10">
-                  <div className="flex justify-between items-center mb-4">
-                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${config.badge}`}>
-                      <span>{config.icon}</span>
-                      <span>{item.category}</span>
-                    </span>
-
-                    {isFront && dragOffset.x < -40 && (
-                      <span className="bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider animate-pulse">
-                        Snooze 💤
-                      </span>
-                    )}
-                    {isFront && dragOffset.y < -40 && Math.abs(dragOffset.x) < 40 && (
-                      <span className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider animate-pulse">
-                        Skip ⬆
-                      </span>
-                    )}
-                  </div>
-
-                  <h2 className="text-2xl font-bold mb-1 text-gray-900 dark:text-white pointer-events-none">
-                    {item.obligation_name}
-                  </h2>
-                  <p className={`text-sm mb-6 font-medium pointer-events-none ${
-                    isOverdue ? 'text-red-500 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'
-                  }`}>
-                    {isOverdue
-                      ? `⚠️ ${Math.ceil((new Date().getTime() - new Date(item.due_date).getTime()) / (1000 * 60 * 60 * 24))} days late`
-                      : `Due ${new Date(item.due_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`}
-                  </p>
-
-                  <div className="min-h-[48px] mb-6 flex items-center">
-                    {item.expected_amount && Number(item.expected_amount) > 0 ? (
-                      <p className="text-4xl font-extrabold text-gray-900 dark:text-white pointer-events-none">
-                        ₹{Number(item.expected_amount).toLocaleString('en-IN')}
-                      </p>
-                    ) : (
-                      <span className="text-sm font-medium text-gray-400 dark:text-gray-500 italic pointer-events-none bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-xl">
-                        Event / Appointment
-                      </span>
-                    )}
-                  </div>
-
-                  {isFront && (
-                    <div 
-                      className="relative w-full h-14 bg-gray-100 dark:bg-gray-800/90 rounded-2xl flex items-center px-2 select-none overflow-hidden"
-                      onMouseMove={handleSliderMove}
-                      onMouseUp={handleSliderEnd}
-                      onTouchMove={handleSliderMove}
-                      onTouchEnd={handleSliderEnd}
-                    >
-                      <div 
-                        className="absolute left-0 top-0 bottom-0 bg-emerald-500/20 transition-all pointer-events-none"
-                        style={{ width: `${sliderX + 28}px` }}
-                      />
-
-                      <span className="w-full text-center text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 pointer-events-none pl-6">
-                        Slide to Settle ➔
-                      </span>
-
-                      <div
-                        onMouseDown={handleSliderStart}
-                        onTouchStart={handleSliderStart}
-                        style={{
-                          transform: `translateX(${sliderX}px)`,
-                          transition: isSliderDragging ? 'none' : 'transform 0.2s ease-out',
-                        }}
-                        className="absolute left-2 w-10 h-10 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white rounded-xl shadow-md flex items-center justify-center cursor-grab active:cursor-grabbing font-bold text-lg"
-                      >
-                        ✓
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+        {/* Controls */}
+        <div className="flex justify-between items-center px-4 mt-1">
+          <button
+            disabled={activeIndex === 0}
+            onClick={() => setActiveIndex((prev) => Math.max(0, prev - 1))}
+            className="px-4 py-2 bg-black/50 border border-white/10 rounded-xl text-xs font-bold text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-black/70 transition-all"
+          >
+            ← Previous
+          </button>
+          <button
+            disabled={activeIndex === cycles.length - 1}
+            onClick={() => setActiveIndex((prev) => Math.min(cycles.length - 1, prev + 1))}
+            className="px-4 py-2 bg-black/50 border border-white/10 rounded-xl text-xs font-bold text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-black/70 transition-all"
+          >
+            Next →
+          </button>
         </div>
       </div>
 
+      {/* Payment Modal */}
       {showPaymentModal && currentCycle && (
         <PaymentModal
           cycle={currentCycle}
           onClose={() => setShowPaymentModal(false)}
           onConfirm={async (amount, note) => {
-            triggerFeedback('settle');
+            triggerFeedback();
             if (onMarkPaid) await onMarkPaid(currentCycle.id, amount, note);
             setShowPaymentModal(false);
           }}
         />
-      )}
-
-      {/* Step 4 Fix: Perfectly Centered Viewport Snooze Modal */}
-      {showSnoozeModal && currentCycle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-gray-900 w-full max-w-sm rounded-3xl p-6 text-center border border-gray-100 dark:border-gray-800 shadow-2xl">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-              Snooze "{currentCycle.obligation_name}"
-            </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-              Select how many days to push this obligation back:
-            </p>
-
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              {[1, 3, 7].map((days) => (
-                <button
-                  key={days}
-                  onClick={async () => {
-                    triggerFeedback('snooze');
-                    if (onSnooze) await onSnooze(currentCycle.id, days);
-                    setShowSnoozeModal(false);
-                  }}
-                  className="bg-blue-50 dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-gray-700 text-blue-600 dark:text-blue-400 font-semibold py-3 rounded-2xl transition-colors"
-                >
-                  +{days} {days === 1 ? 'Day' : 'Days'}
-                </button>
-              ))}
-            </div>
-
-            <button
-              onClick={() => setShowSnoozeModal(false)}
-              className="w-full text-gray-500 dark:text-gray-400 text-sm py-2 hover:underline"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
       )}
     </>
   );
