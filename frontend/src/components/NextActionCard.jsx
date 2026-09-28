@@ -1,15 +1,18 @@
 import { useState, useEffect } from 'react';
 import PaymentModal from './PaymentModal';
+import EventModal from './EventModal';
 import CycleCard from './CycleCard';
+import CategoryCounterBar from './CategoryCounterBar';
 import { triggerFeedback } from '../utils/feedbackUtils';
 
 export default function NextActionCard({
   cycles = [],
   onMarkPaid,
   currencySymbol = '₹',
+  themeKey = 'cyberLime',
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     if (activeIndex >= cycles.length) {
@@ -18,11 +21,13 @@ export default function NextActionCard({
   }, [cycles, activeIndex]);
 
   const currentCycle = cycles[activeIndex];
+  const isMonetary = currentCycle && Number(currentCycle.expected_amount) > 0;
 
   if (!currentCycle || cycles.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-6">
-        <h2 className="text-2xl font-bold mb-2 text-white">You're all caught up! 🎉</h2>
+        <CategoryCounterBar cycles={cycles} themeKey={themeKey} />
+        <h2 className="text-2xl font-bold mb-2 text-white mt-8">You're all caught up! 🎉</h2>
         <p className="text-gray-400 text-sm">Nothing due right now. Living your best life.</p>
       </div>
     );
@@ -30,13 +35,15 @@ export default function NextActionCard({
 
   return (
     <>
-      <div className="w-full max-w-md mx-auto mt-2 px-1">
+      <div className="w-full max-w-md mx-auto mt-1 px-1">
+        <CategoryCounterBar cycles={cycles} themeKey={themeKey} />
+
         <div className="text-xs text-gray-400 mb-2 text-center select-none font-medium">
           {cycles.length} items remaining • Card {activeIndex + 1} of {cycles.length}
         </div>
 
         {/* Film Strip Viewport */}
-        <div className="relative overflow-hidden py-4 w-full">
+        <div className="relative overflow-hidden py-2 w-full">
           <div
             className="flex transition-transform duration-300 ease-out"
             style={{
@@ -50,7 +57,7 @@ export default function NextActionCard({
                 isActive={index === activeIndex}
                 onClick={() => setActiveIndex(index)}
                 currencySymbol={currencySymbol}
-                onOpenPaymentModal={() => setShowPaymentModal(true)}
+                onOpenPaymentModal={() => setShowModal(true)}
               />
             ))}
           </div>
@@ -75,17 +82,29 @@ export default function NextActionCard({
         </div>
       </div>
 
-      {/* Payment Modal */}
-      {showPaymentModal && currentCycle && (
-        <PaymentModal
-          cycle={currentCycle}
-          onClose={() => setShowPaymentModal(false)}
-          onConfirm={async (amount, note) => {
-            triggerFeedback();
-            if (onMarkPaid) await onMarkPaid(currentCycle.id, amount, note);
-            setShowPaymentModal(false);
-          }}
-        />
+      {/* Conditionally Render Modal */}
+      {showModal && currentCycle && (
+        isMonetary ? (
+          <PaymentModal
+            cycle={currentCycle}
+            onClose={() => setShowModal(false)}
+            onConfirm={async (amount, note) => {
+              triggerFeedback();
+              if (onMarkPaid) await onMarkPaid(currentCycle.id, amount, note);
+              setShowModal(false);
+            }}
+          />
+        ) : (
+          <EventModal
+            cycle={currentCycle}
+            onClose={() => setShowModal(false)}
+            onConfirm={async (status) => {
+              triggerFeedback();
+              if (onMarkPaid) await onMarkPaid(currentCycle.id, 0, status);
+              setShowModal(false);
+            }}
+          />
+        )
       )}
     </>
   );

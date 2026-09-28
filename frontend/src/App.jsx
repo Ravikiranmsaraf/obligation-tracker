@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import NextActionCard from './components/NextActionCard';
 import ObligationsPage from './pages/ObligationsPage';
 import SettingsModal from './components/SettingsModal';
+import HelpModal from './components/HelpModal';
 import { GEN_Z_THEMES } from './constants/categories';
 import { useObligationCycles } from './hooks/useObligationCycles';
 
@@ -40,20 +41,31 @@ function LoginPage() {
 function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
   const { user, signOut } = useAuth();
   const [showSettings, setShowSettings] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const activeTheme = GEN_Z_THEMES[themeKey] || GEN_Z_THEMES.cyberLime;
 
   const { cycles, loading, markCyclePaid } = useObligationCycles(user?.id);
 
   return (
     <div className={`min-h-screen pb-24 transition-colors duration-300 ${activeTheme.bg} text-gray-100`}>
+      {/* Landing Header */}
       <div className="px-4 py-4 flex justify-between items-center border-b border-zinc-800 bg-zinc-950/50 backdrop-blur-md">
         <h1 className="text-xl font-extrabold tracking-tight">Settld</h1>
-        <button
-          onClick={() => setShowSettings(true)}
-          className="p-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-semibold hover:bg-zinc-800 transition-colors"
-        >
-          ⚙️ Settings
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowHelp(true)}
+            className="p-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-semibold hover:bg-zinc-800 transition-colors text-gray-300"
+            title="Category Guide"
+          >
+            ❓ Help
+          </button>
+          <button
+            onClick={() => setShowSettings(true)}
+            className="p-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-semibold hover:bg-zinc-800 transition-colors text-gray-300"
+          >
+            ⚙️ Settings
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -65,9 +77,11 @@ function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
           cycles={cycles}
           onMarkPaid={markCyclePaid}
           currencySymbol={currencySymbol}
+          themeKey={themeKey}
         />
       )}
 
+      {/* Navigation Bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-zinc-950 border-t border-zinc-800 flex justify-around py-3 px-4 z-40">
         <Link to="/obligations" className="flex flex-col items-center text-sm font-medium text-gray-300 hover:text-white">
           My Reminders
@@ -77,6 +91,10 @@ function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
         </button>
       </div>
 
+      {/* Help Modal */}
+      <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
+
+      {/* Settings Modal */}
       <SettingsModal
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
