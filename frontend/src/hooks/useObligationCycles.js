@@ -3,77 +3,119 @@ import { supabase } from '../lib/supabase';
 
 export function useObligationCycles(userId) {
   const [cycles, setCycles] = useState([]);
+  const [allMonthCompleted, setAllMonthCompleted] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const fetchPendingCycles = useCallback(async () => {
+  const fetchCycles = useCallback(async () => {
     if (!userId) return;
+    setLoading(true);
+
     try {
-      setLoading(true);
-      const { data, error } = await supabase
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+
+      const startOfCurrentMonth = new Date(currentYear, currentMonth, 1).toISOString();
+      const endOfCurrentMonth = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59).toISOString();
+
+      // 1. Fetch current month cycles
+      const { data: currentMonthData, error: currentErr } = await supabase
         .from('obligation_cycles')
-        .select(`
-          id,
-          due_date,
-          expected_amount,
-          status,
-          obligation_id,
-          obligations (
-            name,
-            category,
-            type
-          )
-        `)
+        .select('*')
         .eq('user_id', userId)
-        .eq('status', 'pending')
+        .neq('status', 'paid')
+        .neq('status', 'completed')
+        .neq('status', 'skipped')
+        .gte('due_date', startOfCurrentMonth)
+        .lte('due_date', endOfCurrentMonth)
         .order('due_date', { ascending: true });
 
-      if (error) throw error;
+      if (currentErr) throw currentErr;
 
-      // Map joined obligation fields into standard shape
-      const formatted = (data || []).map((cycle) => ({
-        id: cycle.id,
-        due_date: cycle.due_date,
-        expected_amount: cycle.expected_amount,
-        status: cycle.status,
-        obligation_name: cycle.obligations?.name || 'Unnamed Obligation',
-        category: cycle.obligations?.category || 'Default',
-        type: cycle.obligations?.type || 'bill',
+      // 2. Fetch parent obligations to map categories reliably
+      const { data: parentObligations, error: parentErr } = await supabase
+        .from('obligations')
+        .select('id, category, name')
+        .eq('user_id', userId);
+
+      if (parentErr) console.error('Error fetching parent obligations:', parentErr);
+
+      const obligationMap = new Map((parentObligations || []).map((o) => [o.id, o]));
+
+      const mapCategory = (cycle) => {
+        const parent = obligationMap.get(cycle.obligation_id);
+        return cycle.category || parent?.category || 'Other';
+      };
+
+      let combinedCycles = (currentMonthData || []).map((c) => ({
+        ...c,
+        category: mapCategory(c),
       }));
 
-      setCycles(formatted);
+      // Check month completion
+      setAllMonthCompleted(combinedCycles.length === 0);
+
+      // 3. Top-up to 10 from next month if needed
+      if (combinedCycles.length < 10) {
+        const needCount = 10 - combinedCycles.length;
+        const startOfNextMonth = new Date(currentYear, currentMonth + 1, 1).toISOString();
+
+        const { data: upcomingData, error: upcomingErr } = await supabase
+          .from('obligation_cycles')
+          .select('*')
+          .eq('user_id', userId)
+          .neq('status', 'paid')
+          .neq('status', 'completed')
+          .neq('status', 'skipped')
+          .gte('due_date', startOfNextMonth)
+          .order('due_date', { ascending: true })
+          .limit(needCount);
+
+        if (upcomingErr) console.error('Error fetching upcoming cycles:', upcomingErr);
+        else if (upcomingData) {
+          const upcomingMapped = upcomingData.map((c) => ({
+            ...c,
+            category: mapCategory(c),
+          }));
+          combinedCycles = [...combinedCycles, ...upcomingMapped];
+        }
+      }
+
+      setCycles(combinedCycles);
     } catch (err) {
-      console.error('Error fetching obligation cycles:', err);
+      console.error('Error in useObligationCycles:', err);
     } finally {
       setLoading(false);
     }
   }, [userId]);
 
-  const markCyclePaid = async (cycleId, amountPaid, note) => {
+  useEffect(() => {
+    fetchCycles();
+  }, [fetchCycles]);
+
+  const markCyclePaid = async (cycleId, amount, note) => {
     try {
+      const isEvent = note === 'completed' || note === 'skipped';
+      const status = isEvent ? note : 'paid';
+
+      const updateData = { status };
+
+      if (note && !isEvent) {
+        updateData.notes = note;
+      }
+
       const { error } = await supabase
         .from('obligation_cycles')
-        .update({
-          status: 'settled',
-          paid_amount: parseFloat(amountPaid) || 0,
-          paid_at: new Date().toISOString(),
-          notes: note || null,
-        })
-        .eq('id', cycleId)
-        .eq('user_id', userId);
+        .update(updateData)
+        .eq('id', cycleId);
 
       if (error) throw error;
-
-      // Refresh list after settlement
-      await fetchPendingCycles();
+      await fetchCycles();
     } catch (err) {
-      console.error('Error settling cycle:', err);
-      alert('Failed to settle item. Please try again.');
+      console.error('Error marking cycle paid:', err);
+      alert(`Failed to update obligation status: ${err.message || 'Unknown error'}`);
     }
   };
 
-  useEffect(() => {
-    fetchPendingCycles();
-  }, [fetchPendingCycles]);
-
-  return { cycles, loading, markCyclePaid, refetch: fetchPendingCycles };
+  return { cycles, allMonthCompleted, loading, refreshCycles: fetchCycles, markCyclePaid };
 }

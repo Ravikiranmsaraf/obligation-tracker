@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { GEN_Z_THEMES } from '../constants/categories';
+import { GEN_Z_THEMES, CATEGORY_ICONS } from '../constants/categories';
 import { getDaySuffix } from '../utils/dateUtils';
 import { obligationsService } from '../services/obligationsService';
 import ObligationFormModal from '../components/ObligationFormModal';
@@ -131,8 +131,8 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
               {obligations.map((obligation) => {
                 const isEvent =
                   obligation.type === 'event' ||
-                  obligation.category === 'Events' ||
                   Number(obligation.expected_amount) === 0;
+                const categoryIcon = CATEGORY_ICONS[obligation.category] || CATEGORY_ICONS.Other || '📌';
 
                 return (
                   <div
@@ -142,7 +142,7 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
                     <div>
                       <p className="font-bold text-white text-base">{obligation.name}</p>
                       <p className="text-xs text-gray-400 mt-0.5">
-                        {obligation.category} · {obligation.due_day}{getDaySuffix(obligation.due_day)} day · <span className="capitalize">{obligation.frequency}</span>
+                        {categoryIcon} {obligation.category || 'Other'} · {obligation.due_day}{getDaySuffix(obligation.due_day)} day · <span className="capitalize">{obligation.frequency}</span>
                       </p>
                     </div>
                     <div className="text-right">
@@ -186,13 +186,16 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
                   {obligations.map((obligation) => {
                     const isEvent =
                       obligation.type === 'event' ||
-                      obligation.category === 'Events' ||
                       Number(obligation.expected_amount) === 0;
+                    const categoryIcon = CATEGORY_ICONS[obligation.category] || CATEGORY_ICONS.Other || '📌';
 
                     return (
                       <tr key={obligation.id} className="hover:bg-white/5 transition-colors">
                         <td className="px-6 py-4 font-semibold text-white">{obligation.name}</td>
-                        <td className="px-6 py-4 text-gray-300">{obligation.category}</td>
+                        <td className="px-6 py-4 text-gray-300 flex items-center gap-1.5">
+                          <span>{categoryIcon}</span>
+                          <span>{obligation.category || 'Other'}</span>
+                        </td>
                         <td className="px-6 py-4 font-bold text-white">
                           {!isEvent && obligation.expected_amount > 0 ? `${currencySymbol}${obligation.expected_amount.toLocaleString('en-IN')}` : 'Event 🎂'}
                         </td>

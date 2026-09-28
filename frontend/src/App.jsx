@@ -44,7 +44,7 @@ function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
   const [showHelp, setShowHelp] = useState(false);
   const activeTheme = GEN_Z_THEMES[themeKey] || GEN_Z_THEMES.cyberLime;
 
-  const { cycles, loading, markCyclePaid } = useObligationCycles(user?.id);
+  const { cycles, allMonthCompleted, loading, markCyclePaid } = useObligationCycles(user?.id);
 
   return (
     <div className={`min-h-screen pb-24 transition-colors duration-300 ${activeTheme.bg} text-gray-100`}>
@@ -75,6 +75,7 @@ function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
       ) : (
         <NextActionCard
           cycles={cycles}
+          allMonthCompleted={allMonthCompleted}
           onMarkPaid={markCyclePaid}
           currencySymbol={currencySymbol}
           themeKey={themeKey}
