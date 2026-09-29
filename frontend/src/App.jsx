@@ -6,9 +6,11 @@ import ObligationsPage from './pages/ObligationsPage';
 import SettingsModal from './components/SettingsModal';
 import HelpModal from './components/HelpModal';
 import ObligationFormModal from './components/ObligationFormModal';
+import OnboardingWizard from './components/OnboardingWizard';
 import { GEN_Z_THEMES } from './constants/categories';
 import { useObligationCycles } from './hooks/useObligationCycles';
 import { obligationsService } from './services/obligationsService';
+import { useOnboarding } from './hooks/useOnboarding';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -47,6 +49,8 @@ function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const { needsOnboarding, loading: onboardingLoading, completeOnboarding } = useOnboarding(user?.id);
+
   const activeTheme = GEN_Z_THEMES[themeKey] || GEN_Z_THEMES.cyberLime;
   const cardThemeClass = activeTheme?.card || 'bg-zinc-900 border-zinc-800';
 
@@ -65,6 +69,35 @@ function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
       setSaving(false);
     }
   };
+
+  // Handle Onboarding Completion: Completes local state & triggers immediate DB fetch
+  const handleFinishOnboarding = async () => {
+    completeOnboarding();
+    await refreshCycles();
+  };
+
+  if (onboardingLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-black text-gray-400 text-sm">
+        Setting up your workspace...
+      </div>
+    );
+  }
+
+  if (needsOnboarding) {
+    return (
+      <div className={`min-h-screen ${activeTheme.bg} text-gray-100 flex items-center justify-center p-4`}>
+        <OnboardingWizard
+          user={user}
+          currentThemeKey={themeKey}
+          onSelectTheme={setThemeKey}
+          currentCurrency={currencySymbol}
+          onSelectCurrency={setCurrencySymbol}
+          onNext={handleFinishOnboarding}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen pb-24 transition-colors duration-300 ${activeTheme.bg} text-gray-100`}>
@@ -95,7 +128,6 @@ function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
       </div>
 
       <div className="max-w-md mx-auto px-4 pt-4">
-        {/* Toggle between Form view and NextActionCard view */}
         {showForm ? (
           <ObligationFormModal
             editingItem={null}
@@ -130,10 +162,8 @@ function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
         </button>
       </div>
 
-      {/* Help Modal */}
       <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
 
-      {/* Settings Modal */}
       <SettingsModal
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
