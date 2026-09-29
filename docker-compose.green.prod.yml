@@ -18,8 +18,10 @@ services:
       - PORT=3000
       - GROQ_API_KEY=${GROQ_API_KEY}
     env_file:
-      - ./backend/.env
-
+      - path: ./backend/.env
+        required: false
+      - path: .env
+        required: false
   frontend-green:
     build:
       context: ./frontend

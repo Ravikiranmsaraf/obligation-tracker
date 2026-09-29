@@ -12,13 +12,16 @@ services:
       blue-net:
         aliases:
           - backend
+    env_file:
+      - path: ./backend/.env
+        required: false
+      - path: .env
+        required: false
     environment:
       - NODE_ENV=production
       - APP_COLOR=blue
       - PORT=3000
       - GROQ_API_KEY=${GROQ_API_KEY}
-    env_file:
-      - ./backend/.env
 
   frontend-blue:
     build:
