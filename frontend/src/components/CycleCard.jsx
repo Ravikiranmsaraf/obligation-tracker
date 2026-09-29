@@ -11,7 +11,11 @@ export default function CycleCard({
 }) {
   const categoryName = item.category || 'Other';
   const categoryIcon = CATEGORY_ICONS[categoryName] || CATEGORY_ICONS.Other || '📌';
-  const bgImage = (CATEGORY_CONFIG[categoryName] || CATEGORY_CONFIG.Other).bgImage;
+  const bgImage = (CATEGORY_CONFIG[categoryName] || CATEGORY_CONFIG.Other)?.bgImage || '';
+  
+  // Checks both item.name and item.obligation_name
+  const cardTitle = item.name || item.obligation_name || 'Untitled Reminder';
+
   const isOverdue = new Date(item.due_date) < new Date();
   const hasAmount = item.expected_amount && Number(item.expected_amount) > 0;
 
@@ -39,7 +43,7 @@ export default function CycleCard({
 
       {/* Title & Due Date */}
       <h2 className="text-xl font-extrabold mb-1 text-white truncate drop-shadow-md">
-        {item.obligation_name}
+        {cardTitle}
       </h2>
       <p
         className={`text-xs mb-5 font-bold drop-shadow ${
@@ -57,7 +61,7 @@ export default function CycleCard({
             })}`}
       </p>
 
-      {/* Amount Display (Bubbles/Text removed for Events) */}
+      {/* Amount Display */}
       <div className="min-h-[44px] mb-5 flex items-center">
         {hasAmount && (
           <p className="text-3xl font-black text-white drop-shadow-lg">

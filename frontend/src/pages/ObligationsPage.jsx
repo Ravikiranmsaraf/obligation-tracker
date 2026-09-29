@@ -6,6 +6,11 @@ import { getDaySuffix } from '../utils/dateUtils';
 import { obligationsService } from '../services/obligationsService';
 import ObligationFormModal from '../components/ObligationFormModal';
 
+const MONTH_NAMES = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+];
+
 export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -77,6 +82,21 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
     }
   };
 
+  // Helper to extract month string
+  const getMonthDisplay = (obligation) => {
+    const monthIndex = obligation.due_month ? Number(obligation.due_month) - 1 : null;
+    if (monthIndex !== null && monthIndex >= 0 && monthIndex < 12) {
+      return MONTH_NAMES[monthIndex];
+    }
+    return obligation.frequency === 'monthly' ? 'Every Month' : '-';
+  };
+
+  // Helper to format due day
+  const getDayDisplay = (obligation) => {
+    if (!obligation.due_day) return '-';
+    return `${obligation.due_day}${getDaySuffix(obligation.due_day)}`;
+  };
+
   if (loading) {
     return (
       <div className={`flex items-center justify-center min-h-screen ${bgClass} text-gray-400`}>
@@ -126,11 +146,12 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
           </div>
         ) : (
           <>
-            {/* Mobile Cards */}
+            {/* Mobile Cards View */}
             <div className="md:hidden space-y-3">
               {obligations.map((obligation) => {
                 const isEvent =
                   obligation.type === 'event' ||
+                  obligation.category === 'Events' ||
                   Number(obligation.expected_amount) === 0;
                 const categoryIcon = CATEGORY_ICONS[obligation.category] || CATEGORY_ICONS.Other || '📌';
 
@@ -140,9 +161,16 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
                     className={`${cardThemeClass} rounded-2xl border p-4 flex justify-between items-center shadow-md`}
                   >
                     <div>
-                      <p className="font-bold text-white text-base">{obligation.name}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {categoryIcon} {obligation.category || 'Other'} · {obligation.due_day}{getDaySuffix(obligation.due_day)} day · <span className="capitalize">{obligation.frequency}</span>
+                      {/* STATIC TEST LABEL + ACTUAL NAME */}
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">
+                        Bill/Event Name:
+                      </span>
+                      <p className="font-bold text-white text-base">
+                        {obligation.name || 'Unnamed Item'}
+                      </p>
+                      
+                      <p className="text-xs text-gray-400 mt-1">
+                        {categoryIcon} {obligation.category || 'Other'} · Month: <span className="text-emerald-300 font-semibold">{getMonthDisplay(obligation)}</span> · Day: {getDayDisplay(obligation)}
                       </p>
                     </div>
                     <div className="text-right">
@@ -169,15 +197,16 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
               })}
             </div>
 
-            {/* Desktop Table */}
+            {/* Desktop Table View */}
             <div className={`hidden md:block ${cardThemeClass} rounded-3xl border overflow-hidden shadow-xl`}>
               <table className="w-full text-left border-collapse">
                 <thead className="bg-white/5 border-b border-white/10 text-xs font-bold text-gray-300 uppercase tracking-wider">
                   <tr>
                     <th className="px-6 py-4">Name</th>
                     <th className="px-6 py-4">Category</th>
-                    <th className="px-6 py-4">Amount</th>
+                    <th className="px-6 py-4 text-emerald-400">Month</th>
                     <th className="px-6 py-4">Due Day</th>
+                    <th className="px-6 py-4">Amount</th>
                     <th className="px-6 py-4">Frequency</th>
                     <th className="px-6 py-4 text-right">Actions</th>
                   </tr>
@@ -186,20 +215,30 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
                   {obligations.map((obligation) => {
                     const isEvent =
                       obligation.type === 'event' ||
+                      obligation.category === 'Events' ||
                       Number(obligation.expected_amount) === 0;
                     const categoryIcon = CATEGORY_ICONS[obligation.category] || CATEGORY_ICONS.Other || '📌';
 
                     return (
                       <tr key={obligation.id} className="hover:bg-white/5 transition-colors">
-                        <td className="px-6 py-4 font-semibold text-white">{obligation.name}</td>
+                        <td className="px-6 py-4 font-semibold text-white">
+                          <span className="text-[10px] text-emerald-400 uppercase block font-mono">Bill/Event Name</span>
+                          {obligation.name || 'Unnamed Item'}
+                        </td>
                         <td className="px-6 py-4 text-gray-300 flex items-center gap-1.5">
                           <span>{categoryIcon}</span>
                           <span>{obligation.category || 'Other'}</span>
                         </td>
+                        {/* DEDICATED MONTH COLUMN */}
+                        <td className="px-6 py-4 font-bold text-emerald-400">
+                          {getMonthDisplay(obligation)}
+                        </td>
+                        <td className="px-6 py-4 text-gray-300">
+                          {getDayDisplay(obligation)}
+                        </td>
                         <td className="px-6 py-4 font-bold text-white">
                           {!isEvent && obligation.expected_amount > 0 ? `${currencySymbol}${obligation.expected_amount.toLocaleString('en-IN')}` : 'Event 🎂'}
                         </td>
-                        <td className="px-6 py-4 text-gray-300">{obligation.due_day}{getDaySuffix(obligation.due_day)}</td>
                         <td className="px-6 py-4 capitalize text-gray-300">{obligation.frequency}</td>
                         <td className="px-6 py-4 text-right space-x-3">
                           <button

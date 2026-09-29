@@ -5,8 +5,10 @@ import NextActionCard from './components/NextActionCard';
 import ObligationsPage from './pages/ObligationsPage';
 import SettingsModal from './components/SettingsModal';
 import HelpModal from './components/HelpModal';
+import ObligationFormModal from './components/ObligationFormModal';
 import { GEN_Z_THEMES } from './constants/categories';
 import { useObligationCycles } from './hooks/useObligationCycles';
+import { obligationsService } from './services/obligationsService';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -42,16 +44,40 @@ function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
   const { user, signOut } = useAuth();
   const [showSettings, setShowSettings] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
-  const activeTheme = GEN_Z_THEMES[themeKey] || GEN_Z_THEMES.cyberLime;
+  const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const { cycles, allMonthCompleted, loading, markCyclePaid } = useObligationCycles(user?.id);
+  const activeTheme = GEN_Z_THEMES[themeKey] || GEN_Z_THEMES.cyberLime;
+  const cardThemeClass = activeTheme?.card || 'bg-zinc-900 border-zinc-800';
+
+  const { cycles, allMonthCompleted, loading, markCyclePaid, refreshCycles } = useObligationCycles(user?.id);
+
+  const handleSave = async (formData) => {
+    setSaving(true);
+    try {
+      await obligationsService.saveObligation(user.id, formData);
+      setShowForm(false);
+      await refreshCycles();
+    } catch (error) {
+      console.error('Error saving obligation:', error);
+      alert('Failed to save obligation. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className={`min-h-screen pb-24 transition-colors duration-300 ${activeTheme.bg} text-gray-100`}>
       {/* Landing Header */}
-      <div className="px-4 py-4 flex justify-between items-center border-b border-zinc-800 bg-zinc-950/50 backdrop-blur-md">
+      <div className="px-4 py-4 flex justify-between items-center border-b border-zinc-800 bg-zinc-950/50 backdrop-blur-md sticky top-0 z-20">
         <h1 className="text-xl font-extrabold tracking-tight">Settld</h1>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="bg-emerald-400 hover:bg-emerald-500 active:bg-emerald-600 text-black font-extrabold px-3 py-1.5 rounded-xl transition-all text-xs shadow-md"
+          >
+            {showForm ? 'Cancel' : '+ Add New'}
+          </button>
           <button
             onClick={() => setShowHelp(true)}
             className="p-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-semibold hover:bg-zinc-800 transition-colors text-gray-300"
@@ -68,19 +94,31 @@ function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center min-h-[50vh] text-gray-400 text-sm">
-          Loading upcoming items...
-        </div>
-      ) : (
-        <NextActionCard
-          cycles={cycles}
-          allMonthCompleted={allMonthCompleted}
-          onMarkPaid={markCyclePaid}
-          currencySymbol={currencySymbol}
-          themeKey={themeKey}
-        />
-      )}
+      <div className="max-w-md mx-auto px-4 pt-4">
+        {/* Toggle between Form view and NextActionCard view */}
+        {showForm ? (
+          <ObligationFormModal
+            editingItem={null}
+            cardThemeClass={cardThemeClass}
+            currencySymbol={currencySymbol}
+            onSave={handleSave}
+            onCancel={() => setShowForm(false)}
+            saving={saving}
+          />
+        ) : loading ? (
+          <div className="flex items-center justify-center min-h-[50vh] text-gray-400 text-sm">
+            Loading upcoming items...
+          </div>
+        ) : (
+          <NextActionCard
+            cycles={cycles}
+            allMonthCompleted={allMonthCompleted}
+            onMarkPaid={markCyclePaid}
+            currencySymbol={currencySymbol}
+            themeKey={themeKey}
+          />
+        )}
+      </div>
 
       {/* Navigation Bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-zinc-950 border-t border-zinc-800 flex justify-around py-3 px-4 z-40">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import PaymentModal from './PaymentModal';
 import EventModal from './EventModal';
 import CycleCard from './CycleCard';
@@ -16,6 +16,10 @@ export default function NextActionCard({
   const [activeIndex, setActiveIndex] = useState(0);
   const [showModal, setShowModal] = useState(false);
 
+  // Swipe detection refs
+  const touchStartX = useRef(0);
+  const touchEndX = useRef(0);
+
   useEffect(() => {
     if (activeIndex >= cycles.length) {
       setActiveIndex(Math.max(0, cycles.length - 1));
@@ -26,7 +30,6 @@ export default function NextActionCard({
   const isMonetary = currentCycle && Number(currentCycle.expected_amount) > 0;
   const monthName = new Date().toLocaleString('default', { month: 'long' });
 
-  // Calculate current month's remaining items specifically
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth();
@@ -40,22 +43,49 @@ export default function NextActionCard({
     );
   }).length;
 
+  // Touch Swipe Handlers
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.targetTouches[0].clientX;
+  };
+
+  const handleTouchMove = (e) => {
+    touchEndX.current = e.targetTouches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    const minSwipeDistance = 50; // Minimum px distance to consider a swipe
+    const distance = touchStartX.current - touchEndX.current;
+
+    // Swipe Left -> Next Card
+    if (distance > minSwipeDistance && activeIndex < cycles.length - 1) {
+      setActiveIndex((prev) => prev + 1);
+    }
+
+    // Swipe Right -> Previous Card
+    if (distance < -minSwipeDistance && activeIndex > 0) {
+      setActiveIndex((prev) => prev - 1);
+    }
+  };
+
   return (
     <div className="w-full max-w-md mx-auto mt-1 px-1">
       <CategoryCounterBar cycles={cycles} themeKey={themeKey} />
 
-      {/* Always display Celebration Card when current month is 100% complete */}
       {allMonthCompleted && <CelebrationCard currentMonthName={monthName} />}
 
       {cycles.length > 0 ? (
         <>
-          {/* Subtitle Header */}
           <div className="text-xs text-gray-400 mb-2 text-center select-none font-medium">
             {currentMonthRemaining} remaining for this month • Showing card {activeIndex + 1} of {cycles.length}
           </div>
 
-          {/* Film Strip Viewport */}
-          <div className="relative overflow-hidden py-2 w-full">
+          {/* Swipeable Viewport */}
+          <div
+            className="relative overflow-hidden py-2 w-full touch-pan-y"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+          >
             <div
               className="flex transition-transform duration-300 ease-out"
               style={{
@@ -102,7 +132,6 @@ export default function NextActionCard({
         )
       )}
 
-      {/* Conditionally Render Modals */}
       {showModal && currentCycle && (
         isMonetary ? (
           <PaymentModal
