@@ -1,5 +1,9 @@
 {
   "devDependencies": {
-    "supabase": "^2.118.0"
+    "supabase": "^2.119.0"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.5",
+    "ws": "^8.22.0"
   }
 }

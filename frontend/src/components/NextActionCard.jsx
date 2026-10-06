@@ -69,6 +69,7 @@ export default function NextActionCard({
 
   return (
     <div className="w-full max-w-md mx-auto mt-1 px-1">
+      {/* Shared Category Counter Bar */}
       <CategoryCounterBar cycles={cycles} themeKey={themeKey} />
 
       {allMonthCompleted && <CelebrationCard currentMonthName={monthName} />}

@@ -7,14 +7,17 @@ export function useObligationCycles(userId) {
   const [loading, setLoading] = useState(true);
 
   const fetchCycles = useCallback(async () => {
-    if (!userId) return;
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
 
     try {
       const { combinedCycles, allMonthCompleted: isCompleted } = 
         await cyclesService.fetchActiveCycles(userId);
 
-      setCycles(combinedCycles);
+      setCycles(combinedCycles || []);
       setAllMonthCompleted(isCompleted);
     } catch (err) {
       console.error('Error in useObligationCycles:', err);
@@ -37,5 +40,11 @@ export function useObligationCycles(userId) {
     }
   };
 
-  return { cycles, allMonthCompleted, loading, refreshCycles: fetchCycles, markCyclePaid };
+  return { 
+    cycles, 
+    allMonthCompleted, 
+    loading, 
+    refreshCycles: fetchCycles, 
+    markCyclePaid 
+  };
 }

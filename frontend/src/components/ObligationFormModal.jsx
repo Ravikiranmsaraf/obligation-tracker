@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useVoiceObligation } from '../hooks/useVoiceObligation';
-
-const CATEGORIES = ['Bills', 'Subscriptions', 'Loans', 'Insurance', 'Personal', 'Events', 'Other'];
+import { STANDARD_CATEGORIES } from '../constants/categories';
 
 const MONTHS = [
   { value: 1, label: 'January' },
@@ -26,15 +25,20 @@ export default function ObligationFormModal({
   onCancel,
   saving
 }) {
-  const [activeTab, setActiveTab] = useState('form'); // 'form' or 'voice'
+  // Default to 'voice' mode when adding a new item, 'form' mode when editing
+  const [activeTab, setActiveTab] = useState(editingItem ? 'form' : 'voice');
+  const defaultCategory = STANDARD_CATEGORIES && STANDARD_CATEGORIES.length > 0 ? STANDARD_CATEGORIES[0] : 'Other';
+
   const [formData, setFormData] = useState({
     name: '',
     type: 'bill',
-    category: 'Bills',
+    category: defaultCategory,
     expected_amount: '',
     due_day: new Date().getDate(),
     due_month: new Date().getMonth() + 1,
     frequency: 'monthly',
+    due_time: '09:00',
+    reminder_time: '09:00',
   });
 
   const {
@@ -46,10 +50,14 @@ export default function ObligationFormModal({
     transcript,
     processTranscript,
   } = useVoiceObligation((extractedData) => {
+    const extractedTime = extractedData?.reminder_time || extractedData?.due_time || '09:00';
     setFormData((prev) => ({
       ...prev,
       ...extractedData,
+      due_time: extractedTime,
+      reminder_time: extractedTime,
     }));
+    // Transition to prefilled form view upon successful voice parsing
     setActiveTab('form');
   });
 
@@ -66,31 +74,48 @@ export default function ObligationFormModal({
         editingItem.category === 'Events' ||
         Number(editingItem.expected_amount) === 0;
 
+      const timeValue = editingItem.reminder_time || editingItem.due_time || '09:00';
+
       setFormData({
         name: editingItem.name || '',
         type: isEvent ? 'event' : 'bill',
-        category: editingItem.category || (isEvent ? 'Events' : 'Bills'),
+        category: editingItem.category || (isEvent ? 'Events' : defaultCategory),
         expected_amount: isEvent ? '' : (editingItem.expected_amount?.toString() ?? ''),
         due_day: editingItem.due_day || new Date().getDate(),
         due_month: editingItem.due_month || (new Date().getMonth() + 1),
         frequency: editingItem.frequency || (isEvent ? 'yearly' : 'monthly'),
+        due_time: timeValue,
+        reminder_time: timeValue,
       });
+      setActiveTab('form');
     } else {
       setFormData({
         name: '',
         type: 'bill',
-        category: 'Bills',
+        category: defaultCategory,
         expected_amount: '',
         due_day: new Date().getDate(),
         due_month: new Date().getMonth() + 1,
         frequency: 'monthly',
+        due_time: '09:00',
+        reminder_time: '09:00',
       });
+      setActiveTab('voice');
     }
-  }, [editingItem]);
+  }, [editingItem, defaultCategory]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     onSave(formData);
+  };
+
+  const handleTimeChange = (e) => {
+    const timeVal = e.target.value;
+    setFormData((prev) => ({
+      ...prev,
+      due_time: timeVal,
+      reminder_time: timeVal,
+    }));
   };
 
   return (
@@ -98,17 +123,6 @@ export default function ObligationFormModal({
       {/* Mode Switcher */}
       {!editingItem && (
         <div className="grid grid-cols-2 gap-2 bg-black/50 p-1 rounded-2xl border border-white/10 mb-5">
-          <button
-            type="button"
-            onClick={() => setActiveTab('form')}
-            className={`py-2 text-xs font-bold rounded-xl transition-all ${
-              activeTab === 'form'
-                ? 'bg-zinc-800 text-white shadow-md border border-white/10'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            ✏️ Short Form
-          </button>
           <button
             type="button"
             onClick={() => setActiveTab('voice')}
@@ -119,6 +133,17 @@ export default function ObligationFormModal({
             }`}
           >
             🎙️ Voice Mode
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('form')}
+            className={`py-2 text-xs font-bold rounded-xl transition-all ${
+              activeTab === 'form'
+                ? 'bg-zinc-800 text-white shadow-md border border-white/10'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            ✏️ Short Form
           </button>
         </div>
       )}
@@ -160,8 +185,18 @@ export default function ObligationFormModal({
 
           <p className="text-xs text-gray-400 max-w-xs pt-2">
             Try saying: <br />
-            <span className="italic text-gray-300">"Rent 1500 dollars due on the 5th"</span> or <span className="italic text-gray-300">"Mom's birthday on Oct 12th"</span>
+            <span className="italic text-gray-300">"Remind me to bring milk tomorrow at 7 AM"</span> or <span className="italic text-gray-300">"Annual insurance premium $500 due November 10th"</span>
           </p>
+
+          <div className="w-full flex justify-center pt-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="bg-white/10 hover:bg-white/20 text-white font-semibold text-xs px-5 py-2.5 rounded-xl transition-all"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -209,7 +244,7 @@ export default function ObligationFormModal({
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="w-full border border-white/20 bg-black/40 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-              placeholder={formData.type === 'event' ? "e.g., Mom's Birthday, Anniversary" : "e.g., House Rent, Netflix"}
+              placeholder={formData.type === 'event' ? "e.g., Bring Milk, Doctor Appointment" : "e.g., ATM Withdrawal, House Rent"}
             />
           </div>
 
@@ -221,7 +256,7 @@ export default function ObligationFormModal({
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                 className="w-full border border-white/20 bg-black/40 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
               >
-                {CATEGORIES.map((cat) => (
+                {STANDARD_CATEGORIES.map((cat) => (
                   <option key={cat} value={cat} className="bg-zinc-900 text-white">
                     {cat}
                   </option>
@@ -233,80 +268,86 @@ export default function ObligationFormModal({
               <label className="block text-xs font-semibold text-gray-300 mb-1">Frequency</label>
               <select
                 value={formData.frequency}
-                onChange={(e) => setFormData({ ...formData, frequency: e.target.value })}
+                onChange={(e) => {
+                  const newFreq = e.target.value;
+                  setFormData((prev) => ({
+                    ...prev,
+                    frequency: newFreq,
+                    due_month: newFreq === 'yearly' ? (prev.due_month || new Date().getMonth() + 1) : prev.due_month,
+                  }));
+                }}
                 className="w-full border border-white/20 bg-black/40 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
               >
                 <option value="monthly" className="bg-zinc-900 text-white">Monthly</option>
-                <option value="quarterly" className="bg-zinc-900 text-white">Quarterly</option>
                 <option value="yearly" className="bg-zinc-900 text-white">Yearly</option>
+                <option value="one-off" className="bg-zinc-900 text-white">One-Off</option>
               </select>
             </div>
           </div>
 
-          {/* Conditional Date & Amount Grid */}
+          {/* Conditional Month/Day Grid */}
           <div className="grid grid-cols-2 gap-4">
-            {formData.type === 'bill' ? (
-              <>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-300 mb-1">
-                    Amount ({currencySymbol})
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    min="0"
-                    step="0.01"
-                    value={formData.expected_amount}
-                    onChange={(e) => setFormData({ ...formData, expected_amount: e.target.value })}
-                    className="w-full border border-white/20 bg-black/40 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                    placeholder="e.g., 1500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-300 mb-1">Due Day of Month</label>
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    max="31"
-                    value={formData.due_day}
-                    onChange={(e) => setFormData({ ...formData, due_day: e.target.value })}
-                    className="w-full border border-white/20 bg-black/40 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                    placeholder="10"
-                  />
-                </div>
-              </>
-            ) : (
-              <>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-300 mb-1">Event Month</label>
-                  <select
-                    value={formData.due_month}
-                    onChange={(e) => setFormData({ ...formData, due_month: Number(e.target.value) })}
-                    className="w-full border border-white/20 bg-black/40 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                  >
-                    {MONTHS.map((m) => (
-                      <option key={m.value} value={m.value} className="bg-zinc-900 text-white">
-                        {m.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-300 mb-1">Event Date</label>
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    max="31"
-                    value={formData.due_day}
-                    onChange={(e) => setFormData({ ...formData, due_day: e.target.value })}
-                    className="w-full border border-white/20 bg-black/40 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                    placeholder="15"
-                  />
-                </div>
-              </>
+            {formData.type === 'bill' && (
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1">
+                  Amount ({currencySymbol})
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="0"
+                  step="0.01"
+                  value={formData.expected_amount}
+                  onChange={(e) => setFormData({ ...formData, expected_amount: e.target.value })}
+                  className="w-full border border-white/20 bg-black/40 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                  placeholder="e.g., 1500"
+                />
+              </div>
             )}
+
+            {formData.frequency === 'yearly' && (
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1">Due Month</label>
+                <select
+                  value={formData.due_month}
+                  onChange={(e) => setFormData({ ...formData, due_month: Number(e.target.value) })}
+                  className="w-full border border-white/20 bg-black/40 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                >
+                  {MONTHS.map((m) => (
+                    <option key={m.value} value={m.value} className="bg-zinc-900 text-white">
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className={formData.type === 'event' && formData.frequency !== 'yearly' ? 'col-span-2' : ''}>
+              <label className="block text-xs font-semibold text-gray-300 mb-1">
+                {formData.frequency === 'yearly' ? 'Due Date' : 'Due Day of Month'}
+              </label>
+              <input
+                type="number"
+                required
+                min="1"
+                max="31"
+                value={formData.due_day}
+                onChange={(e) => setFormData({ ...formData, due_day: e.target.value })}
+                className="w-full border border-white/20 bg-black/40 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                placeholder="10"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-300 mb-1">Notification Time (Local)</label>
+            <input
+              type="time"
+              required
+              value={formData.reminder_time || formData.due_time}
+              onChange={handleTimeChange}
+              className="w-full border border-white/20 bg-black/40 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            />
           </div>
 
           <div className="flex gap-3 mt-2">

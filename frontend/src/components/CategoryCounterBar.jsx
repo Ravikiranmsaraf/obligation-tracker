@@ -4,31 +4,18 @@ import { STANDARD_CATEGORIES, CATEGORY_ICONS, GEN_Z_THEMES } from '../constants/
 export default function CategoryCounterBar({ cycles = [], themeKey = 'cyberLime' }) {
   const activeTheme = GEN_Z_THEMES[themeKey] || GEN_Z_THEMES.cyberLime;
 
-  const currentMonthCounts = useMemo(() => {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-
+  const currentCounts = useMemo(() => {
     const counts = STANDARD_CATEGORIES.reduce((acc, cat) => {
       acc[cat] = 0;
       return acc;
     }, {});
 
     cycles.forEach((item) => {
-      if (!item.due_date) return;
-
-      const dueDate = new Date(item.due_date);
-      const isCurrentMonth =
-        dueDate.getFullYear() === currentYear &&
-        dueDate.getMonth() === currentMonth;
-
-      if (isCurrentMonth) {
-        const cat = item.category || 'Other';
-        if (counts[cat] !== undefined) {
-          counts[cat] += 1;
-        } else {
-          counts['Other'] = (counts['Other'] || 0) + 1;
-        }
+      const cat = item.category || 'Other';
+      if (counts[cat] !== undefined) {
+        counts[cat] += 1;
+      } else {
+        counts['Other'] = (counts['Other'] || 0) + 1;
       }
     });
 
@@ -39,7 +26,7 @@ export default function CategoryCounterBar({ cycles = [], themeKey = 'cyberLime'
     <div className="flex justify-between items-center gap-1.5 my-3 px-2 py-2.5 bg-black/40 backdrop-blur-md border-y border-white/10 overflow-x-auto no-scrollbar shadow-inner">
       {STANDARD_CATEGORIES.map((category) => {
         const icon = CATEGORY_ICONS[category] || '📌';
-        const count = currentMonthCounts[category] || 0;
+        const count = currentCounts[category] || 0;
         const hasPending = count > 0;
 
         return (

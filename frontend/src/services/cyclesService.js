@@ -2,31 +2,43 @@ import { supabase } from '../lib/supabase';
 
 export const cyclesService = {
   /**
-   * Fetch active cycles directly for card deck
+   * Fetch active cycles with dynamic date filtering
    */
   async fetchActiveCycles(userId) {
     if (!userId) return { combinedCycles: [], allMonthCompleted: true };
 
     const now = new Date();
     const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
+    const currentMonth = now.getMonth(); // 0-indexed
+    const currentDay = now.getDate();
 
-    const startOfCurrentMonth = new Date(currentYear, currentMonth, 1).toISOString();
-    const endOfCurrentMonth = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59).toISOString();
+    // Calculate total days in current month
+    const totalDaysInCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const isLastWeek = currentDay > totalDaysInCurrentMonth - 7;
 
-    // 1. Fetch current month pending cycles
-    const { data: currentMonthData, error: currentErr } = await supabase
+    // Range Start: Start of current month
+    const startRange = new Date(currentYear, currentMonth, 1).toISOString();
+
+    // Range End: End of current month OR End of next month if in last week
+    let endRange;
+    if (isLastWeek) {
+      endRange = new Date(currentYear, currentMonth + 2, 0, 23, 59, 59).toISOString();
+    } else {
+      endRange = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59).toISOString();
+    }
+
+    const { data: cyclesData, error } = await supabase
       .from('obligation_cycles')
       .select('*')
       .eq('user_id', userId)
       .neq('status', 'paid')
       .neq('status', 'completed')
       .neq('status', 'skipped')
-      .gte('due_date', startOfCurrentMonth)
-      .lte('due_date', endOfCurrentMonth)
+      .gte('due_date', startRange)
+      .lte('due_date', endRange)
       .order('due_date', { ascending: true });
 
-    if (currentErr) throw currentErr;
+    if (error) throw error;
 
     const formatCycleCard = (cycle) => ({
       ...cycle,
@@ -35,31 +47,18 @@ export const cyclesService = {
       type: cycle.type || 'bill',
     });
 
-    let combinedCycles = (currentMonthData || []).map(formatCycleCard);
-    const allMonthCompleted = combinedCycles.length === 0;
+    const combinedCycles = (cyclesData || []).map(formatCycleCard);
 
-    // 2. Top-up to 10 cards from upcoming months if needed
-    if (combinedCycles.length < 10) {
-      const needCount = 10 - combinedCycles.length;
-      const startOfNextMonth = new Date(currentYear, currentMonth + 1, 1).toISOString();
+    // Check if current month items specifically are all finished
+    const currentMonthPendingCount = combinedCycles.filter((item) => {
+      const d = new Date(item.due_date);
+      return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+    }).length;
 
-      const { data: upcomingData, error: upcomingErr } = await supabase
-        .from('obligation_cycles')
-        .select('*')
-        .eq('user_id', userId)
-        .neq('status', 'paid')
-        .neq('status', 'completed')
-        .neq('status', 'skipped')
-        .gte('due_date', startOfNextMonth)
-        .order('due_date', { ascending: true })
-        .limit(needCount);
-
-      if (!upcomingErr && upcomingData) {
-        combinedCycles = [...combinedCycles, ...upcomingData.map(formatCycleCard)];
-      }
-    }
-
-    return { combinedCycles, allMonthCompleted };
+    return { 
+      combinedCycles, 
+      allMonthCompleted: currentMonthPendingCount === 0 
+    };
   },
 
   /**
