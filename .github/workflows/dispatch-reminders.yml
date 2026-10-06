@@ -2,8 +2,8 @@ name: Dispatch Scheduled Reminders
 
 on:
   schedule:
-    - cron: '*/5 * * * *' # Runs every 5 minutes
-  workflow_dispatch: # Allows manual trigger from GitHub UI
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
 
 jobs:
   send-notifications:
@@ -25,4 +25,4 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           FIREBASE_SERVICE_ACCOUNT_BASE64: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_BASE64 }}
-        node frontend/src/services/dispatchReminders.js
+        run: node scripts/dispatchReminders.js
