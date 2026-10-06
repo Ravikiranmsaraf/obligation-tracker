@@ -5,3 +5,7 @@ build/
 .env.local
 *.log
 .DS_Store
+# Ignore Firebase service account key
+firebase-service-account.json
+*.service-account.json
+frontend/src/lib/firebase-service-account.json
