@@ -1,82 +1,70 @@
-import { supabase } from '../lib/supabase';
+import supabase from '../lib/supabase';
+
+const FINISHED_STATUSES = ['paid', 'completed', 'skipped', 'cancelled'];
+
+function getRange() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const day = now.getDate();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const includeNextMonth = day >= daysInMonth - 7;
+
+  return {
+    now,
+    currentYear: year,
+    currentMonth: month,
+    start: new Date(year, month, 1).toISOString(),
+    end: new Date(year, month + (includeNextMonth ? 2 : 1), 1).toISOString(),
+  };
+}
 
 export const cyclesService = {
-  /**
-   * Fetch active cycles with dynamic date filtering
-   */
   async fetchActiveCycles(userId) {
     if (!userId) return { combinedCycles: [], allMonthCompleted: true };
 
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth(); // 0-indexed
-    const currentDay = now.getDate();
-
-    // Calculate total days in current month
-    const totalDaysInCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-    const isLastWeek = currentDay > totalDaysInCurrentMonth - 7;
-
-    // Range Start: Start of current month
-    const startRange = new Date(currentYear, currentMonth, 1).toISOString();
-
-    // Range End: End of current month OR End of next month if in last week
-    let endRange;
-    if (isLastWeek) {
-      endRange = new Date(currentYear, currentMonth + 2, 0, 23, 59, 59).toISOString();
-    } else {
-      endRange = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59).toISOString();
-    }
-
-    const { data: cyclesData, error } = await supabase
+    const { currentYear, currentMonth, start, end } = getRange();
+    const { data, error } = await supabase
       .from('obligation_cycles')
       .select('*')
       .eq('user_id', userId)
-      .neq('status', 'paid')
-      .neq('status', 'completed')
-      .neq('status', 'skipped')
-      .gte('due_date', startRange)
-      .lte('due_date', endRange)
-      .order('due_date', { ascending: true });
+      .not('status', 'in', `(${FINISHED_STATUSES.join(',')})`)
+      .gte('due_timestamp', start)
+      .lt('due_timestamp', end)
+      .order('due_timestamp', { ascending: true });
 
     if (error) throw error;
 
-    const formatCycleCard = (cycle) => ({
+    const combinedCycles = (data || []).map((cycle) => ({
       ...cycle,
-      name: cycle.name || 'Untitled Reminder',
+      name: cycle.name || 'Untitled reminder',
       category: cycle.category || 'Other',
-      type: cycle.type || 'bill',
-    });
+      type: Number(cycle.expected_amount || 0) > 0 ? 'bill' : 'event',
+      due_date: cycle.due_timestamp,
+    }));
 
-    const combinedCycles = (cyclesData || []).map(formatCycleCard);
-
-    // Check if current month items specifically are all finished
-    const currentMonthPendingCount = combinedCycles.filter((item) => {
-      const d = new Date(item.due_date);
-      return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+    const currentMonthPendingCount = combinedCycles.filter((cycle) => {
+      const date = new Date(cycle.due_timestamp);
+      return date.getFullYear() === currentYear && date.getMonth() === currentMonth;
     }).length;
 
-    return { 
-      combinedCycles, 
-      allMonthCompleted: currentMonthPendingCount === 0 
+    return {
+      combinedCycles,
+      allMonthCompleted: currentMonthPendingCount === 0,
     };
   },
 
-  /**
-   * Update cycle status to paid, completed, or skipped
-   */
   async updateCycleStatus(cycleId, amount, note) {
     const isEvent = note === 'completed' || note === 'skipped';
     const status = isEvent ? note : 'paid';
 
-    const updateData = { 
+    const updateData = {
       status,
-      actual_amount: amount ? Number(amount) : null,
       paid_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
     };
 
-    if (note && !isEvent) {
-      updateData.payment_note = note;
+    if (!isEvent && note && typeof note === 'string') {
+      updateData.payment_note = note.trim();
     }
 
     const { data, error } = await supabase
@@ -88,5 +76,7 @@ export const cyclesService = {
 
     if (error) throw error;
     return data;
-  }
+  },
 };
+
+export default cyclesService;
