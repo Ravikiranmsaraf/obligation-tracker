@@ -22,6 +22,7 @@ services:
       - APP_COLOR=blue
       - PORT=3000
       - GROQ_API_KEY=${GROQ_API_KEY}
+      - DEPLOY_COLOR=${DEPLOY_COLOR:-unknown}
 
   frontend-blue:
     build:

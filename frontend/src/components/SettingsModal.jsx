@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { GEN_Z_THEMES } from '../constants/categories';
 
 export default function SettingsModal({
@@ -9,7 +9,24 @@ export default function SettingsModal({
   currencySymbol,
   onSelectCurrency,
 }) {
+  const [deployInfo, setDeployInfo] = useState(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    fetch('/api/info')
+      .then(r => r.json())
+      .then(setDeployInfo)
+      .catch(console.error);
+  }, [isOpen]);
+
   if (!isOpen) return null;
+
+  const colorLabel =
+    deployInfo?.deployColor === 'blue'
+      ? 'Blue'
+      : deployInfo?.deployColor === 'green'
+      ? 'Green'
+      : 'Unknown';
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -19,6 +36,19 @@ export default function SettingsModal({
           <button onClick={onClose} className="text-gray-400 hover:text-white text-lg">
             ✕
           </button>
+        </div>
+
+        {/* Deploy info */}
+        <div className="mb-5">
+          <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+            Deployment
+          </label>
+          <div className="text-xs text-gray-300">
+            Live backend:{' '}
+            <span className={colorLabel === 'Blue' ? 'text-blue-400' : colorLabel === 'Green' ? 'text-green-400' : 'text-gray-400'}>
+              {deployInfo ? colorLabel : 'Loading...'}
+            </span>
+          </div>
         </div>
 
         {/* Theme Chooser */}

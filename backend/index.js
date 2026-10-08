@@ -23,6 +23,16 @@ app.get('/', (req, res) => {
   res.json({ message: 'Hello from Obligation Tracker API' });
 });
 
+const DEPLOY_COLOR = process.env.DEPLOY_COLOR || 'unknown';
+
+app.get('/api/info', (req, res) => {
+  res.json({
+    deployColor: DEPLOY_COLOR,
+    nodeVersion: process.version,
+    uptime: process.uptime(),
+  });
+});
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
