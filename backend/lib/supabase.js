@@ -1,4 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
+const ws = require('ws');
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -6,6 +7,9 @@ const supabase = createClient(
   {
     auth: {
       persistSession: false,
+    },
+    realtime: {
+      transport: ws,
     },
   }
 );
