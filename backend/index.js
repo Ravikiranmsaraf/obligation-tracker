@@ -4,6 +4,7 @@ require('dotenv').config(); // MUST BE AT THE VERY TOP
 const express = require('express');
 const cors = require('cors');
 const Groq = require('groq-sdk');
+const supabase = require('./lib/supabase');
 
 
 const app = express();
@@ -176,16 +177,229 @@ app.get('/whatsapp/webhook', (req, res) => {
 });
 
 
-app.post('/whatsapp/webhook', (req, res) => {
+async function sendWhatsAppText(toPhone, text) {
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+
+
+  if (!accessToken || !phoneNumberId) {
+    console.error(
+      '❌ Missing WHATSAPP_ACCESS_TOKEN or WHATSAPP_PHONE_NUMBER_ID'
+    );
+    return;
+  }
+
+
+  const url = `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`;
+
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: toPhone,
+        type: 'text',
+        text: {
+          preview_url: false,
+          body: text,
+        },
+      }),
+    });
+
+
+    const result = await response.json();
+
+
+    if (!response.ok) {
+      console.error('❌ Meta send message error:', result);
+    } else {
+      console.log('✅ WhatsApp reply sent to', toPhone);
+    }
+  } catch (error) {
+    console.error('❌ Error sending WhatsApp message:', error);
+  }
+}
+
+
+async function getOrCreateWhatsAppSession(phoneNumber) {
+  const { data: existingSession, error: selectError } = await supabase
+    .from('whatsapp_sessions')
+    .select('id, phone_number, user_id, step, payload, expires_at')
+    .eq('phone_number', phoneNumber)
+    .maybeSingle();
+
+
+  if (selectError) {
+    throw selectError;
+  }
+
+
+  if (existingSession) {
+    return existingSession;
+  }
+
+
+  const { data: newSession, error: insertError } = await supabase
+    .from('whatsapp_sessions')
+    .insert({
+      phone_number: phoneNumber,
+      step: 'idle',
+      payload: {},
+    })
+    .select('id, phone_number, user_id, step, payload, expires_at')
+    .single();
+
+
+  if (insertError) {
+    throw insertError;
+  }
+
+
+  return newSession;
+}
+
+
+function getCurrencySymbol(currency) {
+  switch (currency) {
+    case 'USD':
+      return '$';
+    case 'EUR':
+      return '€';
+    case 'GBP':
+      return '£';
+    default:
+      return '₹';
+  }
+}
+
+
+app.post('/whatsapp/webhook', async (req, res) => {
   // Acknowledge Meta immediately; Meta retries if this does not return 2xx.
   res.sendStatus(200);
 
 
   try {
-    console.log('📨 WhatsApp webhook payload:');
-    console.log(JSON.stringify(req.body, null, 2));
+    const value = req.body?.entry?.[0]?.changes?.[0]?.value;
+    const message = value?.messages?.[0];
+
+
+    if (!message || message.type !== 'text') {
+      return;
+    }
+
+
+    const senderPhone = message.from;
+    const messageText = message.text?.body?.trim().toLowerCase();
+
+
+    if (!senderPhone || !messageText) {
+      return;
+    }
+
+
+    console.log(
+      `📨 WhatsApp message from ${senderPhone}: "${messageText}"`
+    );
+
+
+    const normalizedPhone = `+${senderPhone.replace(/^\+/, '')}`;
+
+
+    const session = await getOrCreateWhatsAppSession(normalizedPhone);
+
+
+    if (!session.user_id) {
+      await sendWhatsAppText(
+        senderPhone,
+        'Welcome to Krona! This WhatsApp number is not linked to a Krona account yet.\n\nPlease sign in at https://Settld.duckdns.org and link this phone number to your account.'
+      );
+      return;
+    }
+
+
+    const isPendingRequest =
+      messageText === 'pending' ||
+      messageText === 'pending today' ||
+      messageText === '1' ||
+      messageText === 'hi' ||
+      messageText === 'hello' ||
+      messageText === 'menu';
+
+
+    if (!isPendingRequest) {
+      await sendWhatsAppText(
+        senderPhone,
+        'Welcome to Krona!\n\nReply *pending* to see reminders due today.'
+      );
+      return;
+    }
+
+
+    const today = new Date();
+    const todayISO = today.toISOString().split('T')[0];
+
+
+    const { data: cycles, error: cyclesError } = await supabase
+      .from('obligationcycles')
+      .select(
+        'id, name, category, expectedamount, currency, duedate'
+      )
+      .eq('userid', session.user_id)
+      .eq('status', 'pending')
+      .eq('duedate', todayISO)
+      .order('duedate', { ascending: true });
+
+
+    if (cyclesError) {
+      console.error('❌ Supabase cycles query error:', cyclesError);
+      await sendWhatsAppText(
+        senderPhone,
+        'Sorry, I could not load your reminders right now. Please try again later.'
+      );
+      return;
+    }
+
+
+    if (!cycles || cycles.length === 0) {
+      await sendWhatsAppText(
+        senderPhone,
+        '✅ You have no reminders due today.'
+      );
+      return;
+    }
+
+
+    const currencySymbol = getCurrencySymbol(cycles[0]?.currency);
+
+
+    const lines = cycles.map((cycle, index) => {
+      const amount =
+        cycle.expectedamount && Number(cycle.expectedamount) > 0
+          ? `${currencySymbol}${Number(cycle.expectedamount).toLocaleString(
+              'en-IN'
+            )}`
+          : 'Event';
+
+
+      return `${index + 1}. ${cycle.name || 'Untitled Reminder'} — ${amount}`;
+    });
+
+
+    const reply =
+      `📅 *Pending today*\n\n` +
+      lines.join('\n') +
+      `\n\nReply *pending* anytime to see this list again.`;
+
+
+    await sendWhatsAppText(senderPhone, reply);
   } catch (error) {
-    console.error('Failed to log WhatsApp webhook payload:', error);
+    console.error('❌ WhatsApp webhook processing error:', error);
   }
 });
 
