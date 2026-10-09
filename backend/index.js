@@ -368,7 +368,19 @@ app.post('/whatsapp/webhook', async (req, res) => {
 
 
     if (cyclesError) {
-      console.error('❌ Supabase cycles query error:', cyclesError);
+      console.error(
+        '❌ Supabase cycles query error:',
+        JSON.stringify(
+          {
+            code: cyclesError.code,
+            message: cyclesError.message,
+            details: cyclesError.details,
+            hint: cyclesError.hint,
+          },
+          null,
+          2
+        )
+      );
       await sendWhatsAppText(
         senderPhone,
         'Sorry, I could not load your reminders right now. Please try again later.'
