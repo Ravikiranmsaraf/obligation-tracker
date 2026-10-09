@@ -346,7 +346,7 @@ app.post('/whatsapp/webhook', async (req, res) => {
 
 
     const { data: cycles, error: cyclesError } = await supabase
-      .from('obligationcycles')
+      .from('obligation_cycles')
       .select(
         'id, name, category, expectedamount, currency, duedate'
       )
