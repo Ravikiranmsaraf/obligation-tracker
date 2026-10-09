@@ -337,23 +337,34 @@ app.post('/whatsapp/webhook', async (req, res) => {
         senderPhone,
         'Welcome to Krona!\n\nReply *pending* to see reminders due today.'
       );
-      return;
-    }
+      return;    }
 
 
-    const today = new Date();
-    const todayISO = today.toISOString().split('T')[0];
+    const timeZone = 'Asia/Kolkata'; // Use the user's saved timezone here later
 
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date());
+
+    const getPart = (type) => parts.find((part) => part.type === type).value;
+    const localDate = `${getPart('year')}-${getPart('month')}-${getPart('day')}`;
+
+    // Construct UTC instants for local midnight and the next local midnight.
+    const [year, month, day] = localDate.split('-').map(Number);
+    const startOfDay = new Date(Date.UTC(year, month - 1, day) - 330 * 60 * 1000);
+    const startOfNextDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
 
     const { data: cycles, error: cyclesError } = await supabase
       .from('obligation_cycles')
-      .select(
-        'id, name, category, expectedamount, currency, duedate'
-      )
-      .eq('userid', session.user_id)
+      .select('id, name, category, expected_amount, due_timestamp')
+      .eq('user_id', session.user_id)
       .eq('status', 'pending')
-      .eq('duedate', todayISO)
-      .order('duedate', { ascending: true });
+      .gte('due_timestamp', startOfDay.toISOString())
+      .lt('due_timestamp', startOfNextDay.toISOString())
+      .order('due_timestamp', { ascending: true });
 
 
     if (cyclesError) {
