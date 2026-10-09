@@ -167,7 +167,7 @@ app.get('/whatsapp/webhook', (req, res) => {
 
 
   if (mode === 'subscribe' && token === WHATSAPP_VERIFY_TOKEN) {
-    console.log('✅ WhatsApp webhook verified');
+    console.log('✅ WhatsApp webhook verified !');
     return res.status(200).send(challenge);
   }
 
