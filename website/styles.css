@@ -354,3 +354,23 @@ h1, h2, h3 {
     transition-duration: 0.01ms !important;
   }
 }
+.whatsapp-icon {
+  width: 58px;
+  height: 58px;
+  flex: 0 0 58px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #e9f8ef;
+  color: #168a54;
+}
+
+.whatsapp-icon svg {
+  display: block;
+  width: 27px;
+  height: 27px;
+  max-width: 27px;
+  max-height: 27px;
+  flex: 0 0 27px;
+}
