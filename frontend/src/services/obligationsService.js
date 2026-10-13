@@ -1,7 +1,7 @@
 import supabase from '../lib/supabase';
 
 const DEFAULT_REMINDER_TIME = '09:00';
-const ALLOWED_FREQUENCIES = new Set(['monthly', 'quarterly', 'yearly', 'one-off']);
+const ALLOWED_FREQUENCIES = new Set(['daily', 'weekly', 'monthly', 'quarterly', 'yearly', 'one-off']);
 const UPCOMING_CYCLES_TARGET = 6;
 
 function normalizeTime(value) {
@@ -97,13 +97,33 @@ function buildCycleOccurrences({ frequency, dueDay, dueMonth, userTimezone }) {
   if (frequency === 'one-off') {
     const monthIndex = dueMonth ? dueMonth - 1 : localToday.month;
     let year = localToday.year;
-    const day = Math.min(dueDay, getMonthLastDay(year, monthIndex));
+    const day = Math.min(dueDay || localToday.day, getMonthLastDay(year, monthIndex));
 
     if (isBeforeToday(year, monthIndex, day, localToday)) {
       throw new Error('One-off reminder date must be today or in the future.');
     }
 
     return [{ year, monthIndex, day }];
+  }
+
+  if (frequency === 'daily') {
+    let currentDate = new Date(localToday.year, localToday.month, localToday.day);
+    for (let i = 0; i < 14; i++) {
+      const parts = getLocalDateParts(currentDate, userTimezone);
+      cycles.push({ year: parts.year, monthIndex: parts.month, day: parts.day });
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    return cycles;
+  }
+
+  if (frequency === 'weekly') {
+    let currentDate = new Date(localToday.year, localToday.month, localToday.day);
+    for (let i = 0; i < 8; i++) {
+      const parts = getLocalDateParts(currentDate, userTimezone);
+      cycles.push({ year: parts.year, monthIndex: parts.month, day: parts.day });
+      currentDate.setDate(currentDate.getDate() + 7);
+    }
+    return cycles;
   }
 
   if (frequency === 'yearly') {
@@ -131,7 +151,8 @@ function buildCycleOccurrences({ frequency, dueDay, dueMonth, userTimezone }) {
   const totalCycles = frequency === 'quarterly' ? 4 : 12;
   let firstMonth = localToday.month;
   let firstYear = localToday.year;
-  let firstDay = Math.min(dueDay, getMonthLastDay(firstYear, firstMonth));
+  const safeDueDay = dueDay || localToday.day;
+  let firstDay = Math.min(safeDueDay, getMonthLastDay(firstYear, firstMonth));
 
   if (firstDay < localToday.day) {
     firstMonth += intervalMonths;
@@ -147,7 +168,7 @@ function buildCycleOccurrences({ frequency, dueDay, dueMonth, userTimezone }) {
     cycles.push({
       year,
       monthIndex,
-      day: Math.min(dueDay, getMonthLastDay(year, monthIndex)),
+      day: Math.min(safeDueDay, getMonthLastDay(year, monthIndex)),
     });
   }
 
@@ -166,7 +187,50 @@ export const obligationsService = {
       .order('due_day', { ascending: true });
 
     if (error) throw error;
-    return data;
+
+    const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+    const now = new Date();
+    const localToday = getLocalDateParts(now, userTimezone);
+
+    const filteredData = (data || []).filter((item) => {
+      if (item.frequency !== 'one-off') return true;
+      const day = item.due_day;
+      const month = item.due_month || (localToday.month + 1);
+      const year = item.due_year || localToday.year;
+      return !isBeforeToday(year, month - 1, day, localToday);
+    });
+
+    return filteredData;
+  },
+
+  async pauseObligation(userId, obligationId, startDate, endDate) {
+    if (!userId) throw new Error('You must be signed in.');
+    const { error } = await supabase
+      .from('obligations')
+      .update({
+        is_paused: true,
+        paused_start_date: startDate,
+        paused_end_date: endDate,
+      })
+      .eq('id', obligationId)
+      .eq('user_id', userId);
+
+    if (error) throw error;
+  },
+
+  async resumeObligation(userId, obligationId) {
+    if (!userId) throw new Error('You must be signed in.');
+    const { error } = await supabase
+      .from('obligations')
+      .update({
+        is_paused: false,
+        paused_start_date: null,
+        paused_end_date: null,
+      })
+      .eq('id', obligationId)
+      .eq('user_id', userId);
+
+    if (error) throw error;
   },
 
   async createCycles({
@@ -222,6 +286,7 @@ export const obligationsService = {
           due_timestamp: dueTimestamp,
           notification_sent: false,
           user_timezone: userTimezone,
+          frequency,
         };
       });
 
@@ -229,7 +294,7 @@ export const obligationsService = {
 
     const { error } = await supabase
       .from('obligation_cycles')
-      .upsert(cycles, { onConflict: 'obligation_id,cycle_month', ignoreDuplicates: true });
+      .upsert(cycles, { onConflict: 'obligation_id,due_timestamp', ignoreDuplicates: true });
 
     if (error) throw error;
   },
@@ -300,6 +365,7 @@ export const obligationsService = {
         due_timestamp: dueTimestamp,
         notification_sent: false,
         user_timezone: userTimezone,
+        frequency,
       });
 
       if (newCycles.length >= needed) break;
@@ -309,7 +375,7 @@ export const obligationsService = {
 
     const { error } = await supabase
       .from('obligation_cycles')
-      .upsert(newCycles, { onConflict: 'obligation_id,cycle_month', ignoreDuplicates: true });
+      .upsert(newCycles, { onConflict: 'obligation_id,due_timestamp', ignoreDuplicates: true });
 
     if (error) throw error;
   },
@@ -321,7 +387,7 @@ export const obligationsService = {
     const frequency = ALLOWED_FREQUENCIES.has(formData.frequency)
       ? formData.frequency
       : 'monthly';
-    const dueDay = normalizeDay(formData.due_day ?? formData.dueDay ?? formData.dueday);
+    const dueDay = frequency === 'daily' || frequency === 'weekly' ? 1 : normalizeDay(formData.due_day ?? formData.dueDay ?? formData.dueday);
     const dueMonth = normalizeMonth(formData.due_month ?? formData.dueMonth ?? formData.duemonth);
     const reminderTime = normalizeTime(
       formData.reminder_time ?? formData.reminderTime ?? formData.remindertime ?? formData.due_time ?? formData.duetime,
@@ -369,9 +435,6 @@ export const obligationsService = {
 
       if (cyclesFetchError) throw cyclesFetchError;
 
-      const now = new Date();
-      const localToday = getLocalDateParts(now, userTimezone);
-
       const updates = (cycles || []).map((cycle) => {
         const dueDateParts = getLocalDateParts(new Date(cycle.due_timestamp), cycle.user_timezone || 'UTC');
         const newDueTimestamp = getUtcTimestampForLocalTime(
@@ -392,6 +455,7 @@ export const obligationsService = {
           user_timezone: userTimezone,
           due_timestamp: newDueTimestamp,
           notification_sent: false,
+          frequency,
         };
       });
 
@@ -460,4 +524,4 @@ export const obligationsService = {
   },
 };
 
-export default obligationsService;  
+export default obligationsService;

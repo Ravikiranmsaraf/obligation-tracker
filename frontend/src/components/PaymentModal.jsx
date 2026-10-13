@@ -22,11 +22,7 @@ export default function PaymentModal({
     e.preventDefault();
     setLoading(true);
     try {
-      await onConfirmPayment(cycle.id, {
-        amount_paid: Number(amountPaid),
-        notes: notes.trim(),
-        paid_date: new Date().toISOString().split('T')[0],
-      });
+      await onConfirmPayment(cycle.id, Number(amountPaid), notes.trim());
       onClose();
     } catch (err) {
       console.error('Error recording payment:', err);
@@ -36,11 +32,26 @@ export default function PaymentModal({
     }
   };
 
+  const handleCancelOccurrence = async () => {
+    if (!confirm('Cancel this bill occurrence? It will be removed from your active list.')) return;
+    setLoading(true);
+    try {
+      // Pass 'cancelled' status directly
+      await onConfirmPayment(cycle.id, 'cancelled', 'Cancelled by user');
+      onClose();
+    } catch (err) {
+      console.error('Error cancelling bill:', err);
+      alert('Failed to cancel bill occurrence.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className={`${cardClass} rounded-3xl max-w-sm w-full p-6 shadow-2xl border transition-all`}>
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-bold">Record Payment</h3>
+          <h3 className="text-lg font-bold">Record Bill Payment</h3>
           <button onClick={onClose} className={`${subTextClass} hover:opacity-80 text-lg`}>
             ✕
           </button>
@@ -76,20 +87,31 @@ export default function PaymentModal({
             />
           </div>
 
-          <div className="flex gap-3 pt-2">
+          <div className="flex flex-col gap-2 pt-2">
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className={`w-1/3 font-semibold px-4 py-3 rounded-xl transition-all border ${cardClass}`}
+              >
+                Back
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-2/3 bg-emerald-400 hover:bg-emerald-500 active:bg-emerald-600 text-black font-extrabold px-4 py-3 rounded-xl transition-all disabled:opacity-50 shadow-md text-xs"
+              >
+                {loading ? 'Processing...' : 'Confirm Paid ✓'}
+              </button>
+            </div>
+
             <button
               type="button"
-              onClick={onClose}
-              className={`w-1/3 font-semibold px-4 py-3 rounded-xl transition-all border ${cardClass}`}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
               disabled={loading}
-              className="w-2/3 bg-emerald-400 hover:bg-emerald-500 active:bg-emerald-600 text-black font-extrabold px-4 py-3 rounded-xl transition-all disabled:opacity-50 shadow-md text-xs"
+              onClick={handleCancelOccurrence}
+              className="w-full py-2.5 text-red-400 hover:text-red-300 font-semibold text-xs transition-all"
             >
-              {loading ? 'Recording...' : 'Confirm Paid'}
+              Cancel this occurrence ✕
             </button>
           </div>
         </form>

@@ -148,7 +148,7 @@ export default function ObligationFormModal({
       )}
 
       <h2 className="text-lg font-bold mb-4">
-        {editingItem ? 'Edit Obligation' : activeTab === 'voice' ? 'Add via Voice' : 'Add New Obligation'}
+        {editingItem ? 'Edit Reminder' : activeTab === 'voice' ? 'Add via Voice' : 'Add New Reminder'}
       </h2>
 
       {activeTab === 'voice' && !editingItem ? (
@@ -230,7 +230,7 @@ export default function ObligationFormModal({
                     : `${activeTheme.subText} hover:opacity-80`
                 }`}
               >
-                🎂 Event / Reminder
+                🎂 Event / Task
               </button>
             </div>
           </div>
@@ -243,7 +243,7 @@ export default function ObligationFormModal({
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className={`w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 border ${activeTheme.inputBg}`}
-              placeholder={formData.type === 'event' ? "e.g., Bring Milk, Doctor Appointment" : "e.g., ATM Withdrawal, House Rent"}
+              placeholder={formData.type === 'event' ? "e.g., Bring Milk, Doctor Appointment" : "e.g., Electricity Bill, House Rent"}
             />
           </div>
 
@@ -277,7 +277,10 @@ export default function ObligationFormModal({
                 }}
                 className={`w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 border ${activeTheme.inputBg}`}
               >
+                <option value="daily" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white">Daily</option>
+                <option value="weekly" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white">Weekly</option>
                 <option value="monthly" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white">Monthly</option>
+                <option value="quarterly" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white">Quarterly</option>
                 <option value="yearly" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white">Yearly</option>
                 <option value="one-off" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white">One-Off</option>
               </select>
@@ -321,21 +324,23 @@ export default function ObligationFormModal({
               </div>
             )}
 
-            <div className={formData.type === 'event' && formData.frequency !== 'yearly' ? 'col-span-2' : ''}>
-              <label className={`block text-xs font-semibold ${activeTheme.subText} mb-1`}>
-                {formData.frequency === 'yearly' ? 'Due Date' : 'Due Day of Month'}
-              </label>
-              <input
-                type="number"
-                required
-                min="1"
-                max="31"
-                value={formData.due_day}
-                onChange={(e) => setFormData({ ...formData, due_day: e.target.value })}
-                className={`w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 border ${activeTheme.inputBg}`}
-                placeholder="10"
-              />
-            </div>
+            {formData.frequency !== 'daily' && formData.frequency !== 'weekly' && (
+              <div className={formData.type === 'event' && formData.frequency !== 'yearly' ? 'col-span-2' : ''}>
+                <label className={`block text-xs font-semibold ${activeTheme.subText} mb-1`}>
+                  {formData.frequency === 'yearly' ? 'Due Date' : 'Due Day of Month'}
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  max="31"
+                  value={formData.due_day}
+                  onChange={(e) => setFormData({ ...formData, due_day: e.target.value })}
+                  className={`w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 border ${activeTheme.inputBg}`}
+                  placeholder="10"
+                />
+              </div>
+            )}
           </div>
 
           <div>
@@ -362,7 +367,7 @@ export default function ObligationFormModal({
               disabled={saving}
               className="w-2/3 bg-emerald-400 hover:bg-emerald-500 active:bg-emerald-600 text-black font-extrabold px-4 py-3 rounded-xl transition-all disabled:opacity-50 shadow-md"
             >
-              {saving ? 'Saving...' : editingItem ? 'Update Item' : 'Save Item'}
+              {saving ? 'Saving...' : editingItem ? 'Update Reminder' : 'Save Reminder'}
             </button>
           </div>
         </form>

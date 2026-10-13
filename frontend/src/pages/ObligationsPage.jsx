@@ -14,6 +14,14 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
   const [editingItem, setEditingItem] = useState(null);
   const [saving, setSaving] = useState(false);
 
+  // Pause Modal State
+  const [pauseItem, setPauseItem] = useState(null);
+  const [pauseStartDate, setPauseStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [pauseEndDate, setPauseEndDate] = useState(
+    new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  );
+  const [pausing, setPausing] = useState(false);
+
   // Real-time system preference listener for 'system' theme option
   const [systemPrefersDark, setSystemPrefersDark] = useState(
     window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -42,7 +50,7 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
       const data = await obligationsService.fetchObligations(user.id);
       setObligations(data);
     } catch (error) {
-      console.error('Error loading obligations:', error);
+      console.error('Error loading reminders:', error);
     } finally {
       setLoading(false);
     }
@@ -75,21 +83,53 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
       handleCancelForm();
       await loadObligations();
     } catch (error) {
-      console.error('Error saving obligation:', error);
-      alert('Failed to save obligation. Please try again.');
+      console.error('Error saving reminder:', error);
+      alert('Failed to save reminder. Please try again.');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Remove this obligation? This also clears its future cycles.')) return;
+    if (!confirm('Remove this reminder? This also clears its future cycles.')) return;
     try {
       await obligationsService.deleteObligation(user.id, id);
       await loadObligations();
     } catch (error) {
-      console.error('Error deleting obligation:', error);
-      alert('Failed to delete obligation.');
+      console.error('Error deleting reminder:', error);
+      alert('Failed to delete reminder.');
+    }
+  };
+
+  const handleOpenPauseModal = (item) => {
+    setPauseItem(item);
+    setPauseStartDate(new Date().toISOString().split('T')[0]);
+    setPauseEndDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+  };
+
+  const handleConfirmPause = async (e) => {
+    e.preventDefault();
+    if (!pauseItem) return;
+    setPausing(true);
+    try {
+      await obligationsService.pauseObligation(user.id, pauseItem.id, pauseStartDate, pauseEndDate);
+      setPauseItem(null);
+      await loadObligations();
+    } catch (error) {
+      console.error('Error pausing reminder:', error);
+      alert('Failed to pause reminder.');
+    } finally {
+      setPausing(false);
+    }
+  };
+
+  const handleResume = async (item) => {
+    try {
+      await obligationsService.resumeObligation(user.id, item.id);
+      await loadObligations();
+    } catch (error) {
+      console.error('Error resuming reminder:', error);
+      alert('Failed to resume reminder.');
     }
   };
 
@@ -191,10 +231,12 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
                   CATEGORY_ICONS.Other ||
                   '📌';
 
+                const isPaused = obligation.is_paused;
+
                 return (
                   <div
                     key={obligation.id}
-                    className={`${activeTheme.card} rounded-2xl border p-4 shadow-lg`}
+                    className={`${activeTheme.card} rounded-2xl border p-4 shadow-lg ${isPaused ? 'opacity-75' : ''}`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -235,20 +277,46 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
                       </p>
                     </div>
 
-                    <div className="mt-4 flex justify-end gap-4">
-                      <button
-                        onClick={() => handleOpenEditForm(obligation)}
-                        className="text-emerald-400 hover:text-emerald-300 font-semibold text-xs"
-                      >
-                        Edit
-                      </button>
+                    {isPaused && (
+                      <div className="mt-3 bg-amber-500/10 border border-amber-500/20 rounded-xl p-2 text-xs text-amber-300">
+                        ⏸️ Paused from {obligation.paused_start_date} to {obligation.paused_end_date}
+                      </div>
+                    )}
 
-                      <button
-                        onClick={() => handleDelete(obligation.id)}
-                        className="text-red-400 hover:text-red-300 font-semibold text-xs"
-                      >
-                        Remove
-                      </button>
+                    <div className="mt-4 flex items-center justify-between">
+                      {obligation.frequency !== 'one-off' && (
+                        isPaused ? (
+                          <button
+                            onClick={() => handleResume(obligation)}
+                            className="text-amber-400 hover:text-amber-300 font-semibold text-xs"
+                          >
+                            Resume ▶️
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleOpenPauseModal(obligation)}
+                            className="text-amber-400 hover:text-amber-300 font-semibold text-xs"
+                          >
+                            Pause ⏸️
+                          </button>
+                        )
+                      )}
+
+                      <div className="flex gap-4 ml-auto">
+                        <button
+                          onClick={() => handleOpenEditForm(obligation)}
+                          className="text-emerald-400 hover:text-emerald-300 font-semibold text-xs"
+                        >
+                          Edit
+                        </button>
+
+                        <button
+                          onClick={() => handleDelete(obligation.id)}
+                          className="text-red-400 hover:text-red-300 font-semibold text-xs"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -284,13 +352,20 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
                       CATEGORY_ICONS.Other ||
                       '📌';
 
+                    const isPaused = obligation.is_paused;
+
                     return (
                       <tr
                         key={obligation.id}
-                        className="hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                        className={`hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${isPaused ? 'opacity-75' : ''}`}
                       >
                         <td className="px-6 py-4 font-semibold">
-                          {obligation.name || 'Unnamed Item'}
+                          <div>{obligation.name || 'Unnamed Item'}</div>
+                          {isPaused && (
+                            <span className="inline-block mt-1 bg-amber-500/10 text-amber-300 text-[10px] px-2 py-0.5 rounded border border-amber-500/20">
+                              Paused ({obligation.paused_start_date} to {obligation.paused_end_date})
+                            </span>
+                          )}
                         </td>
 
                         <td className={`px-6 py-4 ${activeTheme.subText}`}>
@@ -325,6 +400,24 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
                         </td>
 
                         <td className="px-6 py-4 text-right space-x-3 whitespace-nowrap">
+                          {obligation.frequency !== 'one-off' && (
+                            isPaused ? (
+                              <button
+                                onClick={() => handleResume(obligation)}
+                                className="text-amber-400 hover:text-amber-300 font-semibold text-xs"
+                              >
+                                Resume
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleOpenPauseModal(obligation)}
+                                className="text-amber-400 hover:text-amber-300 font-semibold text-xs"
+                              >
+                                Pause
+                              </button>
+                            )
+                          )}
+
                           <button
                             onClick={() => handleOpenEditForm(obligation)}
                             className="text-emerald-400 hover:text-emerald-300 font-semibold text-xs"
@@ -348,6 +441,65 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
           </>
         )}
       </div>
+
+      {/* Pause Date-Range Modal */}
+      {pauseItem && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className={`${activeTheme.card} rounded-3xl max-w-sm w-full p-6 shadow-2xl border transition-all`}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold">Pause Reminder</h3>
+              <button onClick={() => setPauseItem(null)} className={`${activeTheme.subText} hover:opacity-80 text-lg`}>
+                ✕
+              </button>
+            </div>
+
+            <p className={`text-xs ${activeTheme.subText} mb-4`}>
+              Pause notifications and hide occurrence list for <span className="font-bold text-amber-400">{pauseItem.name}</span> during these dates:
+            </p>
+
+            <form onSubmit={handleConfirmPause} className="space-y-4">
+              <div>
+                <label className={`block text-xs font-semibold ${activeTheme.subText} mb-1`}>Start Date</label>
+                <input
+                  type="date"
+                  required
+                  value={pauseStartDate}
+                  onChange={(e) => setPauseStartDate(e.target.value)}
+                  className={`w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 border ${activeTheme.inputBg}`}
+                />
+              </div>
+
+              <div>
+                <label className={`block text-xs font-semibold ${activeTheme.subText} mb-1`}>End Date</label>
+                <input
+                  type="date"
+                  required
+                  value={pauseEndDate}
+                  onChange={(e) => setPauseEndDate(e.target.value)}
+                  className={`w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 border ${activeTheme.inputBg}`}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setPauseItem(null)}
+                  className={`w-1/3 font-semibold px-4 py-3 rounded-xl transition-all border ${activeTheme.card}`}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={pausing}
+                  className="w-2/3 bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-black font-extrabold px-4 py-3 rounded-xl transition-all disabled:opacity-50 shadow-md text-xs"
+                >
+                  {pausing ? 'Pausing...' : 'Confirm Pause ⏸️'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
