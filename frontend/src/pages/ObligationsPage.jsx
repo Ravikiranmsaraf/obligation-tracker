@@ -5,7 +5,6 @@ import { GEN_Z_THEMES, CATEGORY_ICONS } from '../constants/categories';
 import { obligationsService } from '../services/obligationsService';
 import ObligationFormModal from '../components/ObligationFormModal';
 
-
 export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -15,14 +14,28 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
   const [editingItem, setEditingItem] = useState(null);
   const [saving, setSaving] = useState(false);
 
+  // Real-time system preference listener for 'system' theme option
+  const [systemPrefersDark, setSystemPrefersDark] = useState(
+    window.matchMedia('(prefers-color-scheme: dark)').matches
+  );
 
-  const activeThemeKey = themeKey || localStorage.getItem('themeKey') || 'cyberLime';
-  const activeTheme = GEN_Z_THEMES[activeThemeKey] || GEN_Z_THEMES.cyberLime;
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (e) => setSystemPrefersDark(e.matches);
+    mediaQuery.addEventListener('change', handler);
+    return () => mediaQuery.removeEventListener('change', handler);
+  }, []);
 
+  const getEffectiveThemeKey = (key) => {
+    const resolvedKey = key || localStorage.getItem('settld_theme') || 'system';
+    if (resolvedKey === 'system') {
+      return systemPrefersDark ? 'cyberLime' : 'light';
+    }
+    return resolvedKey;
+  };
 
-  const bgClass = activeTheme?.bg || 'bg-zinc-950';
-  const cardThemeClass = activeTheme?.card || 'bg-zinc-900 border-zinc-800';
-
+  const activeThemeKey = getEffectiveThemeKey(themeKey);
+  const activeTheme = GEN_Z_THEMES[activeThemeKey] || GEN_Z_THEMES.light;
 
   const loadObligations = async () => {
     try {
@@ -35,17 +48,14 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
     }
   };
 
-
   useEffect(() => {
     if (user) loadObligations();
   }, [user]);
-
 
   const handleOpenCreateForm = () => {
     setEditingItem(null);
     setShowForm(true);
   };
-
 
   const handleOpenEditForm = (item) => {
     setEditingItem(item);
@@ -53,12 +63,10 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-
   const handleCancelForm = () => {
     setShowForm(false);
     setEditingItem(null);
   };
-
 
   const handleSave = async (formData) => {
     setSaving(true);
@@ -74,7 +82,6 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
     }
   };
 
-
   const handleDelete = async (id) => {
     if (!confirm('Remove this obligation? This also clears its future cycles.')) return;
     try {
@@ -86,10 +93,8 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
     }
   };
 
-
   const formatObligationDateTime = (obligation) => {
     let d = null;
-
 
     if (obligation.target_date) {
       d = new Date(obligation.target_date);
@@ -100,55 +105,51 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
       d = new Date(year, month - 1, day);
     }
 
-
     if (!d || isNaN(d.getTime())) return '-';
-
 
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
     const yyyy = d.getFullYear();
     const formattedDate = `${mm}-${dd}-${yyyy}`;
 
-
     const timeStr = obligation.reminder_time || obligation.due_time;
     if (!timeStr) return formattedDate;
-
 
     const [hours, minutes] = timeStr.split(':');
     const h = parseInt(hours, 10);
     if (isNaN(h)) return `${formattedDate} @ ${timeStr}`;
 
-
     const suffix = h >= 12 ? 'PM' : 'AM';
     const formattedHour = h % 12 === 0 ? 12 : h % 12;
     const formattedTime = `${String(formattedHour).padStart(2, '0')}:${minutes || '00'} ${suffix}`;
 
-
     return `${formattedDate} @ ${formattedTime}`;
   };
 
-
   if (loading) {
     return (
-      <div className={`flex items-center justify-center min-h-screen ${bgClass} text-gray-400`}>
+      <div className={`flex items-center justify-center min-h-screen ${activeTheme.bg} ${activeTheme.subText}`}>
         Loading...
       </div>
     );
   }
 
-
   return (
-    <div className={`min-h-screen ${bgClass} text-white transition-colors duration-300 pb-12`}>
-      <div className="p-4 flex justify-between items-center border-b border-white/10 backdrop-blur-md bg-black/30 sticky top-0 z-20">
+    <div className={`min-h-screen ${activeTheme.bg} ${activeTheme.text} transition-colors duration-300 pb-12`}>
+      {/* Header */}
+      <div className={`p-4 flex justify-between items-center border-b ${activeTheme.card} backdrop-blur-md sticky top-0 z-20`}>
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/')}
-            className="text-gray-200 text-lg w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-all active:scale-95"
+            className={`text-lg w-9 h-9 flex items-center justify-center rounded-full transition-all active:scale-95 border ${activeTheme.card}`}
             title="Back to Home"
           >
             ←
           </button>
-          <h1 className="text-lg font-bold text-white">My Reminders</h1>
+          <div>
+            <h1 className="text-lg font-bold">Master List</h1>
+            <p className={`text-[11px] ${activeTheme.subText}`}>Manage your master reminder list</p>
+          </div>
         </div>
         <button
           onClick={showForm ? handleCancelForm : handleOpenCreateForm}
@@ -158,12 +159,11 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
         </button>
       </div>
 
-
       <div className="max-w-4xl mx-auto p-4">
         {showForm && (
           <ObligationFormModal
             editingItem={editingItem}
-            cardThemeClass={cardThemeClass}
+            activeTheme={activeTheme}
             currencySymbol={currencySymbol}
             onSave={handleSave}
             onCancel={handleCancelForm}
@@ -171,10 +171,9 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
           />
         )}
 
-
         {obligations.length === 0 ? (
           <div className="text-center py-20 px-6">
-            <p className="text-gray-400 text-sm">
+            <p className={`${activeTheme.subText} text-sm`}>
               Nothing here yet. Tap "+ Add New" to set up your first reminder.
             </p>
           </div>
@@ -195,18 +194,18 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
                 return (
                   <div
                     key={obligation.id}
-                    className={`${cardThemeClass} rounded-2xl border p-4 shadow-lg`}
+                    className={`${activeTheme.card} rounded-2xl border p-4 shadow-lg`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-lg">{categoryIcon}</span>
-                          <h3 className="font-bold text-white truncate">
+                          <h3 className="font-bold truncate">
                             {obligation.name || 'Unnamed Item'}
                           </h3>
                         </div>
 
-                        <p className="mt-1 text-xs text-gray-400 capitalize">
+                        <p className={`mt-1 text-xs ${activeTheme.subText} capitalize`}>
                           {obligation.category || 'Other'} •{' '}
                           {obligation.frequency || 'monthly'}
                         </p>
@@ -228,7 +227,7 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
                     </div>
 
                     <div className="mt-3 text-sm">
-                      <p className="text-gray-400 text-xs uppercase tracking-wide">
+                      <p className={`${activeTheme.subText} text-xs uppercase tracking-wide`}>
                         Due
                       </p>
                       <p className="font-bold text-emerald-400">
@@ -258,10 +257,10 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
 
             {/* Tablet / desktop: table */}
             <div
-              className={`hidden md:block ${cardThemeClass} rounded-3xl border overflow-x-auto shadow-xl`}
+              className={`hidden md:block ${activeTheme.card} rounded-3xl border overflow-x-auto shadow-xl`}
             >
               <table className="w-full text-left border-collapse min-w-[600px]">
-                <thead className="bg-white/5 border-b border-white/10 text-xs font-bold text-gray-300 uppercase tracking-wider">
+                <thead className={`border-b text-xs font-bold uppercase tracking-wider ${activeTheme.subText} bg-black/5 dark:bg-white/5`}>
                   <tr>
                     <th className="px-6 py-4">Name</th>
                     <th className="px-6 py-4">Category</th>
@@ -274,7 +273,7 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
                   </tr>
                 </thead>
 
-                <tbody className="divide-y divide-white/10 text-sm">
+                <tbody className="divide-y divide-zinc-800/20 text-sm">
                   {obligations.map((obligation) => {
                     const isEvent =
                       obligation.type === 'event' ||
@@ -288,13 +287,13 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
                     return (
                       <tr
                         key={obligation.id}
-                        className="hover:bg-white/5 transition-colors"
+                        className="hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
                       >
-                        <td className="px-6 py-4 font-semibold text-white">
+                        <td className="px-6 py-4 font-semibold">
                           {obligation.name || 'Unnamed Item'}
                         </td>
 
-                        <td className="px-6 py-4 text-gray-300">
+                        <td className={`px-6 py-4 ${activeTheme.subText}`}>
                           <span className="inline-flex items-center gap-1.5">
                             <span>{categoryIcon}</span>
                             <span>{obligation.category || 'Other'}</span>
@@ -305,7 +304,7 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
                           {formatObligationDateTime(obligation)}
                         </td>
 
-                        <td className="px-6 py-4 font-bold text-white">
+                        <td className="px-6 py-4 font-bold">
                           {!isEvent && obligation.expected_amount > 0
                             ? `${currencySymbol}${Number(
                                 obligation.expected_amount
@@ -313,12 +312,12 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
                             : 'Event 🎂'}
                         </td>
 
-                        <td className="px-6 py-4 capitalize text-gray-300">
+                        <td className={`px-6 py-4 capitalize ${activeTheme.subText}`}>
                           <span
                             className={`px-2 py-0.5 rounded text-xs ${
                               obligation.frequency === 'one-off'
                                 ? 'bg-amber-500/20 text-amber-300'
-                                : 'bg-white/10 text-gray-200'
+                                : 'bg-black/10 dark:bg-white/10'
                             }`}
                           >
                             {obligation.frequency || 'monthly'}

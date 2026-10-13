@@ -53,22 +53,19 @@ export default function NextActionCard({
   };
 
   const handleTouchEnd = () => {
-    const minSwipeDistance = 50; // Minimum px distance to consider a swipe
+    const minSwipeDistance = 50;
     const distance = touchStartX.current - touchEndX.current;
 
-    // Swipe Left -> Next Card
     if (distance > minSwipeDistance && activeIndex < cycles.length - 1) {
       setActiveIndex((prev) => prev + 1);
     }
-
-    // Swipe Right -> Previous Card
     if (distance < -minSwipeDistance && activeIndex > 0) {
       setActiveIndex((prev) => prev - 1);
     }
   };
 
   return (
-    <div className="w-full max-w-md mx-auto mt-1 px-1">
+    <div className="w-full max-w-md mx-auto mt-2 px-1">
       {/* Shared Category Counter Bar */}
       <CategoryCounterBar cycles={cycles} themeKey={themeKey} />
 
@@ -76,13 +73,13 @@ export default function NextActionCard({
 
       {cycles.length > 0 ? (
         <>
-          <div className="text-xs text-gray-400 mb-2 text-center select-none font-medium">
-            {currentMonthRemaining} remaining for this month • Showing card {activeIndex + 1} of {cycles.length}
+          <div className="text-xs text-gray-400 mb-3 text-center select-none font-medium tracking-wide">
+            <span className="text-emerald-400 font-bold">{currentMonthRemaining}</span> remaining this month • Card <span className="text-white font-bold">{activeIndex + 1}</span> of {cycles.length}
           </div>
 
           {/* Swipeable Viewport */}
           <div
-            className="relative overflow-hidden py-2 w-full touch-pan-y"
+            className="relative overflow-hidden py-3 w-full touch-pan-y"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
@@ -90,7 +87,7 @@ export default function NextActionCard({
             <div
               className="flex transition-transform duration-300 ease-out"
               style={{
-                transform: `translateX(${-activeIndex * 80 + 10}%)`,
+                transform: `translateX(${-activeIndex * 85 + 7.5}%)`,
               }}
             >
               {cycles.map((item, index) => (
@@ -107,18 +104,18 @@ export default function NextActionCard({
           </div>
 
           {/* Navigation Controls */}
-          <div className="flex justify-between items-center px-4 mt-1">
+          <div className="flex justify-between items-center px-6 mt-3">
             <button
               disabled={activeIndex === 0}
               onClick={() => setActiveIndex((prev) => Math.max(0, prev - 1))}
-              className="px-4 py-2 bg-black/50 border border-white/10 rounded-xl text-xs font-bold text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-black/70 transition-all"
+              className="px-5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-2xl text-xs font-bold text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-zinc-800 hover:text-white transition-all shadow-sm active:scale-95"
             >
               ← Previous
             </button>
             <button
               disabled={activeIndex === cycles.length - 1}
               onClick={() => setActiveIndex((prev) => Math.min(cycles.length - 1, prev + 1))}
-              className="px-4 py-2 bg-black/50 border border-white/10 rounded-xl text-xs font-bold text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-black/70 transition-all"
+              className="px-5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-2xl text-xs font-bold text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-zinc-800 hover:text-white transition-all shadow-sm active:scale-95"
             >
               Next →
             </button>

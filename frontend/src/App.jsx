@@ -1,7 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import NextActionCard from './components/NextActionCard';
 import ObligationListView from './components/ObligationListView';
 import ObligationsPage from './pages/ObligationsPage';
 import SettingsModal from './components/SettingsModal';
@@ -97,20 +96,31 @@ function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // View Preference State ('cards' | 'list')
-  const [viewMode, setViewMode] = useState(() => localStorage.getItem('viewMode') || 'cards');
-
-  const handleToggleViewMode = (mode) => {
-    setViewMode(mode);
-    localStorage.setItem('viewMode', mode);
-  };
-
   const { needsOnboarding, loading: onboardingLoading, completeOnboarding } = useOnboarding(user?.id);
 
-  const activeTheme = GEN_Z_THEMES[themeKey] || GEN_Z_THEMES.cyberLime;
-  const cardThemeClass = activeTheme?.card || 'bg-zinc-900 border-zinc-800';
+  // Real-time system preference listener for 'system' theme option
+  const [systemPrefersDark, setSystemPrefersDark] = useState(
+    window.matchMedia('(prefers-color-scheme: dark)').matches
+  );
 
-  const { cycles, allMonthCompleted, loading, markCyclePaid, refreshCycles } = useObligationCycles(user?.id);
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (e) => setSystemPrefersDark(e.matches);
+    mediaQuery.addEventListener('change', handler);
+    return () => mediaQuery.removeEventListener('change', handler);
+  }, []);
+
+  const getEffectiveThemeKey = (key) => {
+    if (key === 'system') {
+      return systemPrefersDark ? 'cyberLime' : 'light';
+    }
+    return key || 'light';
+  };
+
+  const effectiveThemeKey = getEffectiveThemeKey(themeKey);
+  const activeTheme = GEN_Z_THEMES[effectiveThemeKey] || GEN_Z_THEMES.light;
+
+  const { cycles, loading, markCyclePaid, refreshCycles } = useObligationCycles(user?.id);
 
   const handleSave = async (formData) => {
     setSaving(true);
@@ -141,7 +151,7 @@ function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
 
   if (needsOnboarding) {
     return (
-      <div className={`min-h-screen ${activeTheme.bg} text-gray-100 flex items-center justify-center p-4`}>
+      <div className={`min-h-screen ${activeTheme.bg} ${activeTheme.text} flex items-center justify-center p-4`}>
         <OnboardingWizard
           user={user}
           currentThemeKey={themeKey}
@@ -155,87 +165,72 @@ function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
   }
 
   return (
-    <div className={`min-h-screen pb-24 transition-colors duration-300 ${activeTheme.bg} text-gray-100`}>
+    <div className={`min-h-screen pb-24 transition-colors duration-300 ${activeTheme.bg} ${activeTheme.text}`}>
       {/* Header */}
-      <div className="px-4 py-4 flex justify-between items-center border-b border-zinc-800 bg-zinc-950/50 backdrop-blur-md sticky top-0 z-20">
+      <div className={`px-4 py-4 flex justify-between items-center border-b ${activeTheme.card} backdrop-blur-md sticky top-0 z-20`}>
         <h1 className="text-xl font-extrabold tracking-tight">Settld</h1>
-
-        <div className="flex items-center gap-2">
-          {/* View Switcher Toggle */}
-          <div className="bg-zinc-900 border border-zinc-800 p-1 rounded-xl flex gap-1">
-            <button
-              onClick={() => handleToggleViewMode('cards')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                viewMode === 'cards' ? 'bg-emerald-400 text-black shadow' : 'text-gray-400 hover:text-white'
-              }`}
-              title="Card View"
-            >
-              🎴 Cards
-            </button>
-            <button
-              onClick={() => handleToggleViewMode('list')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                viewMode === 'list' ? 'bg-emerald-400 text-black shadow' : 'text-gray-400 hover:text-white'
-              }`}
-              title="List View"
-            >
-              📜 List
-            </button>
-          </div>
-
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="bg-emerald-400 hover:bg-emerald-500 text-black font-extrabold px-3 py-1.5 rounded-xl transition-all text-xs shadow-md"
-          >
-            {showForm ? 'Cancel' : '+ Add New'}
-          </button>
-          <button
-            onClick={() => setShowSettings(true)}
-            className="p-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs hover:bg-zinc-800 transition-colors text-gray-300"
-          >
-            ⚙️
-          </button>
-        </div>
       </div>
 
       <div className="max-w-md mx-auto px-4 pt-4">
+        {/* Expandable Inline Capture Section */}
         {showForm ? (
           <ObligationFormModal
             editingItem={null}
-            cardThemeClass={cardThemeClass}
+            activeTheme={activeTheme}
             currencySymbol={currencySymbol}
             onSave={handleSave}
             onCancel={() => setShowForm(false)}
             saving={saving}
           />
-        ) : loading ? (
-          <div className="flex items-center justify-center min-h-[50vh] text-gray-400 text-sm">
+        ) : (
+          /* Theme-aware Quick-Capture Card */
+          <div
+            onClick={() => setShowForm(true)}
+            className={`${activeTheme.inputBg} rounded-2xl p-4 mb-4 shadow-sm cursor-pointer transition-all flex items-center justify-between group border`}
+          >
+            <div className="flex items-center gap-3">
+              <span className="w-10 h-10 rounded-xl bg-emerald-400/10 border border-emerald-400/20 flex items-center justify-center text-lg group-hover:scale-105 transition-transform">
+                🎙️
+              </span>
+              <div>
+                <p className="font-bold text-xs tracking-wide">Add reminder by saying or typing...</p>
+                <p className={`text-[11px] ${activeTheme.subText} mt-0.5`}>Tap to quick-capture bill or event</p>
+              </div>
+            </div>
+            <span className="text-xs font-bold text-emerald-500 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 group-hover:bg-emerald-400 group-hover:text-black transition-all">
+              + New
+            </span>
+          </div>
+        )}
+
+        {loading ? (
+          <div className={`flex items-center justify-center min-h-[40vh] ${activeTheme.subText} text-sm`}>
             Loading upcoming items...
           </div>
-        ) : viewMode === 'cards' ? (
-          <NextActionCard
-            cycles={cycles}
-            allMonthCompleted={allMonthCompleted}
-            onMarkPaid={markCyclePaid}
-            currencySymbol={currencySymbol}
-            themeKey={themeKey}
-          />
         ) : (
           <ObligationListView
             cycles={cycles}
             onMarkPaid={markCyclePaid}
             currencySymbol={currencySymbol}
+            activeTheme={activeTheme}
           />
         )}
       </div>
 
       {/* Navigation Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-zinc-950 border-t border-zinc-800 flex justify-around py-3 px-4 z-40">
-        <Link to="/obligations" className="flex flex-col items-center text-sm font-medium text-gray-300 hover:text-white">
-          My Reminders
+      <div className={`fixed bottom-0 left-0 right-0 border-t flex justify-around py-3 px-4 z-40 ${activeTheme.card}`}>
+        <Link to="/obligations" className="flex flex-col items-center text-xs font-bold hover:opacity-80">
+          <span>📌</span>
+          <span className="mt-0.5">Master List</span>
         </Link>
-        <button onClick={signOut} className="flex flex-col items-center text-sm font-medium text-gray-400 hover:text-white">
-          Sign Out
+        <button
+          onClick={() => setShowSettings(true)}
+          className={`flex flex-col items-center text-xs font-bold ${activeTheme.subText} hover:opacity-80`}
+        >
+          <span className="w-5 h-5 rounded-full bg-emerald-400 text-black flex items-center justify-center text-[10px] font-extrabold">
+            {(user?.user_metadata?.full_name || user?.email || 'U')[0].toUpperCase()}
+          </span>
+          <span className="mt-0.5">Profile</span>
         </button>
       </div>
 
@@ -247,13 +242,16 @@ function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
         onSelectTheme={setThemeKey}
         currencySymbol={currencySymbol}
         onSelectCurrency={setCurrencySymbol}
+        onSignOut={signOut}
+        user={user}
+        activeTheme={activeTheme}
       />
     </div>
   );
 }
 
 export default function App() {
-  const [themeKey, setThemeKey] = useState(() => localStorage.getItem('themeKey') || 'cyberLime');
+  const [themeKey, setThemeKey] = useState(() => localStorage.getItem('settld_theme') || 'system');
   const [currencySymbol, setCurrencySymbol] = useState(() => localStorage.getItem('currencySymbol') || '₹');
 
   return (
@@ -268,7 +266,7 @@ export default function App() {
                 <Home
                   themeKey={themeKey}
                   setThemeKey={(key) => {
-                    localStorage.setItem('themeKey', key);
+                    localStorage.setItem('settld_theme', key);
                     setThemeKey(key);
                   }}
                   currencySymbol={currencySymbol}
