@@ -735,50 +735,6 @@ export default function CelebrationCard({ currentMonthName }) {
 }
 </file>
 
-<file path="frontend/src/components/EventModal.jsx">
-export default function EventModal({ cycle, onClose, onConfirm }) {
-  if (!cycle) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 w-full max-w-sm text-white shadow-2xl relative text-center">
-        <div className="w-12 h-12 rounded-2xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-2xl mx-auto mb-3">
-          🎉
-        </div>
-
-        <h3 className="text-lg font-bold text-white mb-1">{cycle.title || 'Event Reminder'}</h3>
-        <p className="text-xs text-gray-400 mb-6">
-          Did you attend, wish, or complete this event?
-        </p>
-
-        <div className="space-y-2.5">
-          <button
-            onClick={() => onConfirm('completed')}
-            className="w-full bg-emerald-400 hover:bg-emerald-300 text-black font-bold py-3 rounded-2xl text-xs transition-colors shadow-md"
-          >
-            Yes, Completed! 🎉
-          </button>
-
-          <button
-            onClick={() => onConfirm('skipped')}
-            className="w-full bg-zinc-800 hover:bg-zinc-700 text-gray-300 font-semibold py-3 rounded-2xl text-xs transition-colors"
-          >
-            Skipped ⏭️
-          </button>
-
-          <button
-            onClick={onClose}
-            className="w-full py-2 text-xs text-gray-500 hover:text-gray-300 transition-colors"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-</file>
-
 <file path="frontend/src/components/HelpModal.jsx">
 import { CATEGORY_GUIDE } from '../constants/categories';
 
@@ -952,121 +908,6 @@ export default function ObligationCard({ obligation, onEdit, onBrowse, speak, cu
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-</file>
-
-<file path="frontend/src/components/ObligationListView.jsx">
-import React, { useState } from 'react';
-import { CATEGORY_ICONS, CATEGORY_COLORS } from '../constants/categories';
-import CategoryCounterBar from './CategoryCounterBar';
-import PaymentModal from './PaymentModal';
-import EventModal from './EventModal';
-import { triggerFeedback } from '../utils/feedbackUtils';
-
-export default function ObligationListView({
-  cycles = [],
-  onMarkPaid,
-  currencySymbol = '₹',
-  themeKey = 'cyberLime',
-}) {
-  const [selectedCycle, setSelectedCycle] = useState(null);
-
-  if (!cycles || cycles.length === 0) {
-    return (
-      <div className="bg-zinc-900/60 border border-zinc-800 rounded-3xl p-8 text-center text-gray-400 text-sm">
-        All clear for now! 🎉 No pending obligations.
-      </div>
-    );
-  }
-
-  const isMonetary = selectedCycle && Number(selectedCycle.expected_amount) > 0;
-
-  return (
-    <div>
-      {/* Shared Category Counter Bar */}
-      <CategoryCounterBar cycles={cycles} themeKey={themeKey} />
-
-      <div className="space-y-3 mt-2">
-        {cycles.map((item) => {
-          const categoryKey = item.category || 'Other';
-          const icon = CATEGORY_ICONS[categoryKey] || CATEGORY_ICONS.Other;
-          const colors = CATEGORY_COLORS[categoryKey] || CATEGORY_COLORS.Other;
-          const isEvent = item.type === 'event' || Number(item.expected_amount) === 0;
-
-          const dueDateObj = item.due_date ? new Date(item.due_date) : new Date();
-          const formattedDate = dueDateObj.toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-          });
-
-          return (
-            <div
-              key={item.id}
-              className={`flex items-center justify-between p-4 rounded-2xl border ${colors.bg} ${colors.border} transition-all hover:scale-[1.01]`}
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-xl p-2 rounded-xl bg-black/30">{icon}</span>
-                <div>
-                  <h3 className="font-bold text-white text-sm">{item.name}</h3>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${colors.badge}`}>
-                      {categoryKey}
-                    </span>
-                    <span className="text-xs text-gray-400">
-                      Due: {formattedDate}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <div className="text-right">
-                  <p className="font-black text-sm text-white">
-                    {!isEvent
-                      ? `${currencySymbol}${Number(item.expected_amount || 0).toLocaleString('en-IN')}`
-                      : 'Event 🎂'}
-                  </p>
-                  <p className="text-[10px] text-gray-400 capitalize">{item.frequency || 'monthly'}</p>
-                </div>
-
-                <button
-                  onClick={() => setSelectedCycle(item)}
-                  className="bg-emerald-400 hover:bg-emerald-300 text-black font-extrabold px-3 py-1.5 rounded-xl text-xs transition-all shadow-md active:scale-95"
-                >
-                  Done ✓
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Standard Payment / Event Modal */}
-      {selectedCycle && (
-        isMonetary ? (
-          <PaymentModal
-            cycle={selectedCycle}
-            onClose={() => setSelectedCycle(null)}
-            onConfirm={async (amount, note) => {
-              triggerFeedback();
-              if (onMarkPaid) await onMarkPaid(selectedCycle.id, amount, note);
-              setSelectedCycle(null);
-            }}
-          />
-        ) : (
-          <EventModal
-            cycle={selectedCycle}
-            onClose={() => setSelectedCycle(null)}
-            onConfirm={async (status) => {
-              triggerFeedback();
-              if (onMarkPaid) await onMarkPaid(selectedCycle.id, 0, status);
-              setSelectedCycle(null);
-            }}
-          />
-        )
-      )}
     </div>
   );
 }
@@ -1402,193 +1243,6 @@ export const triggerFeedback = () => {
     console.log('Audio feedback skipped', e);
   }
 };
-</file>
-
-<file path="frontend/src/App.css">
-.counter {
-  font-size: 16px;
-  padding: 5px 10px;
-  border-radius: 5px;
-  color: var(--accent);
-  background: var(--accent-bg);
-  border: 2px solid transparent;
-  transition: border-color 0.3s;
-  margin-bottom: 24px;
-
-  &:hover {
-    border-color: var(--accent-border);
-  }
-  &:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
-}
-
-.hero {
-  position: relative;
-
-  .base,
-  .framework,
-  .vite {
-    inset-inline: 0;
-    margin: 0 auto;
-  }
-
-  .base {
-    width: 170px;
-    position: relative;
-    z-index: 0;
-  }
-
-  .framework,
-  .vite {
-    position: absolute;
-  }
-
-  .framework {
-    z-index: 1;
-    top: 34px;
-    height: 28px;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg)
-      scale(1.4);
-  }
-
-  .vite {
-    z-index: 0;
-    top: 107px;
-    height: 26px;
-    width: auto;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg)
-      scale(0.8);
-  }
-}
-
-#center {
-  display: flex;
-  flex-direction: column;
-  gap: 25px;
-  place-content: center;
-  place-items: center;
-  flex-grow: 1;
-
-  @media (max-width: 1024px) {
-    padding: 32px 20px 24px;
-    gap: 18px;
-  }
-}
-
-#next-steps {
-  display: flex;
-  border-top: 1px solid var(--border);
-  text-align: left;
-
-  & > div {
-    flex: 1 1 0;
-    padding: 32px;
-    @media (max-width: 1024px) {
-      padding: 24px 20px;
-    }
-  }
-
-  .icon {
-    margin-bottom: 16px;
-    width: 22px;
-    height: 22px;
-  }
-
-  @media (max-width: 1024px) {
-    flex-direction: column;
-    text-align: center;
-  }
-}
-
-#docs {
-  border-right: 1px solid var(--border);
-
-  @media (max-width: 1024px) {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
-}
-
-#next-steps ul {
-  list-style: none;
-  padding: 0;
-  display: flex;
-  gap: 8px;
-  margin: 32px 0 0;
-
-  .logo {
-    height: 18px;
-  }
-
-  a {
-    color: var(--text-h);
-    font-size: 16px;
-    border-radius: 6px;
-    background: var(--social-bg);
-    display: flex;
-    padding: 6px 12px;
-    align-items: center;
-    gap: 8px;
-    text-decoration: none;
-    transition: box-shadow 0.3s;
-
-    &:hover {
-      box-shadow: var(--shadow);
-    }
-    .button-icon {
-      height: 18px;
-      width: 18px;
-    }
-  }
-
-  @media (max-width: 1024px) {
-    margin-top: 20px;
-    flex-wrap: wrap;
-    justify-content: center;
-
-    li {
-      flex: 1 1 calc(50% - 8px);
-    }
-
-    a {
-      width: 100%;
-      justify-content: center;
-      box-sizing: border-box;
-    }
-  }
-}
-
-#spacer {
-  height: 88px;
-  border-top: 1px solid var(--border);
-  @media (max-width: 1024px) {
-    height: 48px;
-  }
-}
-
-.ticks {
-  position: relative;
-  width: 100%;
-
-  &::before,
-  &::after {
-    content: '';
-    position: absolute;
-    top: -4.5px;
-    border: 5px solid transparent;
-  }
-
-  &::before {
-    left: 0;
-    border-left-color: var(--border);
-  }
-  &::after {
-    right: 0;
-    border-right-color: var(--border);
-  }
-}
 </file>
 
 <file path="frontend/src/main.jsx">
@@ -2793,492 +2447,6 @@ export default function CategoryCounterBar({ cycles = [], themeKey = 'cyberLime'
 }
 </file>
 
-<file path="frontend/src/components/OnboardingWizard.jsx">
-import { useState } from 'react';
-import { GEN_Z_THEMES, CATEGORY_ICONS, STANDARD_CATEGORIES } from '../constants/categories';
-import { obligationsService } from '../services/obligationsService';
-
-const PRESETS = [
-  { name: 'House Rent', category: 'Bills', defaultDay: 1, defaultAmount: 15000, frequency: 'monthly' },
-  { name: 'Electricity Bill', category: 'Bills', defaultDay: 2, defaultAmount: 1500, frequency: 'monthly' },
-  { name: 'OTT Subscription', category: 'Subscriptions', defaultDay: 5, defaultAmount: 499, frequency: 'monthly' },
-  { name: 'Car Insurance Renewal', category: 'Insurance', defaultDay: 15, defaultAmount: 8500, frequency: 'yearly' },
-];
-
-export default function OnboardingWizard({
-  user,
-  currentThemeKey,
-  onSelectTheme,
-  currentCurrency,
-  onSelectCurrency,
-  onNext,
-}) {
-  const [step, setStep] = useState(1);
-  const [addedItems, setAddedItems] = useState([]);
-
-  const [editingPreset, setEditingPreset] = useState(null);
-
-  // Custom Addition State
-  const [customName, setCustomName] = useState('');
-  const [customAmount, setCustomAmount] = useState('');
-  const [customCategory, setCustomCategory] = useState('Bills');
-  const [customDay, setCustomDay] = useState('5');
-  const [customTime, setCustomTime] = useState('09:00');
-  const [customFrequency, setCustomFrequency] = useState('one-off');
-
-  const [saving, setSaving] = useState(false);
-
-  const rawName = user?.user_metadata?.full_name || user?.user_metadata?.name || 'Friend';
-  const firstName = rawName.split(' ')[0];
-
-  const currencies = [
-    { symbol: '₹', label: 'INR (₹)' },
-    { symbol: '$', label: 'USD ($)' },
-    { symbol: '€', label: 'EUR (€)' },
-    { symbol: '£', label: 'GBP (£)' },
-  ];
-
-  const handleSelectPreset = (preset) => {
-    setEditingPreset({
-      name: preset.name,
-      category: preset.category,
-      dueDay: preset.defaultDay,
-      amount: preset.defaultAmount,
-      frequency: preset.frequency,
-      dueTime: '09:00',
-    });
-  };
-
-  const handleSaveObligation = async (itemData) => {
-    if (!user?.id) return;
-    setSaving(true);
-    try {
-      const parsedAmount = parseFloat(itemData.amount) || 0;
-      const parsedDay = parseInt(itemData.dueDay, 10) || 1;
-      const now = new Date();
-
-      const payload = {
-        name: itemData.name,
-        category: itemData.category || 'Bills',
-        due_day: parsedDay,
-        due_month: now.getMonth() + 1,
-        due_year: now.getFullYear(),
-        reminder_time: itemData.dueTime || '09:00',
-        expected_amount: parsedAmount,
-        amount: parsedAmount,
-        frequency: itemData.frequency || 'one-off',
-        type: parsedAmount > 0 ? 'monetary' : 'event',
-      };
-
-      await obligationsService.saveObligation(user.id, payload);
-      setAddedItems((prev) => [...prev, payload]);
-
-      setEditingPreset(null);
-      setCustomName('');
-      setCustomAmount('');
-    } catch (err) {
-      console.error('Failed to save onboarding obligation:', err);
-      alert('Could not add obligation. Please try again.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (step === 1) {
-    return (
-      <div className="max-w-md w-full bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-2xl space-y-5">
-        <div className="flex justify-between items-center text-xs font-semibold text-gray-400">
-          <span>STEP 1 OF 2</span>
-          <span className="text-emerald-400">Personalize</span>
-        </div>
-
-        <div>
-          <h2 className="text-2xl font-black tracking-tight text-white">
-            Welcome, {firstName}! 👋
-          </h2>
-          <p className="text-sm text-gray-400 mt-1">Let's configure Settld to match your style.</p>
-        </div>
-
-        {/* Currency Selection */}
-        <div className="space-y-2">
-          <label className="text-xs font-bold uppercase tracking-wider text-gray-400">
-            Preferred Currency
-          </label>
-          <div className="grid grid-cols-4 gap-2">
-            {currencies.map((curr) => (
-              <button
-                key={curr.symbol}
-                type="button"
-                onClick={() => onSelectCurrency(curr.symbol)}
-                className={`py-2.5 rounded-xl border text-sm font-bold transition-all ${
-                  currentCurrency === curr.symbol
-                    ? 'border-emerald-400 bg-emerald-400/10 text-emerald-400'
-                    : 'border-zinc-800 bg-zinc-950 text-gray-400 hover:border-zinc-700'
-                }`}
-              >
-                {curr.symbol}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Theme Selection */}
-        <div className="space-y-2">
-          <label className="text-xs font-bold uppercase tracking-wider text-gray-400">
-            Aesthetic Theme
-          </label>
-          <div className="space-y-2">
-            {Object.keys(GEN_Z_THEMES).map((key) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => onSelectTheme(key)}
-                className={`w-full p-3 rounded-xl border text-xs font-bold flex justify-between items-center transition-all ${
-                  currentThemeKey === key
-                    ? 'border-emerald-400 bg-emerald-400/10 text-emerald-400'
-                    : 'border-zinc-800 bg-zinc-950 text-gray-400 hover:border-zinc-700'
-                }`}
-              >
-                <span>{GEN_Z_THEMES[key].name}</span>
-                {currentThemeKey === key && <span>✓</span>}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <button
-          onClick={() => setStep(2)}
-          className="w-full bg-emerald-400 hover:bg-emerald-300 text-black font-extrabold py-3.5 rounded-2xl transition-all shadow-lg shadow-emerald-400/20 text-sm"
-        >
-          Next: Add Your Reminders ➔
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="max-w-md w-full bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-2xl space-y-5">
-      <div className="flex justify-between items-center text-xs font-semibold text-gray-400">
-        <span>STEP 2 OF 2</span>
-        <span className="text-emerald-400">Add Reminders</span>
-      </div>
-
-      <div>
-        <h2 className="text-xl font-black tracking-tight text-white">
-          Add at least 1 reminder 📌
-        </h2>
-        <p className="text-xs text-gray-400 mt-1">
-          Tap a preset or create a custom reminder with your preferred category and frequency.
-        </p>
-      </div>
-
-      {/* Quick Presets */}
-      <div className="space-y-2">
-        <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-          Quick Presets
-        </label>
-        <div className="flex flex-wrap gap-2">
-          {PRESETS.map((preset) => {
-            const isAdded = addedItems.some((i) => i.name === preset.name);
-            return (
-              <button
-                key={preset.name}
-                disabled={saving || isAdded}
-                onClick={() => handleSelectPreset(preset)}
-                className={`text-xs px-3 py-2 rounded-xl border flex items-center gap-1.5 transition-all ${
-                  isAdded
-                    ? 'bg-emerald-950/50 border-emerald-500 text-emerald-400 cursor-default'
-                    : 'bg-zinc-800/80 border-zinc-700 text-gray-200 hover:border-emerald-400 hover:bg-zinc-800'
-                }`}
-              >
-                <span>{CATEGORY_ICONS[preset.category] || '⚡'}</span>
-                <span>{preset.name}</span>
-                {isAdded ? '✓' : '+'}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Preset Customization */}
-      {editingPreset && (
-        <div className="bg-zinc-950 border border-emerald-500/50 rounded-2xl p-3.5 space-y-3">
-          <div className="flex justify-between items-center">
-            <span className="text-xs font-bold text-emerald-400">✏️️ Adjust {editingPreset.name}</span>
-            <button onClick={() => setEditingPreset(null)} className="text-xs text-gray-500 hover:text-white">✕ Cancel</button>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-[10px] text-gray-400 block mb-1">Due Day (1-31)</label>
-              <input
-                type="number"
-                min="1"
-                max="31"
-                value={editingPreset.dueDay}
-                onChange={(e) => setEditingPreset({ ...editingPreset, dueDay: e.target.value })}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-2.5 py-1.5 text-xs text-white"
-              />
-            </div>
-            <div>
-              <label className="text-[10px] text-gray-400 block mb-1">Amount ({currentCurrency})</label>
-              <input
-                type="number"
-                value={editingPreset.amount}
-                onChange={(e) => setEditingPreset({ ...editingPreset, amount: e.target.value })}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-2.5 py-1.5 text-xs text-white"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-[10px] text-gray-400 block mb-1">Due Time (24h)</label>
-              <input
-                type="time"
-                value={editingPreset.dueTime}
-                onChange={(e) => setEditingPreset({ ...editingPreset, dueTime: e.target.value })}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-2.5 py-1.5 text-xs text-white"
-              />
-            </div>
-            <div>
-              <label className="text-[10px] text-gray-400 block mb-1">Frequency</label>
-              <select
-                value={editingPreset.frequency}
-                onChange={(e) => setEditingPreset({ ...editingPreset, frequency: e.target.value })}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-2.5 py-1.5 text-xs text-white"
-              >
-                <option value="one-off">One-off</option>
-                <option value="monthly">Monthly</option>
-                <option value="quarterly">Quarterly</option>
-                <option value="yearly">Yearly</option>
-              </select>
-            </div>
-          </div>
-
-          <button
-            onClick={() => handleSaveObligation(editingPreset)}
-            disabled={saving || !editingPreset.amount || !editingPreset.dueDay}
-            className="w-full bg-emerald-400 hover:bg-emerald-300 text-black font-extrabold py-2 rounded-xl text-xs"
-          >
-            {saving ? 'Adding...' : `Confirm & Add`}
-          </button>
-        </div>
-      )}
-
-      {/* Custom Addition Inputs */}
-      {!editingPreset && (
-        <div className="border-t border-zinc-800 pt-3 space-y-3">
-          <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-            Or Add Custom Reminder
-          </label>
-          <input
-            type="text"
-            placeholder="Reminder name (e.g. Electric Bill)"
-            value={customName}
-            onChange={(e) => setCustomName(e.target.value)}
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white"
-          />
-          <div className="grid grid-cols-2 gap-2">
-            <select
-              value={customCategory}
-              onChange={(e) => setCustomCategory(e.target.value)}
-              className="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white"
-            >
-              {STANDARD_CATEGORIES.map((cat) => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-            <input
-              type="number"
-              placeholder={`Amount (${currentCurrency})`}
-              value={customAmount}
-              onChange={(e) => setCustomAmount(e.target.value)}
-              className="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white"
-            />
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            <input
-              type="number"
-              placeholder="Day (1-31)"
-              min="1"
-              max="31"
-              value={customDay}
-              onChange={(e) => setCustomDay(e.target.value)}
-              className="bg-zinc-950 border border-zinc-800 rounded-xl px-2 py-1.5 text-xs text-white text-center"
-            />
-            <input
-              type="time"
-              value={customTime}
-              onChange={(e) => setCustomTime(e.target.value)}
-              className="bg-zinc-950 border border-zinc-800 rounded-xl px-2 py-1.5 text-xs text-white text-center"
-            />
-            <select
-              value={customFrequency}
-              onChange={(e) => setCustomFrequency(e.target.value)}
-              className="bg-zinc-950 border border-zinc-800 rounded-xl px-2 py-1.5 text-xs text-white"
-            >
-              <option value="one-off">One-off</option>
-              <option value="monthly">Monthly</option>
-              <option value="quarterly">Quarterly</option>
-              <option value="yearly">Yearly</option>
-            </select>
-          </div>
-          <button
-            type="button"
-            disabled={saving || !customName.trim() || !customAmount}
-            onClick={() =>
-              handleSaveObligation({
-                name: customName,
-                category: customCategory,
-                dueDay: customDay,
-                dueTime: customTime,
-                amount: customAmount,
-                frequency: customFrequency,
-              })
-            }
-            className="w-full bg-zinc-800 hover:bg-zinc-700 text-emerald-400 font-bold text-xs py-2.5 rounded-xl border border-zinc-700"
-          >
-            + Add Custom Item
-          </button>
-        </div>
-      )}
-
-      {addedItems.length > 0 && (
-        <div className="bg-zinc-950/60 border border-zinc-800/80 rounded-2xl p-3 space-y-1">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Added ({addedItems.length})</span>
-          {addedItems.map((item, idx) => (
-            <div key={idx} className="flex justify-between text-xs text-gray-300">
-              <span>• {item.name} ({item.frequency})</span>
-              <span className="font-semibold">{currentCurrency}{item.amount}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <button
-        onClick={onNext}
-        disabled={addedItems.length === 0 || saving}
-        className="w-full bg-emerald-400 hover:bg-emerald-300 disabled:bg-zinc-800 disabled:text-gray-500 text-black font-extrabold py-3.5 rounded-2xl text-sm transition-all"
-      >
-        Finish Setup 🎉
-      </button>
-    </div>
-  );
-}
-</file>
-
-<file path="frontend/src/components/SettingsModal.jsx">
-import React, { useEffect, useState } from 'react';
-import { GEN_Z_THEMES } from '../constants/categories';
-
-export default function SettingsModal({
-  isOpen,
-  onClose,
-  currentThemeKey,
-  onSelectTheme,
-  currencySymbol,
-  onSelectCurrency,
-}) {
-  const [deployInfo, setDeployInfo] = useState(null);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    fetch('/api/info')
-      .then(r => r.json())
-      .then(setDeployInfo)
-      .catch(console.error);
-  }, [isOpen]);
-
-  if (!isOpen) return null;
-
-  const colorLabel =
-    deployInfo?.deployColor === 'blue'
-      ? 'Blue'
-      : deployInfo?.deployColor === 'green'
-      ? 'Green'
-      : 'Unknown';
-
-  return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl max-w-sm w-full p-5 text-gray-100 shadow-xl">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-bold">App Settings</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-white text-lg">
-            ✕
-          </button>
-        </div>
-
-        {/* Deploy info */}
-        <div className="mb-5">
-          <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
-            Deployment
-          </label>
-          <div className="text-xs text-gray-300">
-            Live backend:{' '}
-            <span className={colorLabel === 'Blue' ? 'text-blue-400' : colorLabel === 'Green' ? 'text-green-400' : 'text-gray-400'}>
-              {deployInfo ? colorLabel : 'Loading...'}
-            </span>
-          </div>
-        </div>
-
-        {/* Theme Chooser */}
-        <div className="mb-5">
-          <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
-            GenZ Theme Aesthetic
-          </label>
-          <div className="space-y-2">
-            {Object.keys(GEN_Z_THEMES).map((key) => (
-              <button
-                key={key}
-                onClick={() => onSelectTheme(key)}
-                className={`w-full p-3 rounded-xl text-left text-xs font-bold border flex justify-between items-center ${
-                  currentThemeKey === key
-                    ? 'border-white bg-zinc-800 text-white'
-                    : 'border-zinc-800 bg-zinc-950 text-gray-400'
-                }`}
-              >
-                {GEN_Z_THEMES[key].name}
-                {currentThemeKey === key && <span>✓</span>}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Currency Picker */}
-        <div className="mb-5">
-          <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
-            Currency Symbol
-          </label>
-          <div className="grid grid-cols-4 gap-2">
-            {['₹', '$', '€', '£'].map((symbol) => (
-              <button
-                key={symbol}
-                onClick={() => onSelectCurrency(symbol)}
-                className={`py-2 rounded-xl text-sm font-bold border ${
-                  currencySymbol === symbol
-                    ? 'border-white bg-zinc-800 text-white'
-                    : 'border-zinc-800 bg-zinc-950 text-gray-400'
-                }`}
-              >
-                {symbol}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <button
-          onClick={onClose}
-          className="w-full py-3 bg-white text-black font-bold rounded-xl text-xs hover:bg-gray-200 transition-colors"
-        >
-          Save & Done
-        </button>
-      </div>
-    </div>
-  );
-}
-</file>
-
 <file path="frontend/src/constants/categoryConfig.js">
 export const CATEGORY_CONFIG = {
   Bills: {
@@ -3659,6 +2827,225 @@ export function getDaySuffix(day) {
     case 2: return 'nd';
     case 3: return 'rd';
     default: return 'th';
+  }
+}
+</file>
+
+<file path="frontend/src/App.css">
+:root {
+  /* Colors */
+  --color-bg-primary: #0f172a;    /* Deep dark / Slate background */
+  --color-bg-secondary: #1e293b;  /* Card / surface background */
+  --color-text-main: #f8fafc;     /* Primary text */
+  --color-text-muted: #94a3b8;    /* Secondary / muted text */
+  --color-accent: #3b82f6;        /* Primary action / brand blue */
+  --color-accent-hover: #2563eb;
+  --color-success: #10b981;       /* Done / completed */
+  --color-warning: #f59e0b;       /* Snooze / pending */
+  --color-danger: #ef4444;        /* Delete / overdue */
+  
+  /* Typography */
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.25rem;
+  --font-size-xl: 1.5rem;
+
+  /* Spacing & Radii */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+}
+
+.counter {
+  font-size: 16px;
+  padding: 5px 10px;
+  border-radius: 5px;
+  color: var(--accent);
+  background: var(--accent-bg);
+  border: 2px solid transparent;
+  transition: border-color 0.3s;
+  margin-bottom: 24px;
+
+  &:hover {
+    border-color: var(--accent-border);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+.hero {
+  position: relative;
+
+  .base,
+  .framework,
+  .vite {
+    inset-inline: 0;
+    margin: 0 auto;
+  }
+
+  .base {
+    width: 170px;
+    position: relative;
+    z-index: 0;
+  }
+
+  .framework,
+  .vite {
+    position: absolute;
+  }
+
+  .framework {
+    z-index: 1;
+    top: 34px;
+    height: 28px;
+    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg)
+      scale(1.4);
+  }
+
+  .vite {
+    z-index: 0;
+    top: 107px;
+    height: 26px;
+    width: auto;
+    transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg)
+      scale(0.8);
+  }
+}
+
+#center {
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+  place-content: center;
+  place-items: center;
+  flex-grow: 1;
+
+  @media (max-width: 1024px) {
+    padding: 32px 20px 24px;
+    gap: 18px;
+  }
+}
+
+#next-steps {
+  display: flex;
+  border-top: 1px solid var(--border);
+  text-align: left;
+
+  & > div {
+    flex: 1 1 0;
+    padding: 32px;
+    @media (max-width: 1024px) {
+      padding: 24px 20px;
+    }
+  }
+
+  .icon {
+    margin-bottom: 16px;
+    width: 22px;
+    height: 22px;
+  }
+
+  @media (max-width: 1024px) {
+    flex-direction: column;
+    text-align: center;
+  }
+}
+
+#docs {
+  border-right: 1px solid var(--border);
+
+  @media (max-width: 1024px) {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+#next-steps ul {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  gap: 8px;
+  margin: 32px 0 0;
+
+  .logo {
+    height: 18px;
+  }
+
+  a {
+    color: var(--text-h);
+    font-size: 16px;
+    border-radius: 6px;
+    background: var(--social-bg);
+    display: flex;
+    padding: 6px 12px;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    transition: box-shadow 0.3s;
+
+    &:hover {
+      box-shadow: var(--shadow);
+    }
+    .button-icon {
+      height: 18px;
+      width: 18px;
+    }
+  }
+
+  @media (max-width: 1024px) {
+    margin-top: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+
+    li {
+      flex: 1 1 calc(50% - 8px);
+    }
+
+    a {
+      width: 100%;
+      justify-content: center;
+      box-sizing: border-box;
+    }
+  }
+}
+
+#spacer {
+  height: 88px;
+  border-top: 1px solid var(--border);
+  @media (max-width: 1024px) {
+    height: 48px;
+  }
+}
+
+.ticks {
+  position: relative;
+  width: 100%;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    top: -4.5px;
+    border: 5px solid transparent;
+  }
+
+  &::before {
+    left: 0;
+    border-left-color: var(--border);
+  }
+  &::after {
+    right: 0;
+    border-right-color: var(--border);
   }
 }
 </file>
@@ -4329,576 +3716,595 @@ A tiny, self-hosted web app to track recurring obligations (bills, EMIs, subscri
 Phase 0 – Scaffolding & Codespaces setup.
 </file>
 
-<file path="frontend/src/components/ObligationFormModal.jsx">
-import { useState, useEffect } from 'react';
-import { useVoiceObligation } from '../hooks/useVoiceObligation';
-import { STANDARD_CATEGORIES } from '../constants/categories';
+<file path="frontend/src/components/EventModal.jsx">
+import React from 'react';
 
-const MONTHS = [
-  { value: 1, label: 'January' },
-  { value: 2, label: 'February' },
-  { value: 3, label: 'March' },
-  { value: 4, label: 'April' },
-  { value: 5, label: 'May' },
-  { value: 6, label: 'June' },
-  { value: 7, label: 'July' },
-  { value: 8, label: 'August' },
-  { value: 9, label: 'September' },
-  { value: 10, label: 'October' },
-  { value: 11, label: 'November' },
-  { value: 12, label: 'December' },
-];
+export default function EventModal({ isOpen, onClose, eventItem, activeTheme, onConfirm }) {
+  if (!isOpen || !eventItem) return null;
 
-export default function ObligationFormModal({
-  editingItem,
-  cardThemeClass,
-  currencySymbol,
-  onSave,
-  onCancel,
-  saving
-}) {
-  // Default to 'voice' mode when adding a new item, 'form' mode when editing
-  const [activeTab, setActiveTab] = useState(editingItem ? 'form' : 'voice');
-  const defaultCategory = STANDARD_CATEGORIES && STANDARD_CATEGORIES.length > 0 ? STANDARD_CATEGORIES[0] : 'Other';
+  const cardClass = activeTheme?.card || 'bg-zinc-900 border-zinc-800 text-white';
+  const subTextClass = activeTheme?.subText || 'text-gray-400';
 
-  const [formData, setFormData] = useState({
-    name: '',
-    type: 'bill',
-    category: defaultCategory,
-    expected_amount: '',
-    due_day: new Date().getDate(),
-    due_month: new Date().getMonth() + 1,
-    frequency: 'monthly',
-    due_time: '09:00',
-    reminder_time: '09:00',
-  });
-
-  const {
-    isListening,
-    isProcessing,
-    statusMessage,
-    startVoice,
-    stopVoice,
-    transcript,
-    processTranscript,
-  } = useVoiceObligation((extractedData) => {
-    const extractedTime = extractedData?.reminder_time || extractedData?.due_time || '09:00';
-    setFormData((prev) => ({
-      ...prev,
-      ...extractedData,
-      due_time: extractedTime,
-      reminder_time: extractedTime,
-    }));
-    // Transition to prefilled form view upon successful voice parsing
-    setActiveTab('form');
-  });
-
-  useEffect(() => {
-    if (transcript && !isListening) {
-      processTranscript(transcript);
-    }
-  }, [transcript, isListening]);
-
-  useEffect(() => {
-    if (editingItem) {
-      const isEvent =
-        editingItem.type === 'event' ||
-        editingItem.category === 'Events' ||
-        Number(editingItem.expected_amount) === 0;
-
-      const timeValue = editingItem.reminder_time || editingItem.due_time || '09:00';
-
-      setFormData({
-        name: editingItem.name || '',
-        type: isEvent ? 'event' : 'bill',
-        category: editingItem.category || (isEvent ? 'Events' : defaultCategory),
-        expected_amount: isEvent ? '' : (editingItem.expected_amount?.toString() ?? ''),
-        due_day: editingItem.due_day || new Date().getDate(),
-        due_month: editingItem.due_month || (new Date().getMonth() + 1),
-        frequency: editingItem.frequency || (isEvent ? 'yearly' : 'monthly'),
-        due_time: timeValue,
-        reminder_time: timeValue,
-      });
-      setActiveTab('form');
+  const handleAction = async (status) => {
+    if (onConfirm) {
+      await onConfirm(status);
     } else {
-      setFormData({
-        name: '',
-        type: 'bill',
-        category: defaultCategory,
-        expected_amount: '',
-        due_day: new Date().getDate(),
-        due_month: new Date().getMonth() + 1,
-        frequency: 'monthly',
-        due_time: '09:00',
-        reminder_time: '09:00',
-      });
-      setActiveTab('voice');
+      onClose();
     }
-  }, [editingItem, defaultCategory]);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSave(formData);
-  };
-
-  const handleTimeChange = (e) => {
-    const timeVal = e.target.value;
-    setFormData((prev) => ({
-      ...prev,
-      due_time: timeVal,
-      reminder_time: timeVal,
-    }));
   };
 
   return (
-    <div className={`${cardThemeClass} rounded-3xl border p-6 mb-6 shadow-2xl transition-all`}>
-      {/* Mode Switcher */}
-      {!editingItem && (
-        <div className="grid grid-cols-2 gap-2 bg-black/50 p-1 rounded-2xl border border-white/10 mb-5">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className={`${cardClass} rounded-3xl max-w-sm w-full p-6 shadow-2xl border transition-all`}>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-bold">Reminder Details</h3>
+          <button onClick={onClose} className={`${subTextClass} hover:opacity-80 text-lg`}>
+            ✕
+          </button>
+        </div>
+
+        <div className="space-y-3 mb-6">
+          <div>
+            <p className={`text-[11px] uppercase tracking-wider ${subTextClass}`}>Reminder Name</p>
+            <p className="font-bold text-sm mt-0.5">{eventItem.name || eventItem.obligation_name}</p>
+          </div>
+          <div>
+            <p className={`text-[11px] uppercase tracking-wider ${subTextClass}`}>Category</p>
+            <p className="font-semibold text-xs mt-0.5 capitalize">{eventItem.category || 'Events'}</p>
+          </div>
+          <div>
+            <p className={`text-[11px] uppercase tracking-wider ${subTextClass}`}>Due Date</p>
+            <p className="font-bold text-emerald-400 text-xs mt-0.5">{eventItem.target_date || eventItem.due_date || 'Scheduled'}</p>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <button
+            onClick={() => handleAction('completed')}
+            className="w-full py-3 bg-emerald-400 hover:bg-emerald-300 text-black font-extrabold rounded-xl text-xs transition-all shadow-md active:scale-95"
+          >
+            Mark Completed ✓
+          </button>
+
+          <button
+            onClick={() => handleAction('skipped')}
+            className={`w-full py-2.5 rounded-xl text-xs font-semibold border transition-all ${activeTheme.card} ${subTextClass} hover:opacity-90`}
+          >
+            Skip this time ⏭️
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="frontend/src/components/ObligationListView.jsx">
+import React, { useState } from 'react';
+import PaymentModal from './PaymentModal';
+import EventModal from './EventModal';
+import { triggerFeedback } from '../utils/feedbackUtils';
+
+export default function ObligationListView({
+  cycles = [],
+  onMarkPaid,
+  currencySymbol = '₹',
+  activeTheme,
+}) {
+  const [selectedCycle, setSelectedCycle] = useState(null);
+
+  // Independent Accordion States (Overdue, Rest of This Week, Next Week all collapsed by default)
+  const [isOverdueOpen, setIsOverdueOpen] = useState(false);
+  const [isThisWeekOpen, setIsThisWeekOpen] = useState(false);
+  const [isNextWeekOpen, setIsNextWeekOpen] = useState(false);
+
+  if (!cycles || cycles.length === 0) {
+    return (
+      <div className={`p-8 text-center text-xs ${activeTheme?.subText || 'text-gray-400'}`}>
+        All clear for now! 🎉 Take a deep breath and enjoy your day.
+      </div>
+    );
+  }
+
+  const formatDueTime = (timeStr) => {
+    if (!timeStr || timeStr === 'No Time') return '';
+    const [hours, minutes] = timeStr.split(':');
+    const h = parseInt(hours, 10);
+    if (isNaN(h)) return timeStr;
+    const suffix = h >= 12 ? 'PM' : 'AM';
+    const formattedHour = h % 12 === 0 ? 12 : h % 12;
+    return `${String(formattedHour).padStart(2, '0')}:${minutes} ${suffix}`;
+  };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  // -------------------------------------------------------------
+  // STRICT DATE BOUNDARIES
+  // -------------------------------------------------------------
+  const now = new Date();
+
+  // Today (00:00:00 to 23:59:59)
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+  // Tomorrow (00:00:00 to 23:59:59)
+  const tomorrowStart = new Date(todayStart);
+  tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+  const tomorrowEnd = new Date(todayEnd);
+  tomorrowEnd.setDate(tomorrowEnd.getDate() + 1);
+
+  // Current Calendar Week (Sunday to Saturday)
+  const currentSunday = new Date(now);
+  currentSunday.setDate(now.getDate() - now.getDay());
+  currentSunday.setHours(0, 0, 0, 0);
+
+  const currentSaturdayEnd = new Date(currentSunday);
+  currentSaturdayEnd.setDate(currentSunday.getDate() + 6);
+  currentSaturdayEnd.setHours(23, 59, 59, 999);
+
+  // STRICT Next Calendar Week (Next Sunday 00:00:00 to Next Saturday 23:59:59)
+  const nextSundayStart = new Date(currentSunday);
+  nextSundayStart.setDate(currentSunday.getDate() + 7);
+  nextSundayStart.setHours(0, 0, 0, 0);
+
+  const nextSaturdayEnd = new Date(nextSundayStart);
+  nextSaturdayEnd.setDate(nextSundayStart.getDate() + 6);
+  nextSaturdayEnd.setHours(23, 59, 59, 999);
+
+  // Sorting Helper
+  const sortByTime = (a, b) => new Date(a.due_timestamp || a.due_date) - new Date(b.due_timestamp || b.due_date);
+
+  // -------------------------------------------------------------
+  // BUCKETING LOGIC
+  // -------------------------------------------------------------
+
+  // Overdue: Any pending cycle strictly before today
+  const overdueItems = cycles.filter((item) => {
+    if (!item.due_date) return false;
+    return new Date(item.due_date) < todayStart;
+  }).sort(sortByTime);
+
+  // Today
+  const todayItems = cycles.filter((item) => {
+    if (!item.due_date) return false;
+    const d = new Date(item.due_date);
+    return d >= todayStart && d <= todayEnd;
+  }).sort(sortByTime);
+
+  // Tomorrow
+  const tomorrowItems = cycles.filter((item) => {
+    if (!item.due_date) return false;
+    const d = new Date(item.due_date);
+    return d >= tomorrowStart && d <= tomorrowEnd;
+  }).sort(sortByTime);
+
+  // Rest of This Week: After tomorrow up to Saturday of current week
+  const thisWeekItems = cycles.filter((item) => {
+    if (!item.due_date) return false;
+    const d = new Date(item.due_date);
+    return d > tomorrowEnd && d <= currentSaturdayEnd;
+  }).sort(sortByTime);
+
+  // STRICT Next Week: Strictly Next Sunday to Next Saturday
+  const nextWeekItems = cycles.filter((item) => {
+    if (!item.due_date) return false;
+    const d = new Date(item.due_date);
+    return d >= nextSundayStart && d <= nextSaturdayEnd;
+  }).sort(sortByTime);
+
+  // Render a seamless row with Date • Time • Name • Amount • Light Checkbox
+  const renderRow = (item, showDate = false) => {
+    const isEvent = item.type === 'event' || Number(item.expected_amount) === 0;
+    const rawTime = item.reminder_time || item.due_time;
+    const formattedTime = formatDueTime(rawTime);
+    const dateLabel = showDate ? formatDate(item.due_date) : '';
+
+    return (
+      <div
+        key={item.id}
+        className="flex items-center justify-between py-2.5 px-1 border-b border-zinc-800/20 last:border-0 hover:bg-black/5 dark:hover:bg-white/5 transition-colors group"
+      >
+        <div className="flex items-center gap-2.5 min-w-0 pr-2">
+          {dateLabel && (
+            <span className={`text-xs font-mono font-semibold shrink-0 ${activeTheme?.subText || 'text-gray-400'}`}>
+              {dateLabel}
+            </span>
+          )}
+          {dateLabel && <span className={activeTheme?.subText || 'text-gray-400'}>•</span>}
+
+          {formattedTime && (
+            <span className={`text-xs font-mono shrink-0 ${activeTheme?.subText || 'text-gray-400'}`}>
+              {formattedTime}
+            </span>
+          )}
+          {formattedTime && <span className={activeTheme?.subText || 'text-gray-400'}>•</span>}
+
+          <h3 className="font-medium text-xs sm:text-sm truncate">{item.name}</h3>
+        </div>
+
+        <div className="flex items-center gap-4 shrink-0">
+          <span className="text-xs font-bold">
+            {!isEvent
+              ? `${currencySymbol}${Number(item.expected_amount || 0).toLocaleString('en-IN')}`
+              : 'Event'}
+          </span>
+
+          {/* Light, Custom Minimalist Check-Button */}
           <button
             type="button"
-            onClick={() => setActiveTab('voice')}
-            className={`py-2 text-xs font-bold rounded-xl transition-all ${
-              activeTab === 'voice'
-                ? 'bg-emerald-400 text-black shadow-md'
-                : 'text-gray-400 hover:text-white'
-            }`}
+            onClick={() => setSelectedCycle(item)}
+            className="w-5 h-5 rounded-md border-2 border-emerald-400/80 bg-zinc-800/40 hover:bg-emerald-400/20 hover:border-emerald-300 flex items-center justify-center transition-all active:scale-90"
+            title="Mark as done"
           >
-            🎙️ Voice Mode
+            <span className="opacity-0 hover:opacity-100 text-emerald-300 text-xs font-bold">✓</span>
           </button>
+        </div>
+      </div>
+    );
+  };
+
+  const isMonetary = selectedCycle && Number(selectedCycle.expected_amount) > 0;
+
+  return (
+    <div className="space-y-6 max-w-2xl mx-auto">
+      {/* 1. OVERDUE SECTION (Collapsed by default, text toggle) */}
+      {overdueItems.length > 0 && (
+        <div>
           <button
-            type="button"
-            onClick={() => setActiveTab('form')}
-            className={`py-2 text-xs font-bold rounded-xl transition-all ${
-              activeTab === 'form'
-                ? 'bg-zinc-800 text-white shadow-md border border-white/10'
-                : 'text-gray-400 hover:text-white'
-            }`}
+            onClick={() => setIsOverdueOpen(!isOverdueOpen)}
+            className="w-full flex items-center justify-between py-2 text-left font-bold text-red-400 text-xs tracking-wider uppercase hover:opacity-80 transition-opacity"
           >
-            ✏️ Short Form
+            <span>⚠️ Overdue ({overdueItems.length})</span>
+            <span>{isOverdueOpen ? '▲ Collapse' : '▼ Expand'}</span>
           </button>
+
+          {isOverdueOpen && (
+            <div className="pl-2 space-y-1 mt-1 border-l-2 border-red-500/30">
+              {overdueItems.map((item) => renderRow(item, true))}
+            </div>
+          )}
         </div>
       )}
 
-      <h2 className="text-lg font-bold mb-4 text-white">
-        {editingItem ? 'Edit Obligation' : activeTab === 'voice' ? 'Add via Voice' : 'Add New Obligation'}
-      </h2>
+      {/* 2. TODAY & TOMORROW (Visible by default, open) */}
+      <div className="space-y-2">
+        {todayItems.length > 0 && (
+          <div className="space-y-1">
+            <h2 className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 px-1 mb-1">
+              Today
+            </h2>
+            {todayItems.map((item) => renderRow(item, false))}
+          </div>
+        )}
 
-      {activeTab === 'voice' && !editingItem ? (
-        <div className="flex flex-col items-center justify-center py-6 text-center space-y-4">
+        {tomorrowItems.length > 0 && (
+          <div className="pt-3">
+            <div className="flex items-center gap-3 my-3">
+              <div className="h-px bg-zinc-700/30 flex-1" />
+              <span className={`text-[10px] font-bold uppercase tracking-wider ${activeTheme?.subText || 'text-gray-400'}`}>
+                Tomorrow
+              </span>
+              <div className="h-px bg-zinc-700/30 flex-1" />
+            </div>
+            {tomorrowItems.map((item) => renderRow(item, false))}
+          </div>
+        )}
+
+        {todayItems.length === 0 && tomorrowItems.length === 0 && overdueItems.length === 0 && (
+          <div className="p-8 text-center text-xs text-zinc-500">
+            No immediate reminders for today or tomorrow. Enjoy the breathing room! 🌿
+          </div>
+        )}
+      </div>
+
+      {/* 3. THIS WEEK SECTION (Initially collapsed) */}
+      {thisWeekItems.length > 0 && (
+        <div>
           <button
-            type="button"
-            onClick={isListening ? stopVoice : startVoice}
-            disabled={isProcessing}
-            className={`w-20 h-20 rounded-full flex items-center justify-center text-3xl shadow-xl transition-all transform active:scale-95 ${
-              isListening
-                ? 'bg-red-500 animate-pulse text-white ring-8 ring-red-500/20'
-                : isProcessing
-                ? 'bg-yellow-500 animate-spin text-black'
-                : 'bg-emerald-400 hover:bg-emerald-300 text-black'
-            }`}
+            onClick={() => setIsThisWeekOpen(!isThisWeekOpen)}
+            className={`w-full flex items-center justify-between py-2 text-left font-bold text-xs tracking-wider uppercase ${activeTheme?.subText || 'text-gray-400'} hover:opacity-80 transition-opacity`}
           >
-            {isListening ? '🛑' : isProcessing ? '⏳' : '🎙️'}
+            <span>📅 Rest of This Week ({thisWeekItems.length})</span>
+            <span>{isThisWeekOpen ? '▲ Collapse' : '▼ Expand'}</span>
           </button>
 
-          <p className="text-sm font-semibold text-gray-200">
-            {isListening
-              ? 'Listening... Speak now'
-              : isProcessing
-              ? 'Analyzing speech...'
-              : 'Tap microphone to speak'}
-          </p>
-
-          {statusMessage && (
-            <p className="text-xs font-medium text-emerald-400 bg-emerald-950/50 border border-emerald-800 px-3 py-1.5 rounded-xl max-w-xs">
-              {statusMessage}
-            </p>
+          {isThisWeekOpen && (
+            <div className="pl-2 space-y-1 mt-1 border-l-2 border-zinc-700/30">
+              {thisWeekItems.map((item) => renderRow(item, true))}
+            </div>
           )}
-
-          <p className="text-xs text-gray-400 max-w-xs pt-2">
-            Try saying: <br />
-            <span className="italic text-gray-300">"Remind me to bring milk tomorrow at 7 AM"</span> or <span className="italic text-gray-300">"Annual insurance premium $500 due November 10th"</span>
-          </p>
-
-          <div className="w-full flex justify-center pt-2">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="bg-white/10 hover:bg-white/20 text-white font-semibold text-xs px-5 py-2.5 rounded-xl transition-all"
-            >
-              Cancel
-            </button>
-          </div>
         </div>
-      ) : (
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-gray-300 mb-1.5">Type</label>
-            <div className="grid grid-cols-2 gap-2 bg-black/40 p-1 rounded-xl border border-white/10">
-              <button
-                type="button"
-                onClick={() => setFormData((prev) => ({ ...prev, type: 'bill', frequency: 'monthly' }))}
-                className={`py-2 text-xs font-bold rounded-lg transition-all ${
-                  formData.type === 'bill'
-                    ? 'bg-emerald-400 text-black shadow-md'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                💳 Bill / Financial
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    type: 'event',
-                    expected_amount: '',
-                    category: prev.category === 'Bills' ? 'Events' : prev.category,
-                    frequency: 'yearly',
-                  }))
-                }
-                className={`py-2 text-xs font-bold rounded-lg transition-all ${
-                  formData.type === 'event'
-                    ? 'bg-emerald-400 text-black shadow-md'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                🎂 Event / Reminder
-              </button>
+      )}
+
+      {/* 4. STRICT NEXT WEEK SECTION (Initially collapsed) */}
+      {nextWeekItems.length > 0 && (
+        <div>
+          <button
+            onClick={() => setIsNextWeekOpen(!isNextWeekOpen)}
+            className={`w-full flex items-center justify-between py-2 text-left font-bold text-xs tracking-wider uppercase ${activeTheme?.subText || 'text-gray-400'} hover:opacity-80 transition-opacity`}
+          >
+            <span>📅 Next Week ({nextWeekItems.length})</span>
+            <span>{isNextWeekOpen ? '▲ Collapse' : '▼ Expand'}</span>
+          </button>
+
+          {isNextWeekOpen && (
+            <div className="pl-2 space-y-1 mt-1 border-l-2 border-zinc-700/30">
+              {nextWeekItems.map((item) => renderRow(item, true))}
             </div>
-          </div>
+          )}
+        </div>
+      )}
 
-          <div>
-            <label className="block text-xs font-semibold text-gray-300 mb-1">Name</label>
-            <input
-              type="text"
-              required
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full border border-white/20 bg-black/40 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-              placeholder={formData.type === 'event' ? "e.g., Bring Milk, Doctor Appointment" : "e.g., ATM Withdrawal, House Rent"}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-300 mb-1">Category</label>
-              <select
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                className="w-full border border-white/20 bg-black/40 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-              >
-                {STANDARD_CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat} className="bg-zinc-900 text-white">
-                    {cat}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-300 mb-1">Frequency</label>
-              <select
-                value={formData.frequency}
-                onChange={(e) => {
-                  const newFreq = e.target.value;
-                  setFormData((prev) => ({
-                    ...prev,
-                    frequency: newFreq,
-                    due_month: newFreq === 'yearly' ? (prev.due_month || new Date().getMonth() + 1) : prev.due_month,
-                  }));
-                }}
-                className="w-full border border-white/20 bg-black/40 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-              >
-                <option value="monthly" className="bg-zinc-900 text-white">Monthly</option>
-                <option value="yearly" className="bg-zinc-900 text-white">Yearly</option>
-                <option value="one-off" className="bg-zinc-900 text-white">One-Off</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Conditional Month/Day Grid */}
-          <div className="grid grid-cols-2 gap-4">
-            {formData.type === 'bill' && (
-              <div>
-                <label className="block text-xs font-semibold text-gray-300 mb-1">
-                  Amount ({currencySymbol})
-                </label>
-                <input
-                  type="number"
-                  required
-                  min="0"
-                  step="0.01"
-                  value={formData.expected_amount}
-                  onChange={(e) => setFormData({ ...formData, expected_amount: e.target.value })}
-                  className="w-full border border-white/20 bg-black/40 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                  placeholder="e.g., 1500"
-                />
-              </div>
-            )}
-
-            {formData.frequency === 'yearly' && (
-              <div>
-                <label className="block text-xs font-semibold text-gray-300 mb-1">Due Month</label>
-                <select
-                  value={formData.due_month}
-                  onChange={(e) => setFormData({ ...formData, due_month: Number(e.target.value) })}
-                  className="w-full border border-white/20 bg-black/40 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                >
-                  {MONTHS.map((m) => (
-                    <option key={m.value} value={m.value} className="bg-zinc-900 text-white">
-                      {m.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div className={formData.type === 'event' && formData.frequency !== 'yearly' ? 'col-span-2' : ''}>
-              <label className="block text-xs font-semibold text-gray-300 mb-1">
-                {formData.frequency === 'yearly' ? 'Due Date' : 'Due Day of Month'}
-              </label>
-              <input
-                type="number"
-                required
-                min="1"
-                max="31"
-                value={formData.due_day}
-                onChange={(e) => setFormData({ ...formData, due_day: e.target.value })}
-                className="w-full border border-white/20 bg-black/40 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                placeholder="10"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-gray-300 mb-1">Notification Time (Local)</label>
-            <input
-              type="time"
-              required
-              value={formData.reminder_time || formData.due_time}
-              onChange={handleTimeChange}
-              className="w-full border border-white/20 bg-black/40 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-            />
-          </div>
-
-          <div className="flex gap-3 mt-2">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="w-1/3 bg-white/10 hover:bg-white/20 text-white font-semibold px-4 py-3 rounded-xl transition-all"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="w-2/3 bg-emerald-400 hover:bg-emerald-500 active:bg-emerald-600 text-black font-extrabold px-4 py-3 rounded-xl transition-all disabled:opacity-50"
-            >
-              {saving ? 'Saving...' : editingItem ? 'Update Item' : 'Save Item'}
-            </button>
-          </div>
-        </form>
+      {/* Standard Payment / Event Modal */}
+      {selectedCycle && (
+        isMonetary ? (
+          <PaymentModal
+            isOpen={Boolean(selectedCycle)}
+            cycle={selectedCycle}
+            activeTheme={activeTheme}
+            currencySymbol={currencySymbol}
+            onClose={() => setSelectedCycle(null)}
+            onConfirmPayment={async (cycleId, paymentData) => {
+              triggerFeedback();
+              if (onMarkPaid) await onMarkPaid(cycleId, paymentData.amount_paid, paymentData.notes);
+              setSelectedCycle(null);
+            }}
+          />
+        ) : (
+          <EventModal
+            isOpen={Boolean(selectedCycle)}
+            eventItem={selectedCycle}
+            activeTheme={activeTheme}
+            onClose={() => setSelectedCycle(null)}
+            onConfirm={async (status = 'completed') => {
+              triggerFeedback();
+              if (onMarkPaid) await onMarkPaid(selectedCycle.id, status, status);
+              setSelectedCycle(null);
+            }}
+          />
+        )
       )}
     </div>
   );
 }
 </file>
 
-<file path="frontend/src/constants/categories.js">
-export const STANDARD_CATEGORIES = [
-  'Bills',
-  'Subscriptions',
-  'Personal',
-  'Health',
-  'Documents',
-  'Other',
-];
+<file path="frontend/src/components/OnboardingWizard.jsx">
+import { useState } from 'react';
+import { GEN_Z_THEMES } from '../constants/categories';
 
-export const CATEGORY_ICONS = {
-  Bills: '💳',
-  Subscriptions: '🎧',
-  Personal: '🎂',
-  Health: '🩺',
-  Documents: '📑',
-  Other: '📌',
-};
+export default function OnboardingWizard({
+  user,
+  currentThemeKey,
+  onSelectTheme,
+  currentCurrency,
+  onSelectCurrency,
+  onNext,
+}) {
+  const [step, setStep] = useState(1);
 
-export const CATEGORY_COLORS = {
-  Bills: {
-    bg: 'bg-blue-950/40',
-    border: 'border-blue-500/30',
-    badge: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
-    accent: 'text-blue-400',
-  },
-  Subscriptions: {
-    bg: 'bg-purple-950/40',
-    border: 'border-purple-500/30',
-    badge: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
-    accent: 'text-purple-400',
-  },
-  Personal: {
-    bg: 'bg-emerald-950/40',
-    border: 'border-emerald-500/30',
-    badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
-    accent: 'text-emerald-400',
-  },
-  Health: {
-    bg: 'bg-rose-950/40',
-    border: 'border-rose-500/30',
-    badge: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
-    accent: 'text-rose-400',
-  },
-  Documents: {
-    bg: 'bg-amber-950/40',
-    border: 'border-amber-500/30',
-    badge: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
-    accent: 'text-amber-400',
-  },
-  Other: {
-    bg: 'bg-zinc-900/50',
-    border: 'border-zinc-700/40',
-    badge: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/30',
-    accent: 'text-zinc-400',
-  },
-};
+  const activeTheme = GEN_Z_THEMES[currentThemeKey] || GEN_Z_THEMES.light;
+  const cardClass = activeTheme?.card || 'bg-zinc-900 border-zinc-800 text-white';
+  const subTextClass = activeTheme?.subText || 'text-gray-400';
+  const inputBgClass = activeTheme?.inputBg || 'bg-zinc-950';
 
-export const CATEGORY_GUIDE = [
-  { name: 'Bills', icon: '💳', desc: 'Rent, Utilities, Loan EMIs, Credit Cards' },
-  { name: 'Subscriptions', icon: '🎧', desc: 'Streaming, Software, Memberships' },
-  { name: 'Personal', icon: '🎂', desc: 'Birthdays, Anniversaries, Social Events' },
-  { name: 'Health', icon: '🩺', desc: 'Doctor Checkups, Appointments, Meds' },
-  { name: 'Documents', icon: '📑', desc: 'Insurance, Vehicle Renewals, Passports' },
-  { name: 'Other', icon: '📌', desc: 'General Reminders & Miscellaneous' },
-];
+  const themeOptions = [
+    { key: 'light', label: 'Clean Light ☀️' },
+    { key: 'cyberLime', label: 'Cyber Dark 🌙' },
+    { key: 'system', label: 'System Auto 💻' },
+  ];
 
-export const GEN_Z_THEMES = {
-  cyberLime: {
-    name: 'Cyber Lime',
-    bg: 'bg-black',
-    card: 'bg-zinc-900 border-lime-400/30',
-    primary: 'bg-lime-400 text-black hover:bg-lime-300',
-    accentText: 'text-lime-400',
-    badge: 'bg-lime-400/10 text-lime-400 border-lime-400/30',
-  },
-  digitalLavender: {
-    name: 'Digital Lavender',
-    bg: 'bg-purple-950',
-    card: 'bg-purple-900/40 border-purple-400/30',
-    primary: 'bg-purple-400 text-purple-950 hover:bg-purple-300',
-    accentText: 'text-purple-300',
-    badge: 'bg-purple-400/10 text-purple-300 border-purple-300/30',
-  },
-  roseGold: {
-    name: 'Rose Gold',
-    bg: 'bg-rose-950',
-    card: 'bg-rose-900/40 border-rose-400/30',
-    primary: 'bg-rose-300 text-rose-950 hover:bg-rose-200',
-    accentText: 'text-rose-300',
-    badge: 'bg-rose-400/10 text-rose-300 border-rose-300/30',
-  },
-  executiveNavy: {
-    name: 'Executive Slate',
-    bg: 'bg-slate-950',
-    card: 'bg-slate-900/50 border-slate-700/40',
-    primary: 'bg-sky-400 text-slate-950 hover:bg-sky-300',
-    accentText: 'text-sky-300',
-    badge: 'bg-sky-400/10 text-sky-300 border-sky-400/30',
-  },
-  matchaTeal: {
-    name: 'Matcha Teal',
-    bg: 'bg-emerald-950',
-    card: 'bg-emerald-900/40 border-emerald-400/30',
-    primary: 'bg-emerald-400 text-emerald-950 hover:bg-emerald-300',
-    accentText: 'text-emerald-300',
-    badge: 'bg-emerald-400/10 text-emerald-300 border-emerald-400/30',
-  },
-};
+  return (
+    <div className={`max-w-md w-full ${cardClass} rounded-3xl p-6 border shadow-2xl transition-all`}>
+      <div className="text-center mb-6">
+        <h1 className="text-2xl font-extrabold tracking-tight text-emerald-400 mb-1">Welcome to Settld</h1>
+        <p className={`text-xs ${subTextClass}`}>Let's personalize your experience in 2 quick steps.</p>
+      </div>
+
+      {step === 1 && (
+        <div className="space-y-4">
+          <h2 className={`text-xs font-bold uppercase tracking-wider ${subTextClass}`}>Choose Appearance</h2>
+          <div className="space-y-2">
+            {themeOptions.map(({ key, label }) => {
+              const isSelected = currentThemeKey === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => onSelectTheme(key)}
+                  className={`w-full p-3 rounded-xl text-left text-xs font-bold border flex justify-between items-center transition-all ${
+                    isSelected
+                      ? 'border-emerald-400 bg-emerald-400/10 text-emerald-400'
+                      : `border-black/10 dark:border-zinc-800 ${inputBgClass}${subTextClass}`
+                  }`}
+                >
+                  <span>{label}</span>
+                  {isSelected && <span className="text-emerald-400">✓</span>}
+                </button>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            onClick={() => setStep(2)}
+            className="w-full mt-4 py-3 bg-emerald-400 hover:bg-emerald-300 text-black font-extrabold rounded-xl text-xs transition-all shadow-md"
+          >
+            Next →
+          </button>
+        </div>
+      )}
+
+      {step === 2 && (
+        <div className="space-y-4">
+          <h2 className={`text-xs font-bold uppercase tracking-wider ${subTextClass}`}>Select Currency</h2>
+          <div className="grid grid-cols-4 gap-2">
+            {['₹', '$', '€', '£'].map((symbol) => {
+              const isSelected = currentCurrency === symbol;
+              return (
+                <button
+                  key={symbol}
+                  type="button"
+                  onClick={() => onSelectCurrency(symbol)}
+                  className={`py-3 rounded-xl text-sm font-bold border transition-all ${
+                    isSelected
+                      ? 'border-emerald-400 bg-emerald-400/10 text-emerald-400'
+                      : `border-black/10 dark:border-zinc-800 ${inputBgClass}${subTextClass}`
+                  }`}
+                >
+                  {symbol}
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex gap-3 mt-4">
+            <button
+              type="button"
+              onClick={() => setStep(1)}
+              className={`w-1/3 py-3 font-semibold rounded-xl text-xs border ${cardClass}`}
+            >
+              ← Back
+            </button>
+            <button
+              type="button"
+              onClick={onNext}
+              className="w-2/3 py-3 bg-emerald-400 hover:bg-emerald-500 text-black font-extrabold rounded-xl text-xs transition-all shadow-md"
+            >
+              Get Started 🚀
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 </file>
 
-<file path="frontend/src/services/cyclesService.js">
-import supabase from '../lib/supabase';
+<file path="frontend/src/components/SettingsModal.jsx">
+import React from 'react';
 
-const FINISHED_STATUSES = ['paid', 'completed', 'skipped', 'cancelled'];
+export default function SettingsModal({
+  isOpen,
+  onClose,
+  currentThemeKey,
+  onSelectTheme,
+  currencySymbol,
+  onSelectCurrency,
+  onSignOut,
+  user,
+  activeTheme,
+}) {
+  if (!isOpen) return null;
 
-function getRange() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
-  const day = now.getDate();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const includeNextMonth = day >= daysInMonth - 7;
+  const themeOptions = [
+    { key: 'light', label: 'Clean Light ☀️' },
+    { key: 'cyberLime', label: 'Cyber Dark 🌙' },
+    { key: 'system', label: 'System Auto 💻' },
+  ];
 
-  return {
-    now,
-    currentYear: year,
-    currentMonth: month,
-    start: new Date(year, month, 1).toISOString(),
-    end: new Date(year, month + (includeNextMonth ? 2 : 1), 1).toISOString(),
-  };
+  // Pre-define theme token fallbacks to avoid inline parsing errors
+  const cardClass = activeTheme?.card || 'bg-zinc-900 border-zinc-800 text-white';
+  const subTextClass = activeTheme?.subText || 'text-gray-400';
+  const inputBgClass = activeTheme?.inputBg || 'bg-zinc-950';
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className={`${cardClass} rounded-3xl max-w-sm w-full p-6 shadow-2xl border transition-all`}>
+        <div className="flex justify-between items-center mb-5">
+          <h3 className="text-lg font-bold">Profile & Settings</h3>
+          <button onClick={onClose} className={`${subTextClass} hover:opacity-80 text-lg`}>
+            ✕
+          </button>
+        </div>
+
+        {/* User Profile Info */}
+        {user && (
+          <div className="mb-5 p-3 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-emerald-400 text-black font-extrabold flex items-center justify-center text-sm shadow-sm">
+              {(user?.user_metadata?.full_name || user?.email || 'U')[0].toUpperCase()}
+            </div>
+            <div className="overflow-hidden">
+              <p className="font-bold text-xs truncate">{user?.user_metadata?.full_name || 'User'}</p>
+              <p className={`text-[11px] truncate ${subTextClass}`}>{user?.email}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Appearance & Theme Chooser */}
+        <div className="mb-5">
+          <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${subTextClass}`}>
+            Appearance & Theme
+          </label>
+          <div className="space-y-2">
+            {themeOptions.map(({ key, label }) => {
+              const isSelected = currentThemeKey === key;
+              const themeButtonClass = isSelected
+                ? 'border-emerald-400 bg-emerald-400/10 text-emerald-400'
+                : `border-black/10 dark:border-zinc-800 ${inputBgClass} ${subTextClass} hover:opacity-80`;
+
+              return (
+                <button
+                  key={key}
+                  onClick={() => onSelectTheme(key)}
+                  className={`w-full p-3 rounded-xl text-left text-xs font-bold border flex justify-between items-center transition-all ${themeButtonClass}`}
+                >
+                  <span>{label}</span>
+                  {isSelected && <span className="text-emerald-400">✓</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Currency Picker */}
+        <div className="mb-6">
+          <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${subTextClass}`}>
+            Currency Symbol
+          </label>
+          <div className="grid grid-cols-4 gap-2">
+            {['₹', '$', '€', '£'].map((symbol) => {
+              const isSelected = currencySymbol === symbol;
+              const currencyButtonClass = isSelected
+                ? 'border-emerald-400 bg-emerald-400/10 text-emerald-400'
+                : `border-black/10 dark:border-zinc-800 ${inputBgClass} ${subTextClass} hover:opacity-80`;
+
+              return (
+                <button
+                  key={symbol}
+                  onClick={() => onSelectCurrency(symbol)}
+                  className={`py-2 rounded-xl text-sm font-bold border transition-all ${currencyButtonClass}`}
+                >
+                  {symbol}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Sign Out Action */}
+        <div className="pt-2 border-t border-black/10 dark:border-white/10 mb-4">
+          <button
+            onClick={onSignOut}
+            className="w-full py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold rounded-xl text-xs transition-all border border-red-500/20 shadow-sm"
+          >
+            Sign Out 🚪
+          </button>
+        </div>
+
+        <button
+          onClick={onClose}
+          className="w-full py-3 bg-emerald-400 hover:bg-emerald-300 text-black font-extrabold rounded-xl text-xs transition-all shadow-md active:scale-95"
+        >
+          Save & Done
+        </button>
+      </div>
+    </div>
+  );
 }
-
-export const cyclesService = {
-  async fetchActiveCycles(userId) {
-    if (!userId) return { combinedCycles: [], allMonthCompleted: true };
-
-    const { currentYear, currentMonth, start, end } = getRange();
-    const { data, error } = await supabase
-      .from('obligation_cycles')
-      .select('*')
-      .eq('user_id', userId)
-      .not('status', 'in', `(${FINISHED_STATUSES.join(',')})`)
-      .gte('due_timestamp', start)
-      .lt('due_timestamp', end)
-      .order('due_timestamp', { ascending: true });
-
-    if (error) throw error;
-
-    const combinedCycles = (data || []).map((cycle) => ({
-      ...cycle,
-      name: cycle.name || 'Untitled reminder',
-      category: cycle.category || 'Other',
-      type: Number(cycle.expected_amount || 0) > 0 ? 'bill' : 'event',
-      due_date: cycle.due_timestamp,
-    }));
-
-    const currentMonthPendingCount = combinedCycles.filter((cycle) => {
-      const date = new Date(cycle.due_timestamp);
-      return date.getFullYear() === currentYear && date.getMonth() === currentMonth;
-    }).length;
-
-    return {
-      combinedCycles,
-      allMonthCompleted: currentMonthPendingCount === 0,
-    };
-  },
-
-  async updateCycleStatus(cycleId, amount, note) {
-    const isEvent = note === 'completed' || note === 'skipped';
-    const status = isEvent ? note : 'paid';
-
-    const updateData = {
-      status,
-      paid_at: new Date().toISOString(),
-    };
-
-    if (!isEvent && note && typeof note === 'string') {
-      updateData.payment_note = note.trim();
-    }
-
-    const { data, error } = await supabase
-      .from('obligation_cycles')
-      .update(updateData)
-      .eq('id', cycleId)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
-  },
-};
-
-export default cyclesService;
 </file>
 
 <file path="frontend/src/services/dispatchReminders.js">
@@ -5124,166 +4530,165 @@ jobs:
         run: node src/services/dispatchReminders.js
 </file>
 
-<file path="frontend/src/components/CycleCard.jsx">
-import { CATEGORY_ICONS } from '../constants/categories';
-import { CATEGORY_CONFIG } from '../constants/categoryConfig';
-import ActionSlider from './ActionSlider';
+<file path="frontend/src/constants/categories.js">
+export const STANDARD_CATEGORIES = [
+  'Bills',
+  'Subscriptions',
+  'Personal',
+  'Health',
+  'Documents',
+  'Other',
+];
 
-export default function CycleCard({
-  item,
-  isActive,
-  onClick,
-  currencySymbol,
-  onOpenPaymentModal,
-}) {
-  const categoryName = item.category || 'Other';
-  const categoryIcon = CATEGORY_ICONS[categoryName] || CATEGORY_ICONS.Other || '📌';
-  const bgImage = (CATEGORY_CONFIG[categoryName] || CATEGORY_CONFIG.Other)?.bgImage || '';
-  
-  const cardTitle = item.name || item.obligation_name || 'Untitled Reminder';
+export const CATEGORY_ICONS = {
+  Bills: '💳',
+  Subscriptions: '🎧',
+  Personal: '🎂',
+  Health: '🩺',
+  Documents: '📑',
+  Other: '📌',
+};
 
-  const isOverdue = item.due_date && new Date(item.due_date) < new Date();
-  const hasAmount = item.expected_amount && Number(item.expected_amount) > 0;
+export const CATEGORY_COLORS = {
+  Bills: {
+    bg: 'bg-blue-950/40',
+    border: 'border-blue-500/30',
+    badge: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
+    accent: 'text-blue-400',
+  },
+  Subscriptions: {
+    bg: 'bg-purple-950/40',
+    border: 'border-purple-500/30',
+    badge: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
+    accent: 'text-purple-400',
+  },
+  Personal: {
+    bg: 'bg-emerald-950/40',
+    border: 'border-emerald-500/30',
+    badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+    accent: 'text-emerald-400',
+  },
+  Health: {
+    bg: 'bg-rose-950/40',
+    border: 'border-rose-500/30',
+    badge: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
+    accent: 'text-rose-400',
+  },
+  Documents: {
+    bg: 'bg-amber-950/40',
+    border: 'border-amber-500/30',
+    badge: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
+    accent: 'text-amber-400',
+  },
+  Other: {
+    bg: 'bg-zinc-900/50',
+    border: 'border-zinc-700/40',
+    badge: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/30',
+    accent: 'text-zinc-400',
+  },
+};
 
-  const formatDueTime = (timeStr) => {
-    if (!timeStr || timeStr === 'No Time') return 'No Time';
-    const [hours, minutes] = timeStr.split(':');
-    const h = parseInt(hours, 10);
-    if (isNaN(h)) return timeStr;
-    const suffix = h >= 12 ? 'PM' : 'AM';
-    const formattedHour = h % 12 === 0 ? 12 : h % 12;
-    return `${String(formattedHour).padStart(2, '0')}:${minutes} ${suffix}`;
-  };
+export const CATEGORY_GUIDE = [
+  { name: 'Bills', icon: '💳', desc: 'Rent, Utilities, Loan EMIs, Credit Cards' },
+  { name: 'Subscriptions', icon: '🎧', desc: 'Streaming, Software, Memberships' },
+  { name: 'Personal', icon: '🎂', desc: 'Birthdays, Anniversaries, Social Events' },
+  { name: 'Health', icon: '🩺', desc: 'Doctor Checkups, Appointments, Meds' },
+  { name: 'Documents', icon: '📑', desc: 'Insurance, Vehicle Renewals, Passports' },
+  { name: 'Other', icon: '📌', desc: 'General Reminders & Miscellaneous' },
+];
 
-  const formatDueDate = (dateStr) => {
-    if (!dateStr) return '';
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    const yyyy = d.getFullYear();
-    return `${mm}-${dd}-${yyyy}`;
-  };
-
-  const rawTime = item.reminder_time || item.due_time;
-  const formattedTime = formatDueTime(rawTime);
-
-  return (
-    <div
-      onClick={onClick}
-      style={{
-        backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.50), rgba(0,0,0,0.85)), url(${bgImage})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      }}
-      className={`w-[75%] shrink-0 mx-[2.5%] rounded-3xl border border-white/20 p-5 transition-all duration-300 cursor-pointer shadow-xl relative overflow-hidden backdrop-blur-md ${
-        isActive
-          ? 'scale-100 opacity-100 ring-2 ring-white/50 shadow-2xl'
-          : 'scale-90 opacity-40 blur-[0.5px]'
-      }`}
-    >
-      <div className="flex justify-between items-center mb-3">
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border backdrop-blur-md bg-zinc-900/80 text-white border-white/15 shadow-md">
-          <span>{categoryIcon}</span>
-          <span>{categoryName}</span>
-        </span>
-        {item.frequency && (
-          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-white/10 text-gray-200 border border-white/15 uppercase">
-            {item.frequency}
-          </span>
-        )}
-      </div>
-
-      <h2 className="text-xl font-extrabold mb-1 text-white truncate drop-shadow-md">
-        {cardTitle}
-      </h2>
-      <p
-        className={`text-xs mb-5 font-bold drop-shadow ${
-          isOverdue ? 'text-red-300' : 'text-gray-300'
-        }`}
-      >
-        {isOverdue
-          ? `⚠ Overdue (${formatDueDate(item.due_date)})`
-          : `Due ${formatDueDate(item.due_date)} at ${formattedTime}`}
-      </p>
-
-      <div className="min-h-[44px] mb-5 flex items-center">
-        {hasAmount && (
-          <p className="text-3xl font-black text-white drop-shadow-lg">
-            {currencySymbol}
-            {Number(item.expected_amount).toLocaleString('en-IN')}
-          </p>
-        )}
-      </div>
-
-      {isActive && <ActionSlider onComplete={onOpenPaymentModal} />}
-    </div>
-  );
-}
-</file>
-
-<file path="frontend/src/components/PaymentModal.jsx">
-import { useState } from 'react';
-
-export default function PaymentModal({ cycle, onClose, onConfirm }) {
-  const [amount, setAmount] = useState(cycle?.expected_amount || '');
-  const [note, setNote] = useState('');
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onConfirm(amount, note);
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 w-full max-w-sm text-white shadow-2xl">
-        <h3 className="text-lg font-bold mb-2">Mark as Settled</h3>
-        <p className="text-xs text-gray-400 mb-4">{cycle?.obligation_name}</p>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-gray-300 mb-1">Amount Paid</label>
-            <input
-              type="number"
-              step="0.01"
-              required
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="w-full border border-white/20 bg-black/40 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-gray-300 mb-1">Note (Optional)</label>
-            <input
-              type="text"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="e.g. Paid via UPI"
-              className="w-full border border-white/20 bg-black/40 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-            />
-          </div>
-
-          <div className="flex gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-1/2 bg-white/10 hover:bg-white/20 text-white font-semibold py-2.5 rounded-xl text-xs"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="w-1/2 bg-emerald-400 hover:bg-emerald-500 text-black font-extrabold py-2.5 rounded-xl text-xs"
-            >
-              Confirm
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
+export const GEN_Z_THEMES = {
+  light: {
+    name: 'Clean Light',
+    bg: 'bg-slate-50',
+    text: 'text-slate-900',
+    subText: 'text-slate-500',
+    card: 'bg-white border-slate-200 shadow-sm hover:border-slate-300 text-slate-900',
+    inputBg: 'bg-white border-slate-200 text-slate-900 shadow-sm hover:border-slate-300',
+    primary: 'bg-slate-900 text-white hover:bg-slate-800',
+    accentText: 'text-emerald-600',
+    badge: 'bg-slate-100 text-slate-700 border-slate-200',
+    chipActive: 'bg-slate-900 text-white border-slate-900 shadow-sm',
+    chipInactive: 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100',
+    chipCountActive: 'bg-white/20 text-white',
+    chipCountInactive: 'bg-slate-100 text-slate-500',
+  },
+  cyberLime: {
+    name: 'Cyber Dark',
+    bg: 'bg-black',
+    text: 'text-gray-100',
+    subText: 'text-gray-400',
+    card: 'bg-zinc-900 border-zinc-800 hover:border-lime-400/40 text-gray-100',
+    inputBg: 'bg-zinc-900 border-zinc-800 text-white hover:border-lime-400/40',
+    primary: 'bg-lime-400 text-black hover:bg-lime-300',
+    accentText: 'text-lime-400',
+    badge: 'bg-lime-400/10 text-lime-400 border-lime-400/30',
+    chipActive: 'bg-lime-400 text-black border-lime-400 shadow-md',
+    chipInactive: 'bg-zinc-900 text-gray-300 border-zinc-800 hover:bg-zinc-800',
+    chipCountActive: 'bg-black/20 text-black',
+    chipCountInactive: 'bg-zinc-800 text-gray-400',
+  },
+  digitalLavender: {
+    name: 'Digital Lavender',
+    bg: 'bg-purple-950',
+    text: 'text-purple-100',
+    subText: 'text-purple-300',
+    card: 'bg-purple-900/40 border-purple-400/30 text-purple-100',
+    inputBg: 'bg-purple-900/40 border-purple-400/30 text-purple-100',
+    primary: 'bg-purple-400 text-purple-950 hover:bg-purple-300',
+    accentText: 'text-purple-300',
+    badge: 'bg-purple-400/10 text-purple-300 border-purple-300/30',
+    chipActive: 'bg-purple-400 text-purple-950 border-purple-400 shadow-md',
+    chipInactive: 'bg-purple-900/40 text-purple-200 border-purple-800/50 hover:bg-purple-900',
+    chipCountActive: 'bg-purple-950/30 text-purple-950',
+    chipCountInactive: 'bg-purple-900 text-purple-300',
+  },
+  roseGold: {
+    name: 'Rose Gold',
+    bg: 'bg-rose-950',
+    text: 'text-rose-100',
+    subText: 'text-rose-300',
+    card: 'bg-rose-900/40 border-rose-400/30 text-rose-100',
+    inputBg: 'bg-rose-900/40 border-rose-400/30 text-rose-100',
+    primary: 'bg-rose-300 text-rose-950 hover:bg-rose-200',
+    accentText: 'text-rose-300',
+    badge: 'bg-rose-400/10 text-rose-300 border-rose-300/30',
+    chipActive: 'bg-rose-300 text-rose-950 border-rose-300 shadow-md',
+    chipInactive: 'bg-rose-900/40 text-rose-200 border-rose-800/50 hover:bg-rose-900',
+    chipCountActive: 'bg-rose-950/30 text-rose-950',
+    chipCountInactive: 'bg-rose-900 text-rose-300',
+  },
+  executiveNavy: {
+    name: 'Executive Slate',
+    bg: 'bg-slate-950',
+    text: 'text-slate-100',
+    subText: 'text-slate-400',
+    card: 'bg-slate-900/50 border-slate-700/40 text-slate-100',
+    inputBg: 'bg-slate-900/50 border-slate-700/40 text-slate-100',
+    primary: 'bg-sky-400 text-slate-950 hover:bg-sky-300',
+    accentText: 'text-sky-300',
+    badge: 'bg-sky-400/10 text-sky-300 border-sky-400/30',
+    chipActive: 'bg-sky-400 text-slate-950 border-sky-400 shadow-md',
+    chipInactive: 'bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800',
+    chipCountActive: 'bg-slate-950/30 text-slate-950',
+    chipCountInactive: 'bg-slate-800 text-slate-400',
+  },
+  matchaTeal: {
+    name: 'Matcha Teal',
+    bg: 'bg-emerald-950',
+    text: 'text-emerald-100',
+    subText: 'text-emerald-300',
+    card: 'bg-emerald-900/40 border-emerald-400/30 text-emerald-100',
+    inputBg: 'bg-emerald-900/40 border-emerald-400/30 text-emerald-100',
+    primary: 'bg-emerald-400 text-emerald-950 hover:bg-emerald-300',
+    accentText: 'text-emerald-300',
+    badge: 'bg-emerald-400/10 text-emerald-300 border-emerald-400/30',
+    chipActive: 'bg-emerald-400 text-emerald-950 border-emerald-400 shadow-md',
+    chipInactive: 'bg-emerald-900/40 text-emerald-200 border-emerald-800/50 hover:bg-emerald-900',
+    chipCountActive: 'bg-emerald-950/30 text-emerald-950',
+    chipCountInactive: 'bg-emerald-900 text-emerald-300',
+  },
+};
 </file>
 
 <file path="frontend/src/hooks/useObligationCycles.js">
@@ -5339,11 +4744,749 @@ export function useObligationCycles(userId) {
 }
 </file>
 
+<file path="frontend/src/services/cyclesService.js">
+import supabase from '../lib/supabase';
+
+const FINISHED_STATUSES = ['paid', 'completed', 'skipped', 'cancelled'];
+
+function getRange() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const day = now.getDate();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const includeNextMonth = day >= daysInMonth - 7;
+
+  return {
+    now,
+    currentYear: year,
+    currentMonth: month,
+    start: new Date(year, month, 1).toISOString(),
+    end: new Date(year, month + (includeNextMonth ? 2 : 1), 1).toISOString(),
+  };
+}
+
+export const cyclesService = {
+  async fetchActiveCycles(userId) {
+    if (!userId) return { combinedCycles: [], allMonthCompleted: true };
+
+    const { currentYear, currentMonth, start, end } = getRange();
+    const { data, error } = await supabase
+      .from('obligation_cycles')
+      .select('*')
+      .eq('user_id', userId)
+      .not('status', 'in', `(${FINISHED_STATUSES.join(',')})`)
+      .gte('due_timestamp', start)
+      .lt('due_timestamp', end)
+      .order('due_timestamp', { ascending: true });
+
+    if (error) throw error;
+
+    const combinedCycles = (data || []).map((cycle) => ({
+      ...cycle,
+      name: cycle.name || 'Untitled reminder',
+      category: cycle.category || 'Other',
+      type: Number(cycle.expected_amount || 0) > 0 ? 'bill' : 'event',
+      due_date: cycle.due_timestamp,
+      frequency: cycle.frequency || 'monthly',
+    }));
+
+    const currentMonthPendingCount = combinedCycles.filter((cycle) => {
+      const date = new Date(cycle.due_timestamp);
+      return date.getFullYear() === currentYear && date.getMonth() === currentMonth;
+    }).length;
+
+    return {
+      combinedCycles,
+      allMonthCompleted: currentMonthPendingCount === 0,
+    };
+  },
+  // Inside fetchActiveCycles, update the query mapping or filter:
+  async fetchActiveCycles(userId) {
+    if (!userId) return { combinedCycles: [], allMonthCompleted: true };
+
+    const { currentYear, currentMonth, start, end } = getRange();
+    const { data, error } = await supabase
+      .from('obligation_cycles')
+      .select('*, obligations(is_paused, paused_start_date, paused_end_date, frequency)')
+      .eq('user_id', userId)
+      .not('status', 'in', `(${FINISHED_STATUSES.join(',')})`)
+      .gte('due_timestamp', start)
+      .lt('due_timestamp', end)
+      .order('due_timestamp', { ascending: true });
+
+    if (error) throw error;
+
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    const combinedCycles = (data || [])
+      .filter((cycle) => {
+        // If the parent obligation is paused and today falls within the pause window, hide it
+        const obl = cycle.obligations;
+        if (obl && obl.is_paused && obl.paused_start_date && obl.paused_end_date) {
+          if (todayStr >= obl.paused_start_date && todayStr <= obl.paused_end_date) {
+            return false; // Skip hidden paused cycle
+          }
+        }
+        return true;
+      })
+      .map((cycle) => ({
+        ...cycle,
+        name: cycle.name || 'Untitled reminder',
+        category: cycle.category || 'Other',
+        type: Number(cycle.expected_amount || 0) > 0 ? 'bill' : 'event',
+        due_date: cycle.due_timestamp,
+        frequency: cycle.frequency || cycle.obligations?.frequency || 'monthly',
+      }));
+
+    const currentMonthPendingCount = combinedCycles.filter((cycle) => {
+      const date = new Date(cycle.due_timestamp);
+      return date.getFullYear() === currentYear && date.getMonth() === currentMonth;
+    }).length;
+
+    return {
+      combinedCycles,
+      allMonthCompleted: currentMonthPendingCount === 0,
+    };
+  },
+  
+  async updateCycleStatus(cycleId, statusOrAmount, noteOrStatus = 'paid') {
+    // Support flexible parameter passing: (cycleId, amount, note) or (cycleId, status, details)
+    let status = 'paid';
+    let updateData = { paid_at: new Date().toISOString() };
+
+    if (['paid', 'completed', 'skipped', 'cancelled'].includes(statusOrAmount)) {
+      status = statusOrAmount;
+      if (typeof noteOrStatus === 'string' && noteOrStatus) {
+        updateData.payment_note = noteOrStatus.trim();
+      }
+    } else {
+      // Legacy monetary payment flow
+      const amount = Number(statusOrAmount) || 0;
+      status = 'paid';
+      updateData.expected_amount = amount;
+      if (noteOrStatus && typeof noteOrStatus === 'string') {
+        updateData.payment_note = noteOrStatus.trim();
+      }
+    }
+
+    updateData.status = status;
+
+    // 1. Fetch cycle info to check if it's a one-off reminder
+    const { data: cycleData, error: fetchErr } = await supabase
+      .from('obligation_cycles')
+      .select('obligation_id, frequency')
+      .eq('id', cycleId)
+      .single();
+
+    if (fetchErr) throw fetchErr;
+
+    // 2. Update cycle status
+    const { data, error } = await supabase
+      .from('obligation_cycles')
+      .update(updateData)
+      .eq('id', cycleId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // 3. Auto-archive (deactivate) parent obligation if it's a one-off reminder and finished
+    if (cycleData?.obligation_id && FINISHED_STATUSES.includes(status)) {
+      const { data: oblData } = await supabase
+        .from('obligations')
+        .select('frequency')
+        .eq('id', cycleData.obligation_id)
+        .single();
+
+      if (oblData?.frequency === 'one-off' || cycleData?.frequency === 'one-off') {
+        await supabase
+          .from('obligations')
+          .update({ is_active: false })
+          .eq('id', cycleData.obligation_id);
+      }
+    }
+
+    return data;
+  },
+};
+
+export default cyclesService;
+</file>
+
+<file path="frontend/Dockerfile.prod">
+FROM node:20-bookworm AS build
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+FROM nginx:alpine
+
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
+</file>
+
+<file path="docker-compose.yml">
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: obligation-backend
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=development
+    volumes:
+      - ./backend:/app
+    command: npm run dev
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: obligation-frontend
+    ports:
+      - "5173:5173"
+#      environment:
+#        - VITE_API_BASE_URL=https://psychic-capybara-pg9qr5gpvwqc57q-3000.app.github.dev
+    volumes:
+      - ./frontend:/app
+    command: npm run dev -- --host 0.0.0.0
+</file>
+
+<file path="backend/Dockerfile.prod">
+FROM node:20-bookworm
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --only=production
+
+COPY . .
+
+EXPOSE 3000
+
+CMD ["npm", "start"]
+</file>
+
+<file path="backend/package.json">
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.109.0",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.4",
+    "express": "^5.2.1",
+    "groq-sdk": "^1.6.0",
+    "ws": "^8.22.0"
+  }
+}
+</file>
+
+<file path="frontend/src/components/CycleCard.jsx">
+import { CATEGORY_ICONS } from '../constants/categories';
+import { CATEGORY_CONFIG } from '../constants/categoryConfig';
+import ActionSlider from './ActionSlider';
+
+export default function CycleCard({
+  item,
+  isActive,
+  onClick,
+  currencySymbol,
+  onOpenPaymentModal,
+}) {
+  const categoryName = item.category || 'Other';
+  const categoryIcon = CATEGORY_ICONS[categoryName] || CATEGORY_ICONS.Other || '📌';
+  const bgImage = (CATEGORY_CONFIG[categoryName] || CATEGORY_CONFIG.Other)?.bgImage || '';
+  
+  const cardTitle = item.name || item.obligation_name || 'Untitled Reminder';
+
+  const isOverdue = item.due_date && new Date(item.due_date) < new Date();
+  const hasAmount = item.expected_amount && Number(item.expected_amount) > 0;
+
+  const formatDueTime = (timeStr) => {
+    if (!timeStr || timeStr === 'No Time') return 'No Time';
+    const [hours, minutes] = timeStr.split(':');
+    const h = parseInt(hours, 10);
+    if (isNaN(h)) return timeStr;
+    const suffix = h >= 12 ? 'PM' : 'AM';
+    const formattedHour = h % 12 === 0 ? 12 : h % 12;
+    return `${String(formattedHour).padStart(2, '0')}:${minutes} ${suffix}`;
+  };
+
+  const formatDueDate = (dateStr) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `${mm}-${dd}-${yyyy}`;
+  };
+
+  const rawTime = item.reminder_time || item.due_time;
+  const formattedTime = formatDueTime(rawTime);
+
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        backgroundImage: `linear-gradient(to bottom, rgba(15,23,42,0.60), rgba(15,23,42,0.92)), url(${bgImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+      className={`w-[80%] shrink-0 mx-[2.5%] rounded-3xl border p-6 transition-all duration-300 cursor-pointer shadow-2xl relative overflow-hidden backdrop-blur-xl ${
+        isActive
+          ? 'scale-100 opacity-100 border-white/30 ring-4 ring-white/10 shadow-emerald-500/5'
+          : 'scale-90 opacity-40 border-white/10 blur-[0.5px]'
+      }`}
+    >
+      <div className="flex justify-between items-center mb-4">
+        <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold border bg-zinc-900/90 text-white border-white/20 shadow-sm">
+          <span>{categoryIcon}</span>
+          <span>{categoryName}</span>
+        </span>
+        {item.frequency && (
+          <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white/10 text-gray-200 border border-white/15 uppercase tracking-wider">
+            {item.frequency}
+          </span>
+        )}
+      </div>
+
+      <h2 className="text-2xl font-black mb-1.5 text-white tracking-tight drop-shadow-md">
+        {cardTitle}
+      </h2>
+      <p
+        className={`text-xs mb-6 font-semibold tracking-wide drop-shadow ${
+          isOverdue ? 'text-red-400 font-bold' : 'text-gray-300'
+        }`}
+      >
+        {isOverdue
+          ? `⚠️ Overdue (${formatDueDate(item.due_date)})`
+          : `Due ${formatDueDate(item.due_date)} at ${formattedTime}`}
+      </p>
+
+      <div className="min-h-[48px] mb-6 flex items-center">
+        {hasAmount && (
+          <p className="text-4xl font-black text-white tracking-tight drop-shadow-lg">
+            {currencySymbol}
+            {Number(item.expected_amount).toLocaleString('en-IN')}
+          </p>
+        )}
+      </div>
+
+      {isActive && <ActionSlider onComplete={onOpenPaymentModal} />}
+    </div>
+  );
+}
+</file>
+
+<file path="frontend/src/components/ObligationFormModal.jsx">
+import { useState, useEffect } from 'react';
+import { useVoiceObligation } from '../hooks/useVoiceObligation';
+import { STANDARD_CATEGORIES } from '../constants/categories';
+
+const MONTHS = [
+  { value: 1, label: 'January' },
+  { value: 2, label: 'February' },
+  { value: 3, label: 'March' },
+  { value: 4, label: 'April' },
+  { value: 5, label: 'May' },
+  { value: 6, label: 'June' },
+  { value: 7, label: 'July' },
+  { value: 8, label: 'August' },
+  { value: 9, label: 'September' },
+  { value: 10, label: 'October' },
+  { value: 11, label: 'November' },
+  { value: 12, label: 'December' },
+];
+
+export default function ObligationFormModal({
+  editingItem,
+  activeTheme,
+  currencySymbol,
+  onSave,
+  onCancel,
+  saving
+}) {
+  // Default to 'voice' mode when adding a new item, 'form' mode when editing
+  const [activeTab, setActiveTab] = useState(editingItem ? 'form' : 'voice');
+  const defaultCategory = STANDARD_CATEGORIES && STANDARD_CATEGORIES.length > 0 ? STANDARD_CATEGORIES[0] : 'Other';
+
+  const [formData, setFormData] = useState({
+    name: '',
+    type: 'bill',
+    category: defaultCategory,
+    expected_amount: '',
+    due_day: new Date().getDate(),
+    due_month: new Date().getMonth() + 1,
+    frequency: 'monthly',
+    due_time: '09:00',
+    reminder_time: '09:00',
+  });
+
+  const {
+    isListening,
+    isProcessing,
+    statusMessage,
+    startVoice,
+    stopVoice,
+    transcript,
+    processTranscript,
+  } = useVoiceObligation((extractedData) => {
+    const extractedTime = extractedData?.reminder_time || extractedData?.due_time || '09:00';
+    setFormData((prev) => ({
+      ...prev,
+      ...extractedData,
+      due_time: extractedTime,
+      reminder_time: extractedTime,
+    }));
+    setActiveTab('form');
+  });
+
+  useEffect(() => {
+    if (transcript && !isListening) {
+      processTranscript(transcript);
+    }
+  }, [transcript, isListening]);
+
+  useEffect(() => {
+    if (editingItem) {
+      const isEvent =
+        editingItem.type === 'event' ||
+        editingItem.category === 'Events' ||
+        Number(editingItem.expected_amount) === 0;
+
+      const timeValue = editingItem.reminder_time || editingItem.due_time || '09:00';
+
+      setFormData({
+        name: editingItem.name || '',
+        type: isEvent ? 'event' : 'bill',
+        category: editingItem.category || (isEvent ? 'Events' : defaultCategory),
+        expected_amount: isEvent ? '' : (editingItem.expected_amount?.toString() ?? ''),
+        due_day: editingItem.due_day || new Date().getDate(),
+        due_month: editingItem.due_month || (new Date().getMonth() + 1),
+        frequency: editingItem.frequency || (isEvent ? 'yearly' : 'monthly'),
+        due_time: timeValue,
+        reminder_time: timeValue,
+      });
+      setActiveTab('form');
+    } else {
+      setFormData({
+        name: '',
+        type: 'bill',
+        category: defaultCategory,
+        expected_amount: '',
+        due_day: new Date().getDate(),
+        due_month: new Date().getMonth() + 1,
+        frequency: 'monthly',
+        due_time: '09:00',
+        reminder_time: '09:00',
+      });
+      setActiveTab('voice');
+    }
+  }, [editingItem, defaultCategory]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave(formData);
+  };
+
+  const handleTimeChange = (e) => {
+    const timeVal = e.target.value;
+    setFormData((prev) => ({
+      ...prev,
+      due_time: timeVal,
+      reminder_time: timeVal,
+    }));
+  };
+
+  return (
+    <div className={`${activeTheme.card} rounded-3xl border p-6 mb-6 shadow-2xl transition-all`}>
+      {/* Mode Switcher */}
+      {!editingItem && (
+        <div className="grid grid-cols-2 gap-2 bg-black/10 dark:bg-black/50 p-1 rounded-2xl border border-black/10 dark:border-white/10 mb-5">
+          <button
+            type="button"
+            onClick={() => setActiveTab('voice')}
+            className={`py-2 text-xs font-bold rounded-xl transition-all ${
+              activeTab === 'voice'
+                ? 'bg-emerald-400 text-black shadow-md'
+                : `${activeTheme.subText} hover:opacity-80`
+            }`}
+          >
+            🎙️ Voice Mode
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('form')}
+            className={`py-2 text-xs font-bold rounded-xl transition-all ${
+              activeTab === 'form'
+                ? 'bg-zinc-800 text-white shadow-md border border-white/10'
+                : `${activeTheme.subText} hover:opacity-80`
+            }`}
+          >
+            ✏️ Short Form
+          </button>
+        </div>
+      )}
+
+      <h2 className="text-lg font-bold mb-4">
+        {editingItem ? 'Edit Reminder' : activeTab === 'voice' ? 'Add via Voice' : 'Add New Reminder'}
+      </h2>
+
+      {activeTab === 'voice' && !editingItem ? (
+        <div className="flex flex-col items-center justify-center py-6 text-center space-y-4">
+          <button
+            type="button"
+            onClick={isListening ? stopVoice : startVoice}
+            disabled={isProcessing}
+            className={`w-20 h-20 rounded-full flex items-center justify-center text-3xl shadow-xl transition-all transform active:scale-95 ${
+              isListening
+                ? 'bg-red-500 animate-pulse text-white ring-8 ring-red-500/20'
+                : isProcessing
+                ? 'bg-yellow-500 animate-spin text-black'
+                : 'bg-emerald-400 hover:bg-emerald-300 text-black'
+            }`}
+          >
+            {isListening ? '🛑' : isProcessing ? '⏳' : '🎙️'}
+          </button>
+
+          <p className="text-sm font-semibold">
+            {isListening
+              ? 'Listening... Speak now'
+              : isProcessing
+              ? 'Analyzing speech...'
+              : 'Tap microphone to speak'}
+          </p>
+
+          {statusMessage && (
+            <p className="text-xs font-medium text-emerald-500 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-xl max-w-xs">
+              {statusMessage}
+            </p>
+          )}
+
+          <p className={`text-xs ${activeTheme.subText} max-w-xs pt-2`}>
+            Try saying: <br />
+            <span className="italic opacity-80">"Remind me to bring milk tomorrow at 7 AM"</span> or <span className="italic opacity-80">"Annual insurance premium $500 due November 10th"</span>
+          </p>
+
+          <div className="w-full flex justify-center pt-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              className={`font-semibold text-xs px-5 py-2.5 rounded-xl transition-all border ${activeTheme.card}`}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className={`block text-xs font-semibold ${activeTheme.subText} mb-1.5`}>Type</label>
+            <div className="grid grid-cols-2 gap-2 bg-black/5 dark:bg-black/40 p-1 rounded-xl border border-black/10 dark:border-white/10">
+              <button
+                type="button"
+                onClick={() => setFormData((prev) => ({ ...prev, type: 'bill', frequency: 'monthly' }))}
+                className={`py-2 text-xs font-bold rounded-lg transition-all ${
+                  formData.type === 'bill'
+                    ? 'bg-emerald-400 text-black shadow-md'
+                    : `${activeTheme.subText} hover:opacity-80`
+                }`}
+              >
+                💳 Bill / Financial
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    type: 'event',
+                    expected_amount: '',
+                    category: prev.category === 'Bills' ? 'Events' : prev.category,
+                    frequency: 'yearly',
+                  }))
+                }
+                className={`py-2 text-xs font-bold rounded-lg transition-all ${
+                  formData.type === 'event'
+                    ? 'bg-emerald-400 text-black shadow-md'
+                    : `${activeTheme.subText} hover:opacity-80`
+                }`}
+              >
+                🎂 Event / Task
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className={`block text-xs font-semibold ${activeTheme.subText} mb-1`}>Name</label>
+            <input
+              type="text"
+              required
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className={`w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 border ${activeTheme.inputBg}`}
+              placeholder={formData.type === 'event' ? "e.g., Bring Milk, Doctor Appointment" : "e.g., Electricity Bill, House Rent"}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={`block text-xs font-semibold ${activeTheme.subText} mb-1`}>Category</label>
+              <select
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                className={`w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 border ${activeTheme.inputBg}`}
+              >
+                {STANDARD_CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat} className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white">
+                    {cat}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className={`block text-xs font-semibold ${activeTheme.subText} mb-1`}>Frequency</label>
+              <select
+                value={formData.frequency}
+                onChange={(e) => {
+                  const newFreq = e.target.value;
+                  setFormData((prev) => ({
+                    ...prev,
+                    frequency: newFreq,
+                    due_month: newFreq === 'yearly' ? (prev.due_month || new Date().getMonth() + 1) : prev.due_month,
+                  }));
+                }}
+                className={`w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 border ${activeTheme.inputBg}`}
+              >
+                <option value="daily" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white">Daily</option>
+                <option value="weekly" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white">Weekly</option>
+                <option value="monthly" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white">Monthly</option>
+                <option value="quarterly" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white">Quarterly</option>
+                <option value="yearly" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white">Yearly</option>
+                <option value="one-off" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white">One-Off</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Conditional Month/Day Grid */}
+          <div className="grid grid-cols-2 gap-4">
+            {formData.type === 'bill' && (
+              <div>
+                <label className={`block text-xs font-semibold ${activeTheme.subText} mb-1`}>
+                  Amount ({currencySymbol})
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="0"
+                  step="0.01"
+                  value={formData.expected_amount}
+                  onChange={(e) => setFormData({ ...formData, expected_amount: e.target.value })}
+                  className={`w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 border ${activeTheme.inputBg}`}
+                  placeholder="e.g., 1500"
+                />
+              </div>
+            )}
+
+            {formData.frequency === 'yearly' && (
+              <div>
+                <label className={`block text-xs font-semibold ${activeTheme.subText} mb-1`}>Due Month</label>
+                <select
+                  value={formData.due_month}
+                  onChange={(e) => setFormData({ ...formData, due_month: Number(e.target.value) })}
+                  className={`w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 border ${activeTheme.inputBg}`}
+                >
+                  {MONTHS.map((m) => (
+                    <option key={m.value} value={m.value} className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white">
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {formData.frequency !== 'daily' && formData.frequency !== 'weekly' && (
+              <div className={formData.type === 'event' && formData.frequency !== 'yearly' ? 'col-span-2' : ''}>
+                <label className={`block text-xs font-semibold ${activeTheme.subText} mb-1`}>
+                  {formData.frequency === 'yearly' ? 'Due Date' : 'Due Day of Month'}
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  max="31"
+                  value={formData.due_day}
+                  onChange={(e) => setFormData({ ...formData, due_day: e.target.value })}
+                  className={`w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 border ${activeTheme.inputBg}`}
+                  placeholder="10"
+                />
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className={`block text-xs font-semibold ${activeTheme.subText} mb-1`}>Notification Time (Local)</label>
+            <input
+              type="time"
+              required
+              value={formData.reminder_time || formData.due_time}
+              onChange={handleTimeChange}
+              className={`w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 border ${activeTheme.inputBg}`}
+            />
+          </div>
+
+          <div className="flex gap-3 mt-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              className={`w-1/3 font-semibold px-4 py-3 rounded-xl transition-all border ${activeTheme.card}`}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="w-2/3 bg-emerald-400 hover:bg-emerald-500 active:bg-emerald-600 text-black font-extrabold px-4 py-3 rounded-xl transition-all disabled:opacity-50 shadow-md"
+            >
+              {saving ? 'Saving...' : editingItem ? 'Update Reminder' : 'Save Reminder'}
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
+</file>
+
 <file path="frontend/src/services/obligationsService.js">
 import supabase from '../lib/supabase';
 
 const DEFAULT_REMINDER_TIME = '09:00';
-const ALLOWED_FREQUENCIES = new Set(['monthly', 'quarterly', 'yearly', 'one-off']);
+const ALLOWED_FREQUENCIES = new Set(['daily', 'weekly', 'monthly', 'quarterly', 'yearly', 'one-off']);
 const UPCOMING_CYCLES_TARGET = 6;
 
 function normalizeTime(value) {
@@ -5439,13 +5582,33 @@ function buildCycleOccurrences({ frequency, dueDay, dueMonth, userTimezone }) {
   if (frequency === 'one-off') {
     const monthIndex = dueMonth ? dueMonth - 1 : localToday.month;
     let year = localToday.year;
-    const day = Math.min(dueDay, getMonthLastDay(year, monthIndex));
+    const day = Math.min(dueDay || localToday.day, getMonthLastDay(year, monthIndex));
 
     if (isBeforeToday(year, monthIndex, day, localToday)) {
       throw new Error('One-off reminder date must be today or in the future.');
     }
 
     return [{ year, monthIndex, day }];
+  }
+
+  if (frequency === 'daily') {
+    let currentDate = new Date(localToday.year, localToday.month, localToday.day);
+    for (let i = 0; i < 14; i++) {
+      const parts = getLocalDateParts(currentDate, userTimezone);
+      cycles.push({ year: parts.year, monthIndex: parts.month, day: parts.day });
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    return cycles;
+  }
+
+  if (frequency === 'weekly') {
+    let currentDate = new Date(localToday.year, localToday.month, localToday.day);
+    for (let i = 0; i < 8; i++) {
+      const parts = getLocalDateParts(currentDate, userTimezone);
+      cycles.push({ year: parts.year, monthIndex: parts.month, day: parts.day });
+      currentDate.setDate(currentDate.getDate() + 7);
+    }
+    return cycles;
   }
 
   if (frequency === 'yearly') {
@@ -5473,7 +5636,8 @@ function buildCycleOccurrences({ frequency, dueDay, dueMonth, userTimezone }) {
   const totalCycles = frequency === 'quarterly' ? 4 : 12;
   let firstMonth = localToday.month;
   let firstYear = localToday.year;
-  let firstDay = Math.min(dueDay, getMonthLastDay(firstYear, firstMonth));
+  const safeDueDay = dueDay || localToday.day;
+  let firstDay = Math.min(safeDueDay, getMonthLastDay(firstYear, firstMonth));
 
   if (firstDay < localToday.day) {
     firstMonth += intervalMonths;
@@ -5489,7 +5653,7 @@ function buildCycleOccurrences({ frequency, dueDay, dueMonth, userTimezone }) {
     cycles.push({
       year,
       monthIndex,
-      day: Math.min(dueDay, getMonthLastDay(year, monthIndex)),
+      day: Math.min(safeDueDay, getMonthLastDay(year, monthIndex)),
     });
   }
 
@@ -5508,7 +5672,50 @@ export const obligationsService = {
       .order('due_day', { ascending: true });
 
     if (error) throw error;
-    return data;
+
+    const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+    const now = new Date();
+    const localToday = getLocalDateParts(now, userTimezone);
+
+    const filteredData = (data || []).filter((item) => {
+      if (item.frequency !== 'one-off') return true;
+      const day = item.due_day;
+      const month = item.due_month || (localToday.month + 1);
+      const year = item.due_year || localToday.year;
+      return !isBeforeToday(year, month - 1, day, localToday);
+    });
+
+    return filteredData;
+  },
+
+  async pauseObligation(userId, obligationId, startDate, endDate) {
+    if (!userId) throw new Error('You must be signed in.');
+    const { error } = await supabase
+      .from('obligations')
+      .update({
+        is_paused: true,
+        paused_start_date: startDate,
+        paused_end_date: endDate,
+      })
+      .eq('id', obligationId)
+      .eq('user_id', userId);
+
+    if (error) throw error;
+  },
+
+  async resumeObligation(userId, obligationId) {
+    if (!userId) throw new Error('You must be signed in.');
+    const { error } = await supabase
+      .from('obligations')
+      .update({
+        is_paused: false,
+        paused_start_date: null,
+        paused_end_date: null,
+      })
+      .eq('id', obligationId)
+      .eq('user_id', userId);
+
+    if (error) throw error;
   },
 
   async createCycles({
@@ -5564,6 +5771,7 @@ export const obligationsService = {
           due_timestamp: dueTimestamp,
           notification_sent: false,
           user_timezone: userTimezone,
+          frequency,
         };
       });
 
@@ -5571,7 +5779,7 @@ export const obligationsService = {
 
     const { error } = await supabase
       .from('obligation_cycles')
-      .upsert(cycles, { onConflict: 'obligation_id,cycle_month', ignoreDuplicates: true });
+      .upsert(cycles, { onConflict: 'obligation_id,due_timestamp', ignoreDuplicates: true });
 
     if (error) throw error;
   },
@@ -5642,6 +5850,7 @@ export const obligationsService = {
         due_timestamp: dueTimestamp,
         notification_sent: false,
         user_timezone: userTimezone,
+        frequency,
       });
 
       if (newCycles.length >= needed) break;
@@ -5651,7 +5860,7 @@ export const obligationsService = {
 
     const { error } = await supabase
       .from('obligation_cycles')
-      .upsert(newCycles, { onConflict: 'obligation_id,cycle_month', ignoreDuplicates: true });
+      .upsert(newCycles, { onConflict: 'obligation_id,due_timestamp', ignoreDuplicates: true });
 
     if (error) throw error;
   },
@@ -5663,7 +5872,7 @@ export const obligationsService = {
     const frequency = ALLOWED_FREQUENCIES.has(formData.frequency)
       ? formData.frequency
       : 'monthly';
-    const dueDay = normalizeDay(formData.due_day ?? formData.dueDay ?? formData.dueday);
+    const dueDay = frequency === 'daily' || frequency === 'weekly' ? 1 : normalizeDay(formData.due_day ?? formData.dueDay ?? formData.dueday);
     const dueMonth = normalizeMonth(formData.due_month ?? formData.dueMonth ?? formData.duemonth);
     const reminderTime = normalizeTime(
       formData.reminder_time ?? formData.reminderTime ?? formData.remindertime ?? formData.due_time ?? formData.duetime,
@@ -5711,9 +5920,6 @@ export const obligationsService = {
 
       if (cyclesFetchError) throw cyclesFetchError;
 
-      const now = new Date();
-      const localToday = getLocalDateParts(now, userTimezone);
-
       const updates = (cycles || []).map((cycle) => {
         const dueDateParts = getLocalDateParts(new Date(cycle.due_timestamp), cycle.user_timezone || 'UTC');
         const newDueTimestamp = getUtcTimestampForLocalTime(
@@ -5734,6 +5940,7 @@ export const obligationsService = {
           user_timezone: userTimezone,
           due_timestamp: newDueTimestamp,
           notification_sent: false,
+          frequency,
         };
       });
 
@@ -5805,96 +6012,6 @@ export const obligationsService = {
 export default obligationsService;
 </file>
 
-<file path="frontend/Dockerfile.prod">
-FROM node:20-bookworm AS build
-
-WORKDIR /app
-
-COPY package*.json ./
-RUN npm ci
-
-COPY . .
-RUN npm run build
-
-FROM nginx:alpine
-
-COPY --from=build /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]
-</file>
-
-<file path="docker-compose.yml">
-services:
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: obligation-backend
-    ports:
-      - "3000:3000"
-    environment:
-      - PORT=3000
-      - NODE_ENV=development
-    volumes:
-      - ./backend:/app
-    command: npm run dev
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: obligation-frontend
-    ports:
-      - "5173:5173"
-#      environment:
-#        - VITE_API_BASE_URL=https://psychic-capybara-pg9qr5gpvwqc57q-3000.app.github.dev
-    volumes:
-      - ./frontend:/app
-    command: npm run dev -- --host 0.0.0.0
-</file>
-
-<file path="backend/Dockerfile.prod">
-FROM node:20-bookworm
-
-WORKDIR /app
-
-COPY package*.json ./
-RUN npm ci --only=production
-
-COPY . .
-
-EXPOSE 3000
-
-CMD ["npm", "start"]
-</file>
-
-<file path="backend/package.json">
-{
-  "name": "backend",
-  "version": "1.0.0",
-  "main": "index.js",
-  "scripts": {
-    "start": "node index.js",
-    "dev": "node --watch index.js"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
-  "dependencies": {
-    "@supabase/supabase-js": "^2.109.0",
-    "cors": "^2.8.6",
-    "dotenv": "^18.0.4",
-    "express": "^5.2.1",
-    "groq-sdk": "^1.6.0",
-    "ws": "^8.22.0"
-  }
-}
-</file>
-
 <file path="frontend/vite.config.js">
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
@@ -5949,6 +6066,130 @@ services:
       - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       - backend
+</file>
+
+<file path="frontend/src/components/PaymentModal.jsx">
+import { useState } from 'react';
+
+export default function PaymentModal({
+  isOpen,
+  onClose,
+  cycle,
+  currencySymbol = '₹',
+  onConfirmPayment,
+  activeTheme,
+}) {
+  if (!isOpen || !cycle) return null;
+
+  const [amountPaid, setAmountPaid] = useState(cycle.expected_amount || '');
+  const [notes, setNotes] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const cardClass = activeTheme?.card || 'bg-zinc-900 border-zinc-800 text-white';
+  const subTextClass = activeTheme?.subText || 'text-gray-400';
+  const inputBgClass = activeTheme?.inputBg || 'bg-zinc-950';
+
+  const handlePaymentSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await onConfirmPayment(cycle.id, Number(amountPaid), notes.trim());
+      onClose();
+    } catch (err) {
+      console.error('Error recording payment:', err);
+      alert('Failed to record payment.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelOccurrence = async () => {
+    if (!confirm('Cancel this bill occurrence? It will be removed from your active list.')) return;
+    setLoading(true);
+    try {
+      // Pass 'cancelled' status directly
+      await onConfirmPayment(cycle.id, 'cancelled', 'Cancelled by user');
+      onClose();
+    } catch (err) {
+      console.error('Error cancelling bill:', err);
+      alert('Failed to cancel bill occurrence.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className={`${cardClass} rounded-3xl max-w-sm w-full p-6 shadow-2xl border transition-all`}>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-bold">Record Bill Payment</h3>
+          <button onClick={onClose} className={`${subTextClass} hover:opacity-80 text-lg`}>
+            ✕
+          </button>
+        </div>
+
+        <p className={`text-xs ${subTextClass} mb-4`}>
+          Marking payment for <span className="font-bold text-emerald-400">{cycle.obligation_name || cycle.name}</span>
+        </p>
+
+        <form onSubmit={handlePaymentSubmit} className="space-y-4">
+          <div>
+            <label className={`block text-xs font-semibold ${subTextClass} mb-1`}>
+              Amount Paid ({currencySymbol})
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              required
+              value={amountPaid}
+              onChange={(e) => setAmountPaid(e.target.value)}
+              className={`w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 border ${inputBgClass}`}
+            />
+          </div>
+
+          <div>
+            <label className={`block text-xs font-semibold ${subTextClass} mb-1`}>Notes (Optional)</label>
+            <input
+              type="text"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="e.g., Paid via UPI / GPay"
+              className={`w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 border ${inputBgClass}`}
+            />
+          </div>
+
+          <div className="flex flex-col gap-2 pt-2">
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className={`w-1/3 font-semibold px-4 py-3 rounded-xl transition-all border ${cardClass}`}
+              >
+                Back
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-2/3 bg-emerald-400 hover:bg-emerald-500 active:bg-emerald-600 text-black font-extrabold px-4 py-3 rounded-xl transition-all disabled:opacity-50 shadow-md text-xs"
+              >
+                {loading ? 'Processing...' : 'Confirm Paid ✓'}
+              </button>
+            </div>
+
+            <button
+              type="button"
+              disabled={loading}
+              onClick={handleCancelOccurrence}
+              className="w-full py-2.5 text-red-400 hover:text-red-300 font-semibold text-xs transition-all"
+            >
+              Cancel this occurrence ✕
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 </file>
 
 <file path="frontend/nginx.conf">
@@ -6115,6 +6356,55 @@ networks:
   green-net:
 </file>
 
+<file path=".github/workflows/ci.yml">
+name: CI - Build Docker Images
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build backend image
+        run: docker build -t obligation-backend ./backend
+
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build frontend image
+        run: docker build -t obligation-frontend ./frontend
+
+  deploy:
+    needs: [build-backend, build-frontend]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Oracle VM via Blue-Green Script
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          command_timeout: 20m
+          script: |
+            cd ${{ secrets.VM_PROJECT_PATH }}
+            chmod +x deploy-bg.sh || true
+            # Run the automated deployment script
+            bash deploy-bg.sh
+
+      - name: Verify Live Endpoint
+        run: |
+          sleep 15
+          # Verify that the public production site is up and responsive
+          curl --retry 5 --retry-delay 3 --retry-all-errors -f https://settld.duckdns.org || exit 1
+</file>
+
 <file path="frontend/src/components/NextActionCard.jsx">
 import { useState, useEffect, useRef } from 'react';
 import PaymentModal from './PaymentModal';
@@ -6171,22 +6461,19 @@ export default function NextActionCard({
   };
 
   const handleTouchEnd = () => {
-    const minSwipeDistance = 50; // Minimum px distance to consider a swipe
+    const minSwipeDistance = 50;
     const distance = touchStartX.current - touchEndX.current;
 
-    // Swipe Left -> Next Card
     if (distance > minSwipeDistance && activeIndex < cycles.length - 1) {
       setActiveIndex((prev) => prev + 1);
     }
-
-    // Swipe Right -> Previous Card
     if (distance < -minSwipeDistance && activeIndex > 0) {
       setActiveIndex((prev) => prev - 1);
     }
   };
 
   return (
-    <div className="w-full max-w-md mx-auto mt-1 px-1">
+    <div className="w-full max-w-md mx-auto mt-2 px-1">
       {/* Shared Category Counter Bar */}
       <CategoryCounterBar cycles={cycles} themeKey={themeKey} />
 
@@ -6194,13 +6481,13 @@ export default function NextActionCard({
 
       {cycles.length > 0 ? (
         <>
-          <div className="text-xs text-gray-400 mb-2 text-center select-none font-medium">
-            {currentMonthRemaining} remaining for this month • Showing card {activeIndex + 1} of {cycles.length}
+          <div className="text-xs text-gray-400 mb-3 text-center select-none font-medium tracking-wide">
+            <span className="text-emerald-400 font-bold">{currentMonthRemaining}</span> remaining this month • Card <span className="text-white font-bold">{activeIndex + 1}</span> of {cycles.length}
           </div>
 
           {/* Swipeable Viewport */}
           <div
-            className="relative overflow-hidden py-2 w-full touch-pan-y"
+            className="relative overflow-hidden py-3 w-full touch-pan-y"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
@@ -6208,7 +6495,7 @@ export default function NextActionCard({
             <div
               className="flex transition-transform duration-300 ease-out"
               style={{
-                transform: `translateX(${-activeIndex * 80 + 10}%)`,
+                transform: `translateX(${-activeIndex * 85 + 7.5}%)`,
               }}
             >
               {cycles.map((item, index) => (
@@ -6225,18 +6512,18 @@ export default function NextActionCard({
           </div>
 
           {/* Navigation Controls */}
-          <div className="flex justify-between items-center px-4 mt-1">
+          <div className="flex justify-between items-center px-6 mt-3">
             <button
               disabled={activeIndex === 0}
               onClick={() => setActiveIndex((prev) => Math.max(0, prev - 1))}
-              className="px-4 py-2 bg-black/50 border border-white/10 rounded-xl text-xs font-bold text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-black/70 transition-all"
+              className="px-5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-2xl text-xs font-bold text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-zinc-800 hover:text-white transition-all shadow-sm active:scale-95"
             >
               ← Previous
             </button>
             <button
               disabled={activeIndex === cycles.length - 1}
               onClick={() => setActiveIndex((prev) => Math.min(cycles.length - 1, prev + 1))}
-              className="px-4 py-2 bg-black/50 border border-white/10 rounded-xl text-xs font-bold text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-black/70 transition-all"
+              className="px-5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-2xl text-xs font-bold text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-zinc-800 hover:text-white transition-all shadow-sm active:scale-95"
             >
               Next →
             </button>
@@ -6287,7 +6574,6 @@ import { GEN_Z_THEMES, CATEGORY_ICONS } from '../constants/categories';
 import { obligationsService } from '../services/obligationsService';
 import ObligationFormModal from '../components/ObligationFormModal';
 
-
 export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -6297,37 +6583,56 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
   const [editingItem, setEditingItem] = useState(null);
   const [saving, setSaving] = useState(false);
 
+  // Pause Modal State
+  const [pauseItem, setPauseItem] = useState(null);
+  const [pauseStartDate, setPauseStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [pauseEndDate, setPauseEndDate] = useState(
+    new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  );
+  const [pausing, setPausing] = useState(false);
 
-  const activeThemeKey = themeKey || localStorage.getItem('themeKey') || 'cyberLime';
-  const activeTheme = GEN_Z_THEMES[activeThemeKey] || GEN_Z_THEMES.cyberLime;
+  // Real-time system preference listener for 'system' theme option
+  const [systemPrefersDark, setSystemPrefersDark] = useState(
+    window.matchMedia('(prefers-color-scheme: dark)').matches
+  );
 
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (e) => setSystemPrefersDark(e.matches);
+    mediaQuery.addEventListener('change', handler);
+    return () => mediaQuery.removeEventListener('change', handler);
+  }, []);
 
-  const bgClass = activeTheme?.bg || 'bg-zinc-950';
-  const cardThemeClass = activeTheme?.card || 'bg-zinc-900 border-zinc-800';
+  const getEffectiveThemeKey = (key) => {
+    const resolvedKey = key || localStorage.getItem('settld_theme') || 'system';
+    if (resolvedKey === 'system') {
+      return systemPrefersDark ? 'cyberLime' : 'light';
+    }
+    return resolvedKey;
+  };
 
+  const activeThemeKey = getEffectiveThemeKey(themeKey);
+  const activeTheme = GEN_Z_THEMES[activeThemeKey] || GEN_Z_THEMES.light;
 
   const loadObligations = async () => {
     try {
       const data = await obligationsService.fetchObligations(user.id);
       setObligations(data);
     } catch (error) {
-      console.error('Error loading obligations:', error);
+      console.error('Error loading reminders:', error);
     } finally {
       setLoading(false);
     }
   };
 
-
   useEffect(() => {
     if (user) loadObligations();
   }, [user]);
-
 
   const handleOpenCreateForm = () => {
     setEditingItem(null);
     setShowForm(true);
   };
-
 
   const handleOpenEditForm = (item) => {
     setEditingItem(item);
@@ -6335,12 +6640,10 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-
   const handleCancelForm = () => {
     setShowForm(false);
     setEditingItem(null);
   };
-
 
   const handleSave = async (formData) => {
     setSaving(true);
@@ -6349,29 +6652,58 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
       handleCancelForm();
       await loadObligations();
     } catch (error) {
-      console.error('Error saving obligation:', error);
-      alert('Failed to save obligation. Please try again.');
+      console.error('Error saving reminder:', error);
+      alert('Failed to save reminder. Please try again.');
     } finally {
       setSaving(false);
     }
   };
 
-
   const handleDelete = async (id) => {
-    if (!confirm('Remove this obligation? This also clears its future cycles.')) return;
+    if (!confirm('Remove this reminder? This also clears its future cycles.')) return;
     try {
       await obligationsService.deleteObligation(user.id, id);
       await loadObligations();
     } catch (error) {
-      console.error('Error deleting obligation:', error);
-      alert('Failed to delete obligation.');
+      console.error('Error deleting reminder:', error);
+      alert('Failed to delete reminder.');
     }
   };
 
+  const handleOpenPauseModal = (item) => {
+    setPauseItem(item);
+    setPauseStartDate(new Date().toISOString().split('T')[0]);
+    setPauseEndDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+  };
+
+  const handleConfirmPause = async (e) => {
+    e.preventDefault();
+    if (!pauseItem) return;
+    setPausing(true);
+    try {
+      await obligationsService.pauseObligation(user.id, pauseItem.id, pauseStartDate, pauseEndDate);
+      setPauseItem(null);
+      await loadObligations();
+    } catch (error) {
+      console.error('Error pausing reminder:', error);
+      alert('Failed to pause reminder.');
+    } finally {
+      setPausing(false);
+    }
+  };
+
+  const handleResume = async (item) => {
+    try {
+      await obligationsService.resumeObligation(user.id, item.id);
+      await loadObligations();
+    } catch (error) {
+      console.error('Error resuming reminder:', error);
+      alert('Failed to resume reminder.');
+    }
+  };
 
   const formatObligationDateTime = (obligation) => {
     let d = null;
-
 
     if (obligation.target_date) {
       d = new Date(obligation.target_date);
@@ -6382,55 +6714,51 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
       d = new Date(year, month - 1, day);
     }
 
-
     if (!d || isNaN(d.getTime())) return '-';
-
 
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
     const yyyy = d.getFullYear();
     const formattedDate = `${mm}-${dd}-${yyyy}`;
 
-
     const timeStr = obligation.reminder_time || obligation.due_time;
     if (!timeStr) return formattedDate;
-
 
     const [hours, minutes] = timeStr.split(':');
     const h = parseInt(hours, 10);
     if (isNaN(h)) return `${formattedDate} @ ${timeStr}`;
 
-
     const suffix = h >= 12 ? 'PM' : 'AM';
     const formattedHour = h % 12 === 0 ? 12 : h % 12;
     const formattedTime = `${String(formattedHour).padStart(2, '0')}:${minutes || '00'} ${suffix}`;
 
-
     return `${formattedDate} @ ${formattedTime}`;
   };
 
-
   if (loading) {
     return (
-      <div className={`flex items-center justify-center min-h-screen ${bgClass} text-gray-400`}>
+      <div className={`flex items-center justify-center min-h-screen ${activeTheme.bg} ${activeTheme.subText}`}>
         Loading...
       </div>
     );
   }
 
-
   return (
-    <div className={`min-h-screen ${bgClass} text-white transition-colors duration-300 pb-12`}>
-      <div className="p-4 flex justify-between items-center border-b border-white/10 backdrop-blur-md bg-black/30 sticky top-0 z-20">
+    <div className={`min-h-screen ${activeTheme.bg} ${activeTheme.text} transition-colors duration-300 pb-12`}>
+      {/* Header */}
+      <div className={`p-4 flex justify-between items-center border-b ${activeTheme.card} backdrop-blur-md sticky top-0 z-20`}>
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/')}
-            className="text-gray-200 text-lg w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-all active:scale-95"
+            className={`text-lg w-9 h-9 flex items-center justify-center rounded-full transition-all active:scale-95 border ${activeTheme.card}`}
             title="Back to Home"
           >
             ←
           </button>
-          <h1 className="text-lg font-bold text-white">My Reminders</h1>
+          <div>
+            <h1 className="text-lg font-bold">Master List</h1>
+            <p className={`text-[11px] ${activeTheme.subText}`}>Manage your master reminder list</p>
+          </div>
         </div>
         <button
           onClick={showForm ? handleCancelForm : handleOpenCreateForm}
@@ -6440,12 +6768,11 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
         </button>
       </div>
 
-
       <div className="max-w-4xl mx-auto p-4">
         {showForm && (
           <ObligationFormModal
             editingItem={editingItem}
-            cardThemeClass={cardThemeClass}
+            activeTheme={activeTheme}
             currencySymbol={currencySymbol}
             onSave={handleSave}
             onCancel={handleCancelForm}
@@ -6453,10 +6780,9 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
           />
         )}
 
-
         {obligations.length === 0 ? (
           <div className="text-center py-20 px-6">
-            <p className="text-gray-400 text-sm">
+            <p className={`${activeTheme.subText} text-sm`}>
               Nothing here yet. Tap "+ Add New" to set up your first reminder.
             </p>
           </div>
@@ -6474,21 +6800,23 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
                   CATEGORY_ICONS.Other ||
                   '📌';
 
+                const isPaused = obligation.is_paused;
+
                 return (
                   <div
                     key={obligation.id}
-                    className={`${cardThemeClass} rounded-2xl border p-4 shadow-lg`}
+                    className={`${activeTheme.card} rounded-2xl border p-4 shadow-lg ${isPaused ? 'opacity-75' : ''}`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-lg">{categoryIcon}</span>
-                          <h3 className="font-bold text-white truncate">
+                          <h3 className="font-bold truncate">
                             {obligation.name || 'Unnamed Item'}
                           </h3>
                         </div>
 
-                        <p className="mt-1 text-xs text-gray-400 capitalize">
+                        <p className={`mt-1 text-xs ${activeTheme.subText} capitalize`}>
                           {obligation.category || 'Other'} •{' '}
                           {obligation.frequency || 'monthly'}
                         </p>
@@ -6510,7 +6838,7 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
                     </div>
 
                     <div className="mt-3 text-sm">
-                      <p className="text-gray-400 text-xs uppercase tracking-wide">
+                      <p className={`${activeTheme.subText} text-xs uppercase tracking-wide`}>
                         Due
                       </p>
                       <p className="font-bold text-emerald-400">
@@ -6518,20 +6846,46 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
                       </p>
                     </div>
 
-                    <div className="mt-4 flex justify-end gap-4">
-                      <button
-                        onClick={() => handleOpenEditForm(obligation)}
-                        className="text-emerald-400 hover:text-emerald-300 font-semibold text-xs"
-                      >
-                        Edit
-                      </button>
+                    {isPaused && (
+                      <div className="mt-3 bg-amber-500/10 border border-amber-500/20 rounded-xl p-2 text-xs text-amber-300">
+                        ⏸️ Paused from {obligation.paused_start_date} to {obligation.paused_end_date}
+                      </div>
+                    )}
 
-                      <button
-                        onClick={() => handleDelete(obligation.id)}
-                        className="text-red-400 hover:text-red-300 font-semibold text-xs"
-                      >
-                        Remove
-                      </button>
+                    <div className="mt-4 flex items-center justify-between">
+                      {obligation.frequency !== 'one-off' && (
+                        isPaused ? (
+                          <button
+                            onClick={() => handleResume(obligation)}
+                            className="text-amber-400 hover:text-amber-300 font-semibold text-xs"
+                          >
+                            Resume ▶️
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleOpenPauseModal(obligation)}
+                            className="text-amber-400 hover:text-amber-300 font-semibold text-xs"
+                          >
+                            Pause ⏸️
+                          </button>
+                        )
+                      )}
+
+                      <div className="flex gap-4 ml-auto">
+                        <button
+                          onClick={() => handleOpenEditForm(obligation)}
+                          className="text-emerald-400 hover:text-emerald-300 font-semibold text-xs"
+                        >
+                          Edit
+                        </button>
+
+                        <button
+                          onClick={() => handleDelete(obligation.id)}
+                          className="text-red-400 hover:text-red-300 font-semibold text-xs"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -6540,10 +6894,10 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
 
             {/* Tablet / desktop: table */}
             <div
-              className={`hidden md:block ${cardThemeClass} rounded-3xl border overflow-x-auto shadow-xl`}
+              className={`hidden md:block ${activeTheme.card} rounded-3xl border overflow-x-auto shadow-xl`}
             >
               <table className="w-full text-left border-collapse min-w-[600px]">
-                <thead className="bg-white/5 border-b border-white/10 text-xs font-bold text-gray-300 uppercase tracking-wider">
+                <thead className={`border-b text-xs font-bold uppercase tracking-wider ${activeTheme.subText} bg-black/5 dark:bg-white/5`}>
                   <tr>
                     <th className="px-6 py-4">Name</th>
                     <th className="px-6 py-4">Category</th>
@@ -6556,7 +6910,7 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
                   </tr>
                 </thead>
 
-                <tbody className="divide-y divide-white/10 text-sm">
+                <tbody className="divide-y divide-zinc-800/20 text-sm">
                   {obligations.map((obligation) => {
                     const isEvent =
                       obligation.type === 'event' ||
@@ -6567,16 +6921,23 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
                       CATEGORY_ICONS.Other ||
                       '📌';
 
+                    const isPaused = obligation.is_paused;
+
                     return (
                       <tr
                         key={obligation.id}
-                        className="hover:bg-white/5 transition-colors"
+                        className={`hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${isPaused ? 'opacity-75' : ''}`}
                       >
-                        <td className="px-6 py-4 font-semibold text-white">
-                          {obligation.name || 'Unnamed Item'}
+                        <td className="px-6 py-4 font-semibold">
+                          <div>{obligation.name || 'Unnamed Item'}</div>
+                          {isPaused && (
+                            <span className="inline-block mt-1 bg-amber-500/10 text-amber-300 text-[10px] px-2 py-0.5 rounded border border-amber-500/20">
+                              Paused ({obligation.paused_start_date} to {obligation.paused_end_date})
+                            </span>
+                          )}
                         </td>
 
-                        <td className="px-6 py-4 text-gray-300">
+                        <td className={`px-6 py-4 ${activeTheme.subText}`}>
                           <span className="inline-flex items-center gap-1.5">
                             <span>{categoryIcon}</span>
                             <span>{obligation.category || 'Other'}</span>
@@ -6587,7 +6948,7 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
                           {formatObligationDateTime(obligation)}
                         </td>
 
-                        <td className="px-6 py-4 font-bold text-white">
+                        <td className="px-6 py-4 font-bold">
                           {!isEvent && obligation.expected_amount > 0
                             ? `${currencySymbol}${Number(
                                 obligation.expected_amount
@@ -6595,12 +6956,12 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
                             : 'Event 🎂'}
                         </td>
 
-                        <td className="px-6 py-4 capitalize text-gray-300">
+                        <td className={`px-6 py-4 capitalize ${activeTheme.subText}`}>
                           <span
                             className={`px-2 py-0.5 rounded text-xs ${
                               obligation.frequency === 'one-off'
                                 ? 'bg-amber-500/20 text-amber-300'
-                                : 'bg-white/10 text-gray-200'
+                                : 'bg-black/10 dark:bg-white/10'
                             }`}
                           >
                             {obligation.frequency || 'monthly'}
@@ -6608,6 +6969,24 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
                         </td>
 
                         <td className="px-6 py-4 text-right space-x-3 whitespace-nowrap">
+                          {obligation.frequency !== 'one-off' && (
+                            isPaused ? (
+                              <button
+                                onClick={() => handleResume(obligation)}
+                                className="text-amber-400 hover:text-amber-300 font-semibold text-xs"
+                              >
+                                Resume
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleOpenPauseModal(obligation)}
+                                className="text-amber-400 hover:text-amber-300 font-semibold text-xs"
+                              >
+                                Pause
+                              </button>
+                            )
+                          )}
+
                           <button
                             onClick={() => handleOpenEditForm(obligation)}
                             className="text-emerald-400 hover:text-emerald-300 font-semibold text-xs"
@@ -6631,58 +7010,68 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
           </>
         )}
       </div>
+
+      {/* Pause Date-Range Modal */}
+      {pauseItem && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className={`${activeTheme.card} rounded-3xl max-w-sm w-full p-6 shadow-2xl border transition-all`}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold">Pause Reminder</h3>
+              <button onClick={() => setPauseItem(null)} className={`${activeTheme.subText} hover:opacity-80 text-lg`}>
+                ✕
+              </button>
+            </div>
+
+            <p className={`text-xs ${activeTheme.subText} mb-4`}>
+              Pause notifications and hide occurrence list for <span className="font-bold text-amber-400">{pauseItem.name}</span> during these dates:
+            </p>
+
+            <form onSubmit={handleConfirmPause} className="space-y-4">
+              <div>
+                <label className={`block text-xs font-semibold ${activeTheme.subText} mb-1`}>Start Date</label>
+                <input
+                  type="date"
+                  required
+                  value={pauseStartDate}
+                  onChange={(e) => setPauseStartDate(e.target.value)}
+                  className={`w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 border ${activeTheme.inputBg}`}
+                />
+              </div>
+
+              <div>
+                <label className={`block text-xs font-semibold ${activeTheme.subText} mb-1`}>End Date</label>
+                <input
+                  type="date"
+                  required
+                  value={pauseEndDate}
+                  onChange={(e) => setPauseEndDate(e.target.value)}
+                  className={`w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 border ${activeTheme.inputBg}`}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setPauseItem(null)}
+                  className={`w-1/3 font-semibold px-4 py-3 rounded-xl transition-all border ${activeTheme.card}`}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={pausing}
+                  className="w-2/3 bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-black font-extrabold px-4 py-3 rounded-xl transition-all disabled:opacity-50 shadow-md text-xs"
+                >
+                  {pausing ? 'Pausing...' : 'Confirm Pause ⏸️'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-</file>
-
-<file path=".github/workflows/ci.yml">
-name: CI - Build Docker Images
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
-jobs:
-  build-backend:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build backend image
-        run: docker build -t obligation-backend ./backend
-
-  build-frontend:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build frontend image
-        run: docker build -t obligation-frontend ./frontend
-
-  deploy:
-    needs: [build-backend, build-frontend]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy to Oracle VM via Blue-Green Script
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VM_HOST }}
-          username: ${{ secrets.VM_USER }}
-          key: ${{ secrets.VM_SSH_KEY }}
-          command_timeout: 20m
-          script: |
-            cd ${{ secrets.VM_PROJECT_PATH }}
-            chmod +x deploy-bg.sh || true
-            # Run the automated deployment script
-            bash deploy-bg.sh
-
-      - name: Verify Live Endpoint
-        run: |
-          sleep 15
-          # Verify that the public production site is up and responsive
-          curl --retry 5 --retry-delay 3 --retry-all-errors -f https://settld.duckdns.org || exit 1
 </file>
 
 <file path="backend/index.js">
@@ -7121,10 +7510,9 @@ app.listen(PORT, HOST, () => {
 </file>
 
 <file path="frontend/src/App.jsx">
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import NextActionCard from './components/NextActionCard';
 import ObligationListView from './components/ObligationListView';
 import ObligationsPage from './pages/ObligationsPage';
 import SettingsModal from './components/SettingsModal';
@@ -7220,20 +7608,31 @@ function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // View Preference State ('cards' | 'list')
-  const [viewMode, setViewMode] = useState(() => localStorage.getItem('viewMode') || 'cards');
-
-  const handleToggleViewMode = (mode) => {
-    setViewMode(mode);
-    localStorage.setItem('viewMode', mode);
-  };
-
   const { needsOnboarding, loading: onboardingLoading, completeOnboarding } = useOnboarding(user?.id);
 
-  const activeTheme = GEN_Z_THEMES[themeKey] || GEN_Z_THEMES.cyberLime;
-  const cardThemeClass = activeTheme?.card || 'bg-zinc-900 border-zinc-800';
+  // Real-time system preference listener for 'system' theme option
+  const [systemPrefersDark, setSystemPrefersDark] = useState(
+    window.matchMedia('(prefers-color-scheme: dark)').matches
+  );
 
-  const { cycles, allMonthCompleted, loading, markCyclePaid, refreshCycles } = useObligationCycles(user?.id);
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (e) => setSystemPrefersDark(e.matches);
+    mediaQuery.addEventListener('change', handler);
+    return () => mediaQuery.removeEventListener('change', handler);
+  }, []);
+
+  const getEffectiveThemeKey = (key) => {
+    if (key === 'system') {
+      return systemPrefersDark ? 'cyberLime' : 'light';
+    }
+    return key || 'light';
+  };
+
+  const effectiveThemeKey = getEffectiveThemeKey(themeKey);
+  const activeTheme = GEN_Z_THEMES[effectiveThemeKey] || GEN_Z_THEMES.light;
+
+  const { cycles, loading, markCyclePaid, refreshCycles } = useObligationCycles(user?.id);
 
   const handleSave = async (formData) => {
     setSaving(true);
@@ -7264,7 +7663,7 @@ function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
 
   if (needsOnboarding) {
     return (
-      <div className={`min-h-screen ${activeTheme.bg} text-gray-100 flex items-center justify-center p-4`}>
+      <div className={`min-h-screen ${activeTheme.bg} ${activeTheme.text} flex items-center justify-center p-4`}>
         <OnboardingWizard
           user={user}
           currentThemeKey={themeKey}
@@ -7278,87 +7677,72 @@ function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
   }
 
   return (
-    <div className={`min-h-screen pb-24 transition-colors duration-300 ${activeTheme.bg} text-gray-100`}>
+    <div className={`min-h-screen pb-24 transition-colors duration-300 ${activeTheme.bg} ${activeTheme.text}`}>
       {/* Header */}
-      <div className="px-4 py-4 flex justify-between items-center border-b border-zinc-800 bg-zinc-950/50 backdrop-blur-md sticky top-0 z-20">
+      <div className={`px-4 py-4 flex justify-between items-center border-b ${activeTheme.card} backdrop-blur-md sticky top-0 z-20`}>
         <h1 className="text-xl font-extrabold tracking-tight">Settld</h1>
-
-        <div className="flex items-center gap-2">
-          {/* View Switcher Toggle */}
-          <div className="bg-zinc-900 border border-zinc-800 p-1 rounded-xl flex gap-1">
-            <button
-              onClick={() => handleToggleViewMode('cards')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                viewMode === 'cards' ? 'bg-emerald-400 text-black shadow' : 'text-gray-400 hover:text-white'
-              }`}
-              title="Card View"
-            >
-              🎴 Cards
-            </button>
-            <button
-              onClick={() => handleToggleViewMode('list')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                viewMode === 'list' ? 'bg-emerald-400 text-black shadow' : 'text-gray-400 hover:text-white'
-              }`}
-              title="List View"
-            >
-              📜 List
-            </button>
-          </div>
-
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="bg-emerald-400 hover:bg-emerald-500 text-black font-extrabold px-3 py-1.5 rounded-xl transition-all text-xs shadow-md"
-          >
-            {showForm ? 'Cancel' : '+ Add New'}
-          </button>
-          <button
-            onClick={() => setShowSettings(true)}
-            className="p-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs hover:bg-zinc-800 transition-colors text-gray-300"
-          >
-            ⚙️
-          </button>
-        </div>
       </div>
 
       <div className="max-w-md mx-auto px-4 pt-4">
+        {/* Expandable Inline Capture Section */}
         {showForm ? (
           <ObligationFormModal
             editingItem={null}
-            cardThemeClass={cardThemeClass}
+            activeTheme={activeTheme}
             currencySymbol={currencySymbol}
             onSave={handleSave}
             onCancel={() => setShowForm(false)}
             saving={saving}
           />
-        ) : loading ? (
-          <div className="flex items-center justify-center min-h-[50vh] text-gray-400 text-sm">
+        ) : (
+          /* Theme-aware Quick-Capture Card */
+          <div
+            onClick={() => setShowForm(true)}
+            className={`${activeTheme.inputBg} rounded-2xl p-4 mb-4 shadow-sm cursor-pointer transition-all flex items-center justify-between group border`}
+          >
+            <div className="flex items-center gap-3">
+              <span className="w-10 h-10 rounded-xl bg-emerald-400/10 border border-emerald-400/20 flex items-center justify-center text-lg group-hover:scale-105 transition-transform">
+                🎙️
+              </span>
+              <div>
+                <p className="font-bold text-xs tracking-wide">Add reminder by saying or typing...</p>
+                <p className={`text-[11px] ${activeTheme.subText} mt-0.5`}>Tap to quick-capture bill or event</p>
+              </div>
+            </div>
+            <span className="text-xs font-bold text-emerald-500 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 group-hover:bg-emerald-400 group-hover:text-black transition-all">
+              + New
+            </span>
+          </div>
+        )}
+
+        {loading ? (
+          <div className={`flex items-center justify-center min-h-[40vh] ${activeTheme.subText} text-sm`}>
             Loading upcoming items...
           </div>
-        ) : viewMode === 'cards' ? (
-          <NextActionCard
-            cycles={cycles}
-            allMonthCompleted={allMonthCompleted}
-            onMarkPaid={markCyclePaid}
-            currencySymbol={currencySymbol}
-            themeKey={themeKey}
-          />
         ) : (
           <ObligationListView
             cycles={cycles}
             onMarkPaid={markCyclePaid}
             currencySymbol={currencySymbol}
+            activeTheme={activeTheme}
           />
         )}
       </div>
 
       {/* Navigation Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-zinc-950 border-t border-zinc-800 flex justify-around py-3 px-4 z-40">
-        <Link to="/obligations" className="flex flex-col items-center text-sm font-medium text-gray-300 hover:text-white">
-          My Reminders
+      <div className={`fixed bottom-0 left-0 right-0 border-t flex justify-around py-3 px-4 z-40 ${activeTheme.card}`}>
+        <Link to="/obligations" className="flex flex-col items-center text-xs font-bold hover:opacity-80">
+          <span>📌</span>
+          <span className="mt-0.5">Master List</span>
         </Link>
-        <button onClick={signOut} className="flex flex-col items-center text-sm font-medium text-gray-400 hover:text-white">
-          Sign Out
+        <button
+          onClick={() => setShowSettings(true)}
+          className={`flex flex-col items-center text-xs font-bold ${activeTheme.subText} hover:opacity-80`}
+        >
+          <span className="w-5 h-5 rounded-full bg-emerald-400 text-black flex items-center justify-center text-[10px] font-extrabold">
+            {(user?.user_metadata?.full_name || user?.email || 'U')[0].toUpperCase()}
+          </span>
+          <span className="mt-0.5">Profile</span>
         </button>
       </div>
 
@@ -7370,13 +7754,16 @@ function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
         onSelectTheme={setThemeKey}
         currencySymbol={currencySymbol}
         onSelectCurrency={setCurrencySymbol}
+        onSignOut={signOut}
+        user={user}
+        activeTheme={activeTheme}
       />
     </div>
   );
 }
 
 export default function App() {
-  const [themeKey, setThemeKey] = useState(() => localStorage.getItem('themeKey') || 'cyberLime');
+  const [themeKey, setThemeKey] = useState(() => localStorage.getItem('settld_theme') || 'system');
   const [currencySymbol, setCurrencySymbol] = useState(() => localStorage.getItem('currencySymbol') || '₹');
 
   return (
@@ -7391,7 +7778,7 @@ export default function App() {
                 <Home
                   themeKey={themeKey}
                   setThemeKey={(key) => {
-                    localStorage.setItem('themeKey', key);
+                    localStorage.setItem('settld_theme', key);
                     setThemeKey(key);
                   }}
                   currencySymbol={currencySymbol}

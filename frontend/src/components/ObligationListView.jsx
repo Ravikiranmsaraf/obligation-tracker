@@ -11,8 +11,8 @@ export default function ObligationListView({
 }) {
   const [selectedCycle, setSelectedCycle] = useState(null);
 
-  // Independent Accordion States
-  const [isOverdueOpen, setIsOverdueOpen] = useState(true); // Default to open for visibility
+  // Independent Accordion States (Overdue, Rest of This Week, Next Week all collapsed by default)
+  const [isOverdueOpen, setIsOverdueOpen] = useState(false);
   const [isThisWeekOpen, setIsThisWeekOpen] = useState(false);
   const [isNextWeekOpen, setIsNextWeekOpen] = useState(false);
 
@@ -41,94 +41,81 @@ export default function ObligationListView({
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  // --- DATE BOUNDARY UPDATES ---
-  // More explicit date calculations for improved accuracy.
+  // -------------------------------------------------------------
+  // STRICT DATE BOUNDARIES
+  // -------------------------------------------------------------
   const now = new Date();
+
+  // Today (00:00:00 to 23:59:59)
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
+  // Tomorrow (00:00:00 to 23:59:59)
   const tomorrowStart = new Date(todayStart);
-  tomorrowStart.setDate(todayStart.getDate() + 1);
+  tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+  const tomorrowEnd = new Date(todayEnd);
+  tomorrowEnd.setDate(tomorrowEnd.getDate() + 1);
 
-  // This Week Calculation (Strictly Sunday to Saturday)
-  const startOfThisWeek = new Date(todayStart);
-  startOfThisWeek.setDate(todayStart.getDate() - todayStart.getDay()); // .getDay() is 0 for Sunday, 6 for Saturday
+  // Current Calendar Week (Sunday to Saturday)
+  const currentSunday = new Date(now);
+  currentSunday.setDate(now.getDate() - now.getDay());
+  currentSunday.setHours(0, 0, 0, 0);
 
-  const endOfThisWeek = new Date(startOfThisWeek);
-  endOfThisWeek.setDate(startOfThisWeek.getDate() + 6);
-  endOfThisWeek.setHours(23, 59, 59, 999);
+  const currentSaturdayEnd = new Date(currentSunday);
+  currentSaturdayEnd.setDate(currentSunday.getDate() + 6);
+  currentSaturdayEnd.setHours(23, 59, 59, 999);
 
-  // Next Week Calculation (Strictly Sunday to Saturday)
-  const startOfNextWeek = new Date(endOfThisWeek);
-  startOfNextWeek.setDate(endOfThisWeek.getDate() + 1);
-  startOfNextWeek.setHours(0, 0, 0, 0);
+  // STRICT Next Calendar Week (Next Sunday 00:00:00 to Next Saturday 23:59:59)
+  const nextSundayStart = new Date(currentSunday);
+  nextSundayStart.setDate(currentSunday.getDate() + 7);
+  nextSundayStart.setHours(0, 0, 0, 0);
 
-  const endOfNextWeek = new Date(startOfNextWeek);
-  endOfNextWeek.setDate(startOfNextWeek.getDate() + 6);
-  endOfNextWeek.setHours(23, 59, 59, 999);
-  // --- END OF DATE BOUNDARY UPDATES ---
+  const nextSaturdayEnd = new Date(nextSundayStart);
+  nextSaturdayEnd.setDate(nextSundayStart.getDate() + 6);
+  nextSaturdayEnd.setHours(23, 59, 59, 999);
 
-  // --- SORTING FUNCTION UPDATES ---
-  // Generic time sort for most sections
+  // Sorting Helper
   const sortByTime = (a, b) => new Date(a.due_timestamp || a.due_date) - new Date(b.due_timestamp || b.due_date);
 
-  // Advanced sort for Overdue section as requested
-  const sortOverdueItems = (a, b) => {
-    const dateA = new Date(a.due_date);
-    const dateB = new Date(b.due_date);
-    if (dateA < dateB) return -1;
-    if (dateA > dateB) return 1;
+  // -------------------------------------------------------------
+  // BUCKETING LOGIC
+  // -------------------------------------------------------------
 
-    // Dates are equal, sort by time (handle missing time)
-    const timeA = a.reminder_time || a.due_time || '';
-    const timeB = b.reminder_time || b.due_time || '';
-    if (timeA < timeB) return -1;
-    if (timeA > timeB) return 1;
-
-    // Times are equal, sort by name
-    const nameA = a.name.toLowerCase();
-    const nameB = b.name.toLowerCase();
-    if (nameA < nameB) return -1;
-    if (nameA > nameB) return 1;
-
-    // Names are equal, sort by amount (descending)
-    return Number(b.expected_amount || 0) - Number(a.expected_amount || 0);
-  };
-  // --- END OF SORTING FUNCTION UPDATES ---
-
-  // Filter and sort items into buckets
-  const overdueItems = cycles.filter(item => {
+  // Overdue: Any pending cycle strictly before today
+  const overdueItems = cycles.filter((item) => {
     if (!item.due_date) return false;
     return new Date(item.due_date) < todayStart;
-  }).sort(sortOverdueItems); // Using the new advanced sort
-
-  const todayItems = cycles.filter(item => {
-    if (!item.due_date) return false;
-    const d = new Date(item.due_date);
-    return d.getTime() >= todayStart.getTime() && d.getTime() < tomorrowStart.getTime();
   }).sort(sortByTime);
 
-  const tomorrowItems = cycles.filter(item => {
+  // Today
+  const todayItems = cycles.filter((item) => {
     if (!item.due_date) return false;
     const d = new Date(item.due_date);
-    const tomorrowEnd = new Date(tomorrowStart);
-    tomorrowEnd.setDate(tomorrowStart.getDate() + 1);
-    return d.getTime() >= tomorrowStart.getTime() && d.getTime() < tomorrowEnd.getTime();
+    return d >= todayStart && d <= todayEnd;
   }).sort(sortByTime);
 
-  const thisWeekItems = cycles.filter(item => {
+  // Tomorrow
+  const tomorrowItems = cycles.filter((item) => {
     if (!item.due_date) return false;
     const d = new Date(item.due_date);
-    const tomorrowEnd = new Date(tomorrowStart);
-    tomorrowEnd.setDate(tomorrowStart.getDate() + 1);
-    return d.getTime() >= tomorrowEnd.getTime() && d.getTime() <= endOfThisWeek.getTime();
+    return d >= tomorrowStart && d <= tomorrowEnd;
   }).sort(sortByTime);
 
-  const nextWeekItems = cycles.filter(item => {
+  // Rest of This Week: After tomorrow up to Saturday of current week
+  const thisWeekItems = cycles.filter((item) => {
     if (!item.due_date) return false;
     const d = new Date(item.due_date);
-    return d >= startOfNextWeek && d <= endOfNextWeek;
+    return d > tomorrowEnd && d <= currentSaturdayEnd;
   }).sort(sortByTime);
 
+  // STRICT Next Week: Strictly Next Sunday to Next Saturday
+  const nextWeekItems = cycles.filter((item) => {
+    if (!item.due_date) return false;
+    const d = new Date(item.due_date);
+    return d >= nextSundayStart && d <= nextSaturdayEnd;
+  }).sort(sortByTime);
+
+  // Render a seamless row with Date • Time • Name • Amount • Light Checkbox
   const renderRow = (item, showDate = false) => {
     const isEvent = item.type === 'event' || Number(item.expected_amount) === 0;
     const rawTime = item.reminder_time || item.due_time;
@@ -165,14 +152,15 @@ export default function ObligationListView({
               : 'Event'}
           </span>
 
-          {/* --- CHECKBOX STYLING UPDATE --- */}
-          <input
-            type="checkbox"
-            onChange={() => setSelectedCycle(item)}
-            className="w-4 h-4 rounded border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-emerald-500 focus:ring-emerald-500 cursor-pointer transition-transform active:scale-90"
+          {/* Light, Custom Minimalist Check-Button */}
+          <button
+            type="button"
+            onClick={() => setSelectedCycle(item)}
+            className="w-5 h-5 rounded-md border-2 border-emerald-400/80 bg-zinc-800/40 hover:bg-emerald-400/20 hover:border-emerald-300 flex items-center justify-center transition-all active:scale-90"
             title="Mark as done"
-          />
-          {/* --- END OF CHECKBOX STYLING UPDATE --- */}
+          >
+            <span className="opacity-0 hover:opacity-100 text-emerald-300 text-xs font-bold">✓</span>
+          </button>
         </div>
       </div>
     );
@@ -182,7 +170,7 @@ export default function ObligationListView({
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
-      {/* 1. OVERDUE SECTION (Now uses advanced sorting) */}
+      {/* 1. OVERDUE SECTION (Collapsed by default, text toggle) */}
       {overdueItems.length > 0 && (
         <div>
           <button
@@ -201,7 +189,7 @@ export default function ObligationListView({
         </div>
       )}
 
-      {/* Other sections remain unchanged */}
+      {/* 2. TODAY & TOMORROW (Visible by default, open) */}
       <div className="space-y-2">
         {todayItems.length > 0 && (
           <div className="space-y-1">
@@ -232,6 +220,7 @@ export default function ObligationListView({
         )}
       </div>
 
+      {/* 3. THIS WEEK SECTION (Initially collapsed) */}
       {thisWeekItems.length > 0 && (
         <div>
           <button
@@ -250,7 +239,7 @@ export default function ObligationListView({
         </div>
       )}
 
-      {/* 4. NEXT WEEK SECTION (Now uses corrected date logic) */}
+      {/* 4. STRICT NEXT WEEK SECTION (Initially collapsed) */}
       {nextWeekItems.length > 0 && (
         <div>
           <button
