@@ -59,12 +59,17 @@ export async function dispatchReminders() {
   const now = new Date().toISOString();
   console.log(`Reminder dispatcher started at ${now}`);
 
+  const nowDate = new Date();
+  const windowStart = new Date(nowDate.getTime() - 60 * 60 * 1000).toISOString();
+  const windowEnd = new Date(nowDate.getTime() + 15 * 60 * 1000).toISOString();
+
   const { data: cycles, error: cycleError } = await supabase
     .from('obligation_cycles')
     .select('id, user_id, name, expected_amount, due_timestamp')
     .eq('status', 'pending')
     .eq('notification_sent', false)
-    .lte('due_timestamp', now)
+    .gte('due_timestamp', windowStart)
+    .lte('due_timestamp', windowEnd)
     .order('due_timestamp', { ascending: true })
     .limit(500);
 
