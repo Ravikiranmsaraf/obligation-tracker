@@ -128,7 +128,14 @@ export async function dispatchReminders() {
           console.log(`Cycle ${cycle.id}: notification delivered to ${response.successCount} device(s).`);
         }
       } else {
-        console.error(`Cycle ${cycle.id}: notification failed for every device.`);
+          console.error(
+          `Cycle ${cycle.id}: notification failed for every device.`,
+          JSON.stringify(response.responses.map(r => ({
+            success: r.success,
+            code: r.error?.code,
+            message: r.error?.message,
+          })), null, 2)
+        );
       }
     } catch (error) {
       console.error(`FCM dispatch failed for cycle ${cycle.id}:`, error.message);
