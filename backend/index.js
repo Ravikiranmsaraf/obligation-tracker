@@ -1,16 +1,13 @@
 require('dotenv').config(); // MUST BE AT THE VERY TOP
 
-
 const express = require('express');
 const cors = require('cors');
 const Groq = require('groq-sdk');
 const supabase = require('./lib/supabase');
 
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0';
-
 
 // Allow requests from the frontend origin
 app.use(
@@ -21,17 +18,13 @@ app.use(
   })
 );
 
-
 app.use(express.json());
-
 
 app.get('/', (req, res) => {
   res.json({ message: 'Hello from Obligation Tracker API' });
 });
 
-
 const DEPLOY_COLOR = process.env.DEPLOY_COLOR || 'unknown';
-
 
 app.get('/api/info', (req, res) => {
   res.json({
@@ -41,22 +34,18 @@ app.get('/api/info', (req, res) => {
   });
 });
 
-
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
-
 
 // Voice Parsing Endpoint for Settld
 app.post('/api/parse-voice', async (req, res) => {
   try {
     const { transcript } = req.body;
 
-
     if (!transcript || typeof transcript !== 'string') {
       return res.status(400).json({ error: 'Transcript string is required' });
     }
-
 
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
@@ -64,14 +53,11 @@ app.post('/api/parse-voice', async (req, res) => {
       return res.status(500).json({ error: 'Groq API key is not configured on the server' });
     }
 
-
     const groq = new Groq({ apiKey });
-
 
     const systemPrompt = `
 You are a fast, precise information extraction engine for the financial admin app 'Settld'.
 Your task is to convert spoken text into a JSON obligation payload.
-
 
 CURRENT TEMPORAL CONTEXT:
 - Today's ISO Date: {{CURRENT_DATE_ISO}}
@@ -80,11 +66,9 @@ CURRENT TEMPORAL CONTEXT:
 - Current Day of Month: {{CURRENT_DAY}}
 - Current Day of Week: {{CURRENT_WEEKDAY}}
 
-
 STRICT CATEGORY CLASSIFICATION:
 - If transcript is off-topic, general conversation, or weather queries: set "is_obligation": false.
 - "is_obligation": true ONLY IF the transcript refers to a bill, subscription, loan, payment, birthday, health checkup, admin reminder, or event.
-
 
 JSON OUTPUT STRUCTURE (Respond ONLY with valid JSON):
 {
@@ -101,7 +85,6 @@ JSON OUTPUT STRUCTURE (Respond ONLY with valid JSON):
   "reminder_time": string
 }
 
-
 TIME PARSING RULES (CRITICAL - READ CAREFULLY):
 1. SEARCH TRANSCRIPT FOR TIME PATTERNS FIRST:
    - "4PM", "4 PM", "4 p.m.", "4pm", "16:00" -> "16:00"
@@ -115,19 +98,16 @@ TIME PARSING RULES (CRITICAL - READ CAREFULLY):
    - ONLY set "due_time" and "reminder_time" to "09:00" IF NO TIME IS MENTIONED ANYWHERE in the transcript.
    - Set BOTH "due_time" AND "reminder_time" to the exact same extracted 24-hour time value.
 
-
 RULES FOR DATE CALCULATIONS:
 1. RELATIVE DATES:
    - "Today" / "this evening" -> Set "due_day": {{CURRENT_DAY}}, "due_month": {{CURRENT_MONTH}}, "frequency": "one-off".
    - "Tomorrow" -> Calculate tomorrow relative to {{CURRENT_DATE_ISO}}. Set "due_day" and "due_month" accordingly, "frequency": "one-off".
    - Specific Day (e.g., "on the 15th") -> Set "due_day": 15. If 15th has passed this month, increment "due_month" by 1.
 
-
 2. TYPE & AMOUNT:
    - Events/reminders without cost (e.g. doctor appointments, birthdays) -> type="event", expected_amount=0.
    - Bills and payments -> type="bill", extract expected_amount as a number.
    `;
-
 
     const completion = await groq.chat.completions.create({
       messages: [
@@ -139,7 +119,6 @@ RULES FOR DATE CALCULATIONS:
       temperature: 0.1,
     });
 
-
     const parsedData = JSON.parse(completion.choices[0].message.content);
     return res.status(200).json(parsedData);
   } catch (error) {
@@ -148,39 +127,32 @@ RULES FOR DATE CALCULATIONS:
   }
 });
 
-
 // Echo endpoint
 app.post('/api/echo', (req, res) => {
   const { text } = req.body;
   res.json({ youSaid: text });
 });
 
-
-// WhatsApp Cloud API webhook
+// WhatsApp Cloud API webhook verification (GET)
 const WHATSAPP_VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
-
 
 app.get('/whatsapp/webhook', (req, res) => {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
 
-
   if (mode === 'subscribe' && token === WHATSAPP_VERIFY_TOKEN) {
     console.log('✅ WhatsApp webhook verified !');
     return res.status(200).send(challenge);
   }
 
-
   console.warn('❌ WhatsApp webhook verification failed');
   return res.sendStatus(403);
 });
 
-
 async function sendWhatsAppText(toPhone, text) {
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-
 
   if (!accessToken || !phoneNumberId) {
     console.error(
@@ -189,9 +161,7 @@ async function sendWhatsAppText(toPhone, text) {
     return;
   }
 
-
   const url = `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`;
-
 
   try {
     const response = await fetch(url, {
@@ -212,9 +182,7 @@ async function sendWhatsAppText(toPhone, text) {
       }),
     });
 
-
     const result = await response.json();
-
 
     if (!response.ok) {
       console.error('❌ Meta send message error:', result);
@@ -226,7 +194,6 @@ async function sendWhatsAppText(toPhone, text) {
   }
 }
 
-
 async function getOrCreateWhatsAppSession(phoneNumber) {
   const { data: existingSession, error: selectError } = await supabase
     .from('whatsapp_sessions')
@@ -234,16 +201,13 @@ async function getOrCreateWhatsAppSession(phoneNumber) {
     .eq('phone_number', phoneNumber)
     .maybeSingle();
 
-
   if (selectError) {
     throw selectError;
   }
 
-
   if (existingSession) {
     return existingSession;
   }
-
 
   const { data: newSession, error: insertError } = await supabase
     .from('whatsapp_sessions')
@@ -255,15 +219,12 @@ async function getOrCreateWhatsAppSession(phoneNumber) {
     .select('id, phone_number, user_id, step, payload, expires_at')
     .single();
 
-
   if (insertError) {
     throw insertError;
   }
 
-
   return newSession;
 }
-
 
 function getCurrencySymbol(currency) {
   switch (currency) {
@@ -278,41 +239,33 @@ function getCurrencySymbol(currency) {
   }
 }
 
-
+// WhatsApp Cloud API incoming messages (POST)
 app.post('/whatsapp/webhook', async (req, res) => {
   // Acknowledge Meta immediately; Meta retries if this does not return 2xx.
   res.sendStatus(200);
-
 
   try {
     const value = req.body?.entry?.[0]?.changes?.[0]?.value;
     const message = value?.messages?.[0];
 
-
     if (!message || message.type !== 'text') {
       return;
     }
 
-
     const senderPhone = message.from;
     const messageText = message.text?.body?.trim().toLowerCase();
-
 
     if (!senderPhone || !messageText) {
       return;
     }
 
-
     console.log(
       `📨 WhatsApp message from ${senderPhone}: "${messageText}"`
     );
 
-
     const normalizedPhone = `+${senderPhone.replace(/^\+/, '')}`;
 
-
     const session = await getOrCreateWhatsAppSession(normalizedPhone);
-
 
     if (!session.user_id) {
       await sendWhatsAppText(
@@ -322,7 +275,6 @@ app.post('/whatsapp/webhook', async (req, res) => {
       return;
     }
 
-
     const isPendingRequest =
       messageText === 'pending' ||
       messageText === 'pending today' ||
@@ -331,16 +283,15 @@ app.post('/whatsapp/webhook', async (req, res) => {
       messageText === 'hello' ||
       messageText === 'menu';
 
-
     if (!isPendingRequest) {
       await sendWhatsAppText(
         senderPhone,
         'Welcome to Krona!\n\nReply *pending* to see reminders due today.'
       );
-      return;    }
+      return;
+    }
 
-
-    const timeZone = 'Asia/Kolkata'; // Use the user's saved timezone here later
+    const timeZone = 'Asia/Kolkata';
 
     const parts = new Intl.DateTimeFormat('en-CA', {
       timeZone,
@@ -352,20 +303,18 @@ app.post('/whatsapp/webhook', async (req, res) => {
     const getPart = (type) => parts.find((part) => part.type === type).value;
     const localDate = `${getPart('year')}-${getPart('month')}-${getPart('day')}`;
 
-    // Construct UTC instants for local midnight and the next local midnight.
     const [year, month, day] = localDate.split('-').map(Number);
     const startOfDay = new Date(Date.UTC(year, month - 1, day) - 330 * 60 * 1000);
     const startOfNextDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
 
     const { data: cycles, error: cyclesError } = await supabase
       .from('obligation_cycles')
-      .select('id, name, category, expected_amount, due_timestamp')
+      .select('id, name, category, expected_amount, currency, due_timestamp')
       .eq('user_id', session.user_id)
       .eq('status', 'pending')
       .gte('due_timestamp', startOfDay.toISOString())
       .lt('due_timestamp', startOfNextDay.toISOString())
       .order('due_timestamp', { ascending: true });
-
 
     if (cyclesError) {
       console.error(
@@ -388,7 +337,6 @@ app.post('/whatsapp/webhook', async (req, res) => {
       return;
     }
 
-
     if (!cycles || cycles.length === 0) {
       await sendWhatsAppText(
         senderPhone,
@@ -397,28 +345,23 @@ app.post('/whatsapp/webhook', async (req, res) => {
       return;
     }
 
-
     const currencySymbol = getCurrencySymbol(cycles[0]?.currency);
-
 
     const lines = cycles.map((cycle, index) => {
       const amount =
-        cycle.expectedamount && Number(cycle.expectedamount) > 0
-          ? `${currencySymbol}${Number(cycle.expectedamount).toLocaleString(
+        cycle.expected_amount && Number(cycle.expected_amount) > 0
+          ? `${currencySymbol}${Number(cycle.expected_amount).toLocaleString(
               'en-IN'
             )}`
           : 'Event';
 
-
       return `${index + 1}. ${cycle.name || 'Untitled Reminder'} — ${amount}`;
     });
-
 
     const reply =
       `📅 *Pending today*\n\n` +
       lines.join('\n') +
       `\n\nReply *pending* anytime to see this list again.`;
-
 
     await sendWhatsAppText(senderPhone, reply);
   } catch (error) {
@@ -426,7 +369,6 @@ app.post('/whatsapp/webhook', async (req, res) => {
   }
 });
 
-
 app.listen(PORT, HOST, () => {
   console.log(`Backend running at http://${HOST}:${PORT}`);
-});
+}); 
