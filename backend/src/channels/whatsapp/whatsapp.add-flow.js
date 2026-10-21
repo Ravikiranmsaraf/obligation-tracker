@@ -11,15 +11,14 @@ const {
  */
 async function handleAddFlow(senderPhone, session, messageText, buttonPayload, listPayload) {
   const step = session.step;
-  const payload = session.payload || {};
 
-  // Global escape hatch
-  if (messageText === 'cancel' || buttonPayload === 'ADD_CANCEL') {
+  // Universal escape hatch
+  if (messageText === 'cancel' || messageText === 'exit' || buttonPayload === 'ADD_CANCEL') {
     await supabase
       .from('whatsapp_sessions')
       .update({ step: 'idle', payload: {} })
       .eq('id', session.id);
-    await sendWhatsAppText(senderPhone, 'Reminder creation cancelled.');
+    await sendWhatsAppText(senderPhone, "No worries! Reminder creation has been cancelled.");
     return;
   }
 
@@ -48,7 +47,7 @@ async function handleAddFlow(senderPhone, session, messageText, buttonPayload, l
 }
 
 /**
- * Entry point: Triggered when user taps [Add reminder]
+ * Entry point: Triggered when user requests to add a reminder
  */
 async function startAddFlow(senderPhone, session) {
   await supabase
@@ -58,7 +57,7 @@ async function startAddFlow(senderPhone, session) {
 
   await sendInteractiveButtons(
     senderPhone,
-    "What should I remember? (Reply with the name, or tap Cancel below)",
+    "What would you like to remember?\n\n*(Type a name below, or tap Cancel anytime)*",
     [{ id: 'ADD_CANCEL', title: 'Cancel' }]
   );
 }
@@ -68,7 +67,7 @@ async function startAddFlow(senderPhone, session) {
  */
 async function handleNameInput(senderPhone, session, messageText) {
   if (!messageText) {
-    await sendWhatsAppText(senderPhone, 'Please type a valid name for the reminder:');
+    await sendWhatsAppText(senderPhone, "Please type a valid name for your reminder:");
     return;
   }
 
@@ -80,7 +79,7 @@ async function handleNameInput(senderPhone, session, messageText) {
 
   await sendInteractiveButtons(
     senderPhone,
-    `Remembering: *"${messageText}"*\n\nIs this a bill (with an amount) or an event?`,
+    `Got it: *"${messageText}"*\n\nIs this a bill with an amount, or just a general task/event?`,
     [
       { id: 'TYPE_BILL', title: 'Bill' },
       { id: 'TYPE_EVENT', title: 'Event' },
@@ -97,7 +96,7 @@ async function handleTypeInput(senderPhone, session, buttonPayload, messageText)
   if (buttonPayload === 'TYPE_BILL') type = 'bill';
   else if (buttonPayload === 'TYPE_EVENT') type = 'event';
   else {
-    await sendWhatsAppText(senderPhone, "Please select either *Bill* or *Event* using the buttons.");
+    await sendWhatsAppText(senderPhone, "Please select either *Bill* or *Event* using the buttons below.");
     return;
   }
 
@@ -111,11 +110,10 @@ async function handleTypeInput(senderPhone, session, buttonPayload, messageText)
 
     await sendInteractiveButtons(
       senderPhone,
-      "Enter the expected amount (e.g., `1500`):",
+      "How much is it for? (e.g., `1500`):",
       [{ id: 'ADD_CANCEL', title: 'Cancel' }]
     );
   } else {
-    // Events default to amount 0, skip amount step
     newPayload.expected_amount = 0;
     await advanceToDateStep(senderPhone, session, newPayload);
   }
@@ -127,7 +125,7 @@ async function handleTypeInput(senderPhone, session, buttonPayload, messageText)
 async function handleAmountInput(senderPhone, session, messageText) {
   const cleanAmount = parseFloat(messageText.replace(/[^0-9.]/g, ''));
   if (isNaN(cleanAmount) || cleanAmount < 0) {
-    await sendWhatsAppText(senderPhone, "That doesn't look like a valid amount. Please enter a number like `1500`:");
+    await sendWhatsAppText(senderPhone, "That doesn't look quite right. Please enter a numbers-only amount like `1500`:");
     return;
   }
 
@@ -169,7 +167,7 @@ async function handleDateInput(senderPhone, session, buttonPayload, messageText)
       .update({ step: 'ADD_CUSTOM_DATE', payload: session.payload })
       .eq('id', session.id);
 
-    await sendWhatsAppText(senderPhone, "Please type the date (e.g., `Oct 25` or `2026-10-25`):");
+    await sendWhatsAppText(senderPhone, "No problem. Type the date like this: `Oct 25` or `2026-10-25`");
     return;
   } else {
     await sendWhatsAppText(senderPhone, "Please choose an option or tap Custom Date.");
@@ -182,16 +180,16 @@ async function handleDateInput(senderPhone, session, buttonPayload, messageText)
 }
 
 /**
- * Step 3b: Custom Date Validation & Retry Loop
+ * Step 3b: Custom Date Validation & Retry Loop (Human/Friendly Feedback)
  */
 async function handleCustomDateInput(senderPhone, session, messageText) {
   const parsedDate = new Date(messageText);
   if (isNaN(parsedDate.getTime())) {
     await sendWhatsAppText(
       senderPhone,
-      "I couldn't understand that date format. Please try entering it like `Oct 25` or `2026-10-25`:"
+      "Hmm, I didn't quite catch that date format. Could you try entering it like `Oct 25` or `2026-10-25`?"
     );
-    return; // Stay in ADD_CUSTOM_DATE step
+    return;
   }
 
   const dateString = parsedDate.toISOString().split('T')[0];
@@ -232,10 +230,10 @@ async function handleTimeInput(senderPhone, session, buttonPayload, messageText)
       .update({ step: 'ADD_CUSTOM_TIME', payload: session.payload })
       .eq('id', session.id);
 
-    await sendWhatsAppText(senderPhone, "Please type the time (e.g., `4:30 PM` or `16:30`):");
+    await sendWhatsAppText(senderPhone, "Type the time you prefer (e.g., `4:30 PM` or `16:30`):");
     return;
   } else {
-    await sendWhatsAppText(senderPhone, "Please choose a time option or tap Custom Time.");
+    await sendWhatsAppText(senderPhone, "Please select a time option or tap Custom Time.");
     return;
   }
 
@@ -247,7 +245,6 @@ async function handleTimeInput(senderPhone, session, buttonPayload, messageText)
  * Step 4b: Custom Time Validation & Retry Loop
  */
 async function handleCustomTimeInput(senderPhone, session, messageText) {
-  // Simple regex parser for 12hr/24hr formats (e.g. 4:30 PM, 16:30, 4pm)
   const normalized = messageText.toUpperCase().trim();
   let hours = 9, minutes = 0;
 
@@ -273,9 +270,9 @@ async function handleCustomTimeInput(senderPhone, session, messageText) {
   } else {
     await sendWhatsAppText(
       senderPhone,
-      "I couldn't understand that time format. Please try entering it like `4:30 PM` or `16:30`:"
+      "That time format looks unfamiliar. Please try entering it like `4:30 PM` or `16:30`:"
     );
-    return; // Stay in ADD_CUSTOM_TIME step
+    return;
   }
 
   const timeString = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
@@ -289,7 +286,6 @@ async function advanceToRepeatStep(senderPhone, session, payload) {
     .update({ step: 'ADD_REPEAT', payload })
     .eq('id', session.id);
 
-  // Use Interactive List for 6 frequency options allowed by database constraint
   const rows = [
     { id: 'FREQ_ONEOFF', title: "Don't repeat", description: 'One-off reminder' },
     { id: 'FREQ_DAILY', title: 'Daily', description: 'Repeats every day' },
@@ -336,9 +332,9 @@ async function handleRepeatInput(senderPhone, session, listPayload, buttonPayloa
 
   await sendInteractiveButtons(
     senderPhone,
-    `📌 *Confirm Reminder*\n\n*${name}*\n${typeDisplay}\nDue: ${due_date} at ${due_time}\nRepeat: ${frequency}`,
+    `📌 *Here's what I've got:*\n\n*${name}*\n${typeDisplay}\nDue: ${due_date} at ${due_time}\nRepeat: ${frequency}\n\nLook good?`,
     [
-      { id: 'CONFIRM_SAVE', title: 'Save' },
+      { id: 'CONFIRM_SAVE', title: 'Save Reminder' },
       { id: 'ADD_CANCEL', title: 'Cancel' },
     ]
   );
@@ -349,8 +345,8 @@ async function handleRepeatInput(senderPhone, session, listPayload, buttonPayloa
  */
 async function handleConfirmation(senderPhone, session, buttonPayload) {
   if (buttonPayload !== 'CONFIRM_SAVE') {
-    await sendInteractiveButtons(senderPhone, "Tap Save to store your reminder, or Cancel to abort.", [
-      { id: 'CONFIRM_SAVE', title: 'Save' },
+    await sendInteractiveButtons(senderPhone, "Tap Save Reminder to store it, or Cancel to abort.", [
+      { id: 'CONFIRM_SAVE', title: 'Save Reminder' },
       { id: 'ADD_CANCEL', title: 'Cancel' },
     ]);
     return;
@@ -359,7 +355,6 @@ async function handleConfirmation(senderPhone, session, buttonPayload) {
   const { name, type, expected_amount, due_date, due_time, frequency } = session.payload;
   const userId = session.user_id;
 
-  // 1. Insert into master `obligations` table
   const [year, month, day] = due_date.split('-').map(Number);
   const { data: obligation, error: oblErr } = await supabase
     .from('obligations')
@@ -380,16 +375,15 @@ async function handleConfirmation(senderPhone, session, buttonPayload) {
 
   if (oblErr) {
     console.error('❌ Failed to create obligation:', oblErr);
-    await sendWhatsAppText(senderPhone, 'Sorry, could not save your reminder right now.');
+    await sendWhatsAppText(senderPhone, "Sorry, I couldn't save your reminder right now. Please try again.");
     await resetSession(session.id);
     return;
   }
 
-  // 2. Generate initial `obligation_cycles` row for dispatching
   const dueTimestamp = new Date(`${due_date}T${due_time}:00`).toISOString();
   const cycleMonth = `${year}-${String(month).padStart(2, '0')}-01`;
 
-  const { error: cycleErr } = await supabase
+  await supabase
     .from('obligation_cycles')
     .insert({
       obligation_id: obligation.id,
@@ -402,15 +396,11 @@ async function handleConfirmation(senderPhone, session, buttonPayload) {
       name,
       category: obligation.category,
       frequency,
-      user_timezone: 'Asia/Kolkata', // Default or user context
+      user_timezone: 'Asia/Kolkata',
     });
 
-  if (cycleErr) {
-    console.error('❌ Failed to create obligation cycle:', cycleErr);
-  }
-
   await resetSession(session.id);
-  await sendWhatsAppText(senderPhone, "Saved 👍 Your reminder is set.");
+  await sendWhatsAppText(senderPhone, "All set! 👍 Your reminder is saved.");
 }
 
 async function resetSession(sessionId) {
@@ -423,4 +413,4 @@ async function resetSession(sessionId) {
 module.exports = {
   handleAddFlow,
   startAddFlow,
-};
+};  

@@ -127,8 +127,8 @@ router.post('/webhook', async (req, res) => {
 
     console.log(`📨 WhatsApp event from ${senderPhone} | Step: ${session.step} | Text: "${incomingText}" | Button: "${buttonPayload}" | List: "${listPayload}"`);
 
-    // --- DELEGATE TO ADD REMINDER FLOW IF SESSION IS ACTIVE IN WIZARD ---
-    if (session.step !== 'idle' && session.step !== 'today_list' && session.step !== 'reminder_detail' && session.step !== 'home') {
+    // --- PRIORITY 1: HANDLE ACTIVE WIZARD STEPS ---
+    if (session.step && session.step.startsWith('ADD_')) {
       return handleAddFlow(senderPhone, session, incomingText, buttonPayload, listPayload);
     }
 
@@ -137,15 +137,17 @@ router.post('/webhook', async (req, res) => {
       return startAddFlow(senderPhone, session);
     }
 
-    // --- TRIGGER LIST (Hi, Hello, Pending) ---
+    // --- TRIGGER HOME / GREETING (Hi, Hello) ---
     if (
       incomingText === 'hi' ||
       incomingText === 'hello' ||
-      incomingText === 'pending' ||
-      incomingText === 'pending today' ||
-      buttonPayload === 'BTN_TODAY' ||
-      buttonPayload === 'BTN_BACK'
+      buttonPayload === 'BTN_HOME'
     ) {
+      return renderHomeGreeting(senderPhone, session);
+    }
+
+    // --- VIEW REMINDERS LIST TRIGGER ---
+    if (incomingText === 'list' || buttonPayload === 'BTN_VIEW_LIST' || buttonPayload === 'BTN_BACK') {
       return renderTodayObligationsList(senderPhone, session, 0);
     }
 
@@ -167,7 +169,7 @@ router.post('/webhook', async (req, res) => {
         .single();
 
       if (cycleErr || !cycle) {
-        await sendWhatsAppText(senderPhone, 'That reminder is no longer available.');
+        await sendWhatsAppText(senderPhone, "That reminder is no longer available.");
         return;
       }
 
@@ -194,7 +196,7 @@ router.post('/webhook', async (req, res) => {
         `📌 *${cycle.name || 'Untitled'}*\n${amt}Due Today at ${timeStr}`,
         [
           { id: 'BTN_DONE', title: isMonetary ? 'Mark Paid' : 'Mark Done' },
-          { id: 'BTN_BACK', title: 'Back' },
+          { id: 'BTN_BACK', title: 'Back to List' },
         ]
       );
       return;
@@ -205,7 +207,7 @@ router.post('/webhook', async (req, res) => {
       const cycleId = session.payload?.selected_cycle_id;
 
       if (!cycleId) {
-        await sendWhatsAppText(senderPhone, 'Session expired. Reply *pending* to view your reminders.');
+        await sendWhatsAppText(senderPhone, "Session expired. Reply *hi* to view your reminders.");
         return;
       }
 
@@ -217,7 +219,7 @@ router.post('/webhook', async (req, res) => {
         .single();
 
       if (cycleErr || !cycle) {
-        await sendWhatsAppText(senderPhone, 'That reminder is no longer available.');
+        await sendWhatsAppText(senderPhone, "That reminder is no longer available.");
         return;
       }
 
@@ -236,21 +238,21 @@ router.post('/webhook', async (req, res) => {
 
       if (updateError) {
         console.error('❌ Failed to update cycle status:', updateError);
-        await sendWhatsAppText(senderPhone, 'Sorry, could not complete that reminder right now.');
+        await sendWhatsAppText(senderPhone, "Sorry, I couldn't update that reminder right now.");
         return;
       }
 
-      const confirmationMsg = isMonetary ? "Paid 👍 Bill marked as paid." : "Done 👍 That's taken care of.";
+      const confirmationMsg = isMonetary ? "Paid 👍 Bill marked as paid." : "All sorted! 👍 That's taken care of.";
       await sendWhatsAppText(senderPhone, confirmationMsg);
       
       const currentPage = session.payload?.page || 0;
       return renderTodayObligationsList(senderPhone, session, currentPage);
     }
 
-    // --- FALLBACK ---
+    // --- HUMAN-CENTRIC FALLBACK ---
     await sendWhatsAppText(
       senderPhone,
-      "I'm not sure what you mean. Reply 'pending' or 'hi' to see your reminders."
+      "I'm not sure what you mean. Reply 'hi' to see your reminders."
     );
 
   } catch (error) {
@@ -258,6 +260,50 @@ router.post('/webhook', async (req, res) => {
   }
 });
 
+/**
+ * Render Home Greeting with Summary + Dual-Action Buttons
+ */
+async function renderHomeGreeting(senderPhone, session) {
+  const userId = session.user_id;
+
+  const { data: sampleCycle } = await supabase
+    .from('obligation_cycles')
+    .select('user_timezone')
+    .eq('user_id', userId)
+    .limit(1)
+    .maybeSingle();
+
+  const userTimezone = sampleCycle?.user_timezone || 'Asia/Kolkata';
+  const { startOfDay, startOfNextDay } = getTodayBoundsForTimezone(userTimezone);
+
+  const { count } = await supabase
+    .from('obligation_cycles')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('status', 'pending')
+    .gte('due_timestamp', startOfDay.toISOString())
+    .lt('due_timestamp', startOfNextDay.toISOString());
+
+  await supabase
+    .from('whatsapp_sessions')
+    .update({ step: 'home', payload: {} })
+    .eq('id', session.id);
+
+  const countText = count > 0 ? `You have ${count} ${count === 1 ? 'reminder' : 'reminders'} due today.` : "You're all clear for today. Take a deep breath! 🌿";
+
+  await sendInteractiveButtons(
+    senderPhone,
+    `Hey there! 👋 ${countText}`,
+    [
+      { id: 'BTN_VIEW_LIST', title: 'View Reminders' },
+      { id: 'BTN_ADD', title: '+ Add Reminder' },
+    ]
+  );
+}
+
+/**
+ * Render Today's Interactive List with Pagination
+ */
 async function renderTodayObligationsList(senderPhone, session, pageIndex = 0) {
   const userId = session.user_id;
 
@@ -282,7 +328,7 @@ async function renderTodayObligationsList(senderPhone, session, pageIndex = 0) {
 
   if (queryError) {
     console.error('❌ Supabase cycles query error:', queryError);
-    await sendWhatsAppText(senderPhone, 'Sorry, I could not load your reminders right now.');
+    await sendWhatsAppText(senderPhone, "Sorry, I couldn't load your reminders right now.");
     return;
   }
 
@@ -296,7 +342,7 @@ async function renderTodayObligationsList(senderPhone, session, pageIndex = 0) {
       senderPhone,
       "You're all clear today. 👍",
       [
-        { id: 'BTN_ADD', title: 'Add reminder' },
+        { id: 'BTN_ADD', title: '+ Add Reminder' },
       ]
     );
     return;
@@ -341,7 +387,7 @@ async function renderTodayObligationsList(senderPhone, session, pageIndex = 0) {
   await sendInteractiveList(
     senderPhone,
     'Today Reminders',
-    `You have ${cycles.length} pending ${cycles.length === 1 ? 'reminder' : 'reminders'} due today. Select one to update:`,
+    `Here’s what’s on your plate today (${cycles.length} pending). Tap one to update:`,
     'Select',
     rows
   );
