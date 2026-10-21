@@ -50,15 +50,6 @@ async function getOrCreateSession(phoneNumber) {
   return created;
 }
 
-function getCurrencySymbol(currency) {
-  switch (currency) {
-    case 'USD': return '$';
-    case 'EUR': return '€';
-    case 'GBP': return '£';
-    default: return '₹';
-  }
-}
-
 // 2. POST: Handle incoming WhatsApp messages & interactive events
 router.post('/webhook', async (req, res) => {
   res.sendStatus(200);
@@ -119,14 +110,14 @@ router.post('/webhook', async (req, res) => {
     if (listPayload.startsWith('CYCLE_')) {
       const cycleId = listPayload.replace('CYCLE_', '');
 
-      const { data: cycle } = await supabase
+      const { data: cycle, error: cycleErr } = await supabase
         .from('obligation_cycles')
-        .select('*')
+        .select('id, name, expected_amount, due_timestamp, obligations(type)')
         .eq('id', cycleId)
         .eq('user_id', session.user_id)
         .single();
 
-      if (!cycle) {
+      if (cycleErr || !cycle) {
         await sendWhatsAppText(senderPhone, 'That reminder is no longer available.');
         return;
       }
@@ -139,10 +130,10 @@ router.post('/webhook', async (req, res) => {
         })
         .eq('id', session.id);
 
-      const currencySymbol = getCurrencySymbol(cycle.currency);
-      const isMonetary = Number(cycle.expected_amount || cycle.expectedamount) > 0;
+      const obligationType = cycle.obligations?.type || 'bill';
+      const isMonetary = obligationType === 'bill' && Number(cycle.expected_amount || 0) > 0;
       const amt = isMonetary
-        ? `${currencySymbol}${Number(cycle.expected_amount || cycle.expectedamount).toLocaleString('en-IN')} · `
+        ? `₹${Number(cycle.expected_amount).toLocaleString('en-IN')} · `
         : 'Event · ';
       
       const timeStr = cycle.due_timestamp 
@@ -151,7 +142,7 @@ router.post('/webhook', async (req, res) => {
 
       await sendInteractiveButtons(
         senderPhone,
-        `📌 *${cycle.name}*\n${amt}Due: ${new Date(cycle.due_timestamp).toLocaleDateString()} ${timeStr}`,
+        `📌 *${cycle.name || 'Untitled'}*\n${amt}Due: ${new Date(cycle.due_timestamp).toLocaleDateString()} ${timeStr}`,
         [
           { id: 'BTN_DONE', title: isMonetary ? 'Mark Paid' : 'Mark Done' },
           { id: 'BTN_BACK', title: 'Back' },
@@ -160,7 +151,7 @@ router.post('/webhook', async (req, res) => {
       return;
     }
 
-    // --- MARK DONE / PAID ACTION (Mirrors ObligationListView logic) ---
+    // --- MARK DONE / PAID ACTION ---
     if (buttonPayload === 'BTN_DONE') {
       const cycleId = session.payload?.selected_cycle_id;
 
@@ -169,29 +160,28 @@ router.post('/webhook', async (req, res) => {
         return;
       }
 
-      // Fetch cycle to check if monetary (bill) or non-monetary (event)
-      const { data: cycle } = await supabase
+      const { data: cycle, error: cycleErr } = await supabase
         .from('obligation_cycles')
-        .select('*')
+        .select('id, expected_amount, obligations(type)')
         .eq('id', cycleId)
         .eq('user_id', session.user_id)
         .single();
 
-      if (!cycle) {
+      if (cycleErr || !cycle) {
         await sendWhatsAppText(senderPhone, 'That reminder is no longer available.');
         return;
       }
 
-      const isMonetary = Number(cycle.expected_amount || cycle.expectedamount) > 0;
+      const obligationType = cycle.obligations?.type || 'bill';
+      const isMonetary = obligationType === 'bill' && Number(cycle.expected_amount || 0) > 0;
       const newStatus = isMonetary ? 'paid' : 'completed';
-      const updatePayload = {
-        status: newStatus,
-        paid_at: new Date().toISOString(),
-      };
 
       const { error: updateError } = await supabase
         .from('obligation_cycles')
-        .update(updatePayload)
+        .update({
+          status: newStatus,
+          paid_at: new Date().toISOString(),
+        })
         .eq('id', cycleId)
         .eq('user_id', session.user_id);
 
@@ -219,17 +209,22 @@ router.post('/webhook', async (req, res) => {
   }
 });
 
-// Helper to fetch and render active pending obligations matching ObligationListView logic
 async function renderObligationsList(senderPhone, session, pageIndex = 0) {
   const userId = session.user_id;
 
-  // Fetch pending cycles (similar to frontend data props)
-  const { data: cycles } = await supabase
+  // Fetch pending cycles safely matching obligation_cycles schema
+  const { data: cycles, error: queryError } = await supabase
     .from('obligation_cycles')
-    .select('id, name, category, expected_amount, expectedamount, currency, due_timestamp, type')
+    .select('id, name, category, expected_amount, due_timestamp, obligations(type)')
     .eq('user_id', userId)
     .eq('status', 'pending')
     .order('due_timestamp', { ascending: true });
+
+  if (queryError) {
+    console.error('❌ Supabase cycles query error:', queryError);
+    await sendWhatsAppText(senderPhone, 'Sorry, I could not load your reminders right now.');
+    return;
+  }
 
   if (!cycles || cycles.length === 0) {
     await supabase
@@ -257,11 +252,11 @@ async function renderObligationsList(senderPhone, session, pageIndex = 0) {
   const paginatedCycles = cycles.slice(startIndex, startIndex + PAGE_SIZE);
   const hasMore = startIndex + PAGE_SIZE < cycles.length;
 
-  const currencySymbol = getCurrencySymbol(cycles[0]?.currency);
   const rows = paginatedCycles.map((c) => {
-    const isEvent = c.type === 'event' || Number(c.expected_amount || c.expectedamount) === 0;
+    const obligationType = c.obligations?.type || 'bill';
+    const isEvent = obligationType === 'event' || Number(c.expected_amount || 0) === 0;
     const amt = !isEvent
-      ? `${currencySymbol}${Number(c.expected_amount || c.expectedamount).toLocaleString('en-IN')}`
+      ? `₹${Number(c.expected_amount).toLocaleString('en-IN')}`
       : 'Event';
     
     const dueDateLabel = new Date(c.due_timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
