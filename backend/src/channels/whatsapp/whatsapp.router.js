@@ -8,6 +8,7 @@ const {
   sendInteractiveButtons,
   sendInteractiveList,
 } = require('./whatsapp.service');
+const { handleAddFlow, startAddFlow } = require('./whatsapp.add-flow');
 
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'krona_whatsapp_verify_2026';
 
@@ -50,7 +51,6 @@ async function getOrCreateSession(phoneNumber) {
   return created;
 }
 
-// Helper to calculate exact local day boundaries (00:00:00 to 23:59:59.999) for any IANA timezone
 function getTodayBoundsForTimezone(timeZone = 'Asia/Kolkata') {
   try {
     const parts = new Intl.DateTimeFormat('en-CA', {
@@ -65,20 +65,9 @@ function getTodayBoundsForTimezone(timeZone = 'Asia/Kolkata') {
     const month = parseInt(getPart('month'), 10);
     const day = parseInt(getPart('day'), 10);
 
-    // Find the UTC equivalent of local midnight by iterating/testing offset or building via Date lookup
-    // Using a reliable timezone offset tester approach:
-    const targetDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    
-    // Construct local midnight test
-    const utcDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
-    
-    // Format this UTC instant back in the target timezone to find the offset difference
-    const options = { timeZone, hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' };
-    const formatter = new Intl.DateTimeFormat('en-US', options);
-    
-    // Binary-search or shift to find exact UTC start of local day
-    // A simpler robust method: Check offset by formatting a base UTC date
     let guessTime = Date.UTC(year, month - 1, day, 0, 0, 0);
+    const formatter = new Intl.DateTimeFormat('en-US', { timeZone, hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
     for (let i = -14; i <= 14; i++) {
       const testTime = guessTime + (i * 3600 * 1000);
       const formatted = formatter.format(new Date(testTime));
@@ -93,7 +82,6 @@ function getTodayBoundsForTimezone(timeZone = 'Asia/Kolkata') {
 
     return { startOfDay, startOfNextDay };
   } catch (e) {
-    console.warn(`⚠️ Timezone calculation failed for ${timeZone}, falling back to UTC`, e);
     const now = new Date();
     const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0));
     const startOfNextDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
@@ -137,7 +125,17 @@ router.post('/webhook', async (req, res) => {
       }
     }
 
-    console.log(`📨 WhatsApp event from ${senderPhone} | Text: "${incomingText}" | Button: "${buttonPayload}" | List: "${listPayload}"`);
+    console.log(`📨 WhatsApp event from ${senderPhone} | Step: ${session.step} | Text: "${incomingText}" | Button: "${buttonPayload}" | List: "${listPayload}"`);
+
+    // --- DELEGATE TO ADD REMINDER FLOW IF SESSION IS ACTIVE IN WIZARD ---
+    if (session.step !== 'idle' && session.step !== 'today_list' && session.step !== 'reminder_detail' && session.step !== 'home') {
+      return handleAddFlow(senderPhone, session, incomingText, buttonPayload, listPayload);
+    }
+
+    // --- TRIGGER ADD FLOW MANUALLY ---
+    if (incomingText === 'add' || incomingText === 'new' || buttonPayload === 'BTN_ADD') {
+      return startAddFlow(senderPhone, session);
+    }
 
     // --- TRIGGER LIST (Hi, Hello, Pending) ---
     if (
@@ -263,7 +261,6 @@ router.post('/webhook', async (req, res) => {
 async function renderTodayObligationsList(senderPhone, session, pageIndex = 0) {
   const userId = session.user_id;
 
-  // 1. Fetch user's saved timezone from their most recent obligation cycle or default to Asia/Kolkata
   const { data: sampleCycle } = await supabase
     .from('obligation_cycles')
     .select('user_timezone')
@@ -272,11 +269,8 @@ async function renderTodayObligationsList(senderPhone, session, pageIndex = 0) {
     .maybeSingle();
 
   const userTimezone = sampleCycle?.user_timezone || 'Asia/Kolkata';
-
-  // 2. Calculate exact local day bounds based on user's saved timezone
   const { startOfDay, startOfNextDay } = getTodayBoundsForTimezone(userTimezone);
 
-  // 3. Query only TODAY'S pending reminders
   const { data: cycles, error: queryError } = await supabase
     .from('obligation_cycles')
     .select('id, name, category, expected_amount, due_timestamp, user_timezone, obligations(type)')
@@ -348,7 +342,7 @@ async function renderTodayObligationsList(senderPhone, session, pageIndex = 0) {
     senderPhone,
     'Today Reminders',
     `You have ${cycles.length} pending ${cycles.length === 1 ? 'reminder' : 'reminders'} due today. Select one to update:`,
-    'View Reminders',
+    'Select',
     rows
   );
 }
