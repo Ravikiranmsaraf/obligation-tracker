@@ -309,7 +309,7 @@ app.post('/whatsapp/webhook', async (req, res) => {
 
     const { data: cycles, error: cyclesError } = await supabase
       .from('obligation_cycles')
-      .select('id, name, category, expected_amount, currency, due_timestamp')
+      .select('id, name, category, expected_amount, due_timestamp')
       .eq('user_id', session.user_id)
       .eq('status', 'pending')
       .gte('due_timestamp', startOfDay.toISOString())
@@ -345,8 +345,8 @@ app.post('/whatsapp/webhook', async (req, res) => {
       return;
     }
 
-    const currencySymbol = getCurrencySymbol(cycles[0]?.currency);
-
+    // const currencySymbol = getCurrencySymbol(cycles[0]?.currency);
+    const currencySymbol = ' '
     const lines = cycles.map((cycle, index) => {
       const amount =
         cycle.expected_amount && Number(cycle.expected_amount) > 0
