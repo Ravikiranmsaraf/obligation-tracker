@@ -97,67 +97,22 @@ router.post('/webhook', async (req, res) => {
 
     console.log(`📨 WhatsApp event from ${senderPhone} | Text: "${incomingText}" | Button: "${buttonPayload}" | List: "${listPayload}"`);
 
-    // --- HOME / MENU ---
-    if (incomingText === 'hi' || incomingText === 'hello' || incomingText === 'menu' || buttonPayload === 'BTN_HOME') {
-      const count = await getTodayCount(session.user_id);
-      await supabase
-        .from('whatsapp_sessions')
-        .update({ step: 'home', payload: {} })
-        .eq('id', session.id);
-
-      await sendInteractiveButtons(
-        senderPhone,
-        `Hi 👋\nYou have ${count} ${count === 1 ? 'thing' : 'things'} to remember today.`,
-        [
-          { id: 'BTN_TODAY', title: 'Today' },
-          { id: 'BTN_UPCOMING', title: 'Upcoming' },
-          { id: 'BTN_ADD', title: 'Add reminder' },
-        ]
-      );
-      return;
+    // --- TRIGGER LIST (Hi, Hello, Pending) ---
+    if (
+      incomingText === 'hi' ||
+      incomingText === 'hello' ||
+      incomingText === 'pending' ||
+      incomingText === 'pending today' ||
+      buttonPayload === 'BTN_TODAY' ||
+      buttonPayload === 'BTN_BACK'
+    ) {
+      return renderObligationsList(senderPhone, session, 0);
     }
 
-    // --- TODAY LIST FLOW ---
-    if (incomingText === 'pending' || incomingText === 'pending today' || buttonPayload === 'BTN_TODAY' || buttonPayload === 'BTN_BACK') {
-      const cycles = await fetchTodayCycles(session.user_id);
-
-      if (!cycles || cycles.length === 0) {
-        await sendInteractiveButtons(
-          senderPhone,
-          "You're all clear today. 👍",
-          [
-            { id: 'BTN_ADD', title: 'Add reminder' },
-            { id: 'BTN_UPCOMING', title: 'Upcoming' },
-          ]
-        );
-        return;
-      }
-
-      await supabase
-        .from('whatsapp_sessions')
-        .update({ step: 'today_list', payload: {} })
-        .eq('id', session.id);
-
-      const currencySymbol = getCurrencySymbol(cycles[0]?.currency);
-      const rows = cycles.map((c) => {
-        const amt = Number(c.expected_amount || c.expectedamount) > 0
-          ? `${currencySymbol}${Number(c.expected_amount || c.expectedamount).toLocaleString('en-IN')}`
-          : 'Event';
-        return {
-          id: `CYCLE_${c.id}`,
-          title: c.name || 'Untitled',
-          description: amt,
-        };
-      });
-
-      await sendInteractiveList(
-        senderPhone,
-        'Today Reminders',
-        'Select a reminder below to view details:',
-        'View Reminders',
-        rows
-      );
-      return;
+    // --- PAGINATION HANDLER ---
+    if (listPayload.startsWith('PAGE_')) {
+      const targetPage = parseInt(listPayload.replace('PAGE_', ''), 10) || 0;
+      return renderObligationsList(senderPhone, session, targetPage);
     }
 
     // --- REMINDER DETAIL VIEW ---
@@ -176,34 +131,36 @@ router.post('/webhook', async (req, res) => {
         return;
       }
 
-      // Save selected cycle ID in session payload
       await supabase
         .from('whatsapp_sessions')
         .update({
           step: 'reminder_detail',
-          payload: { selected_cycle_id: cycle.id },
+          payload: { ...session.payload, selected_cycle_id: cycle.id },
         })
         .eq('id', session.id);
 
       const currencySymbol = getCurrencySymbol(cycle.currency);
-      const amt = Number(cycle.expected_amount || cycle.expectedamount) > 0
+      const isMonetary = Number(cycle.expected_amount || cycle.expectedamount) > 0;
+      const amt = isMonetary
         ? `${currencySymbol}${Number(cycle.expected_amount || cycle.expectedamount).toLocaleString('en-IN')} · `
-        : '';
+        : 'Event · ';
       
-      const timeStr = new Date(cycle.due_timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const timeStr = cycle.due_timestamp 
+        ? new Date(cycle.due_timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+        : '';
 
       await sendInteractiveButtons(
         senderPhone,
-        `📌 *${cycle.name}*\n${amt}Due today at ${timeStr}`,
+        `📌 *${cycle.name}*\n${amt}Due: ${new Date(cycle.due_timestamp).toLocaleDateString()} ${timeStr}`,
         [
-          { id: 'BTN_DONE', title: 'Done' },
+          { id: 'BTN_DONE', title: isMonetary ? 'Mark Paid' : 'Mark Done' },
           { id: 'BTN_BACK', title: 'Back' },
         ]
       );
       return;
     }
 
-    // --- COMPLETE / DONE ACTION ---
+    // --- MARK DONE / PAID ACTION (Mirrors ObligationListView logic) ---
     if (buttonPayload === 'BTN_DONE') {
       const cycleId = session.payload?.selected_cycle_id;
 
@@ -212,30 +169,49 @@ router.post('/webhook', async (req, res) => {
         return;
       }
 
-      // Update cycle status to completed in Supabase
+      // Fetch cycle to check if monetary (bill) or non-monetary (event)
+      const { data: cycle } = await supabase
+        .from('obligation_cycles')
+        .select('*')
+        .eq('id', cycleId)
+        .eq('user_id', session.user_id)
+        .single();
+
+      if (!cycle) {
+        await sendWhatsAppText(senderPhone, 'That reminder is no longer available.');
+        return;
+      }
+
+      const isMonetary = Number(cycle.expected_amount || cycle.expectedamount) > 0;
+      const newStatus = isMonetary ? 'paid' : 'completed';
+      const updatePayload = {
+        status: newStatus,
+        paid_at: new Date().toISOString(),
+      };
+
       const { error: updateError } = await supabase
         .from('obligation_cycles')
-        .update({ status: 'completed' })
+        .update(updatePayload)
         .eq('id', cycleId)
         .eq('user_id', session.user_id);
 
       if (updateError) {
-        console.error('❌ Failed to complete cycle:', updateError);
+        console.error('❌ Failed to update cycle status:', updateError);
         await sendWhatsAppText(senderPhone, 'Sorry, could not complete that reminder right now.');
         return;
       }
 
-      // Acknowledge completion cleanly without extra clutter
-      await sendWhatsAppText(senderPhone, "Done 👍 That's taken care of.");
+      const confirmationMsg = isMonetary ? "Paid 👍 Bill marked as paid." : "Done 👍 That's taken care of.";
+      await sendWhatsAppText(senderPhone, confirmationMsg);
       
-      // Follow up by showing current pending list status
-      return handleTodayShortcut(senderPhone, session.user_id);
+      const currentPage = session.payload?.page || 0;
+      return renderObligationsList(senderPhone, session, currentPage);
     }
 
     // --- FALLBACK ---
     await sendWhatsAppText(
       senderPhone,
-      "I'm not sure what you mean. Reply *menu* to see options."
+      "I'm not sure what you mean. Reply 'pending' or 'hi' to see your reminders."
     );
 
   } catch (error) {
@@ -243,80 +219,72 @@ router.post('/webhook', async (req, res) => {
   }
 });
 
-async function getTodayCount(userId) {
-  const { startOfDay, startOfNextDay } = getTodayBounds();
-  const { count } = await supabase
-    .from('obligation_cycles')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('status', 'pending')
-    .gte('due_timestamp', startOfDay.toISOString())
-    .lt('due_timestamp', startOfNextDay.toISOString());
-  return count || 0;
-}
+// Helper to fetch and render active pending obligations matching ObligationListView logic
+async function renderObligationsList(senderPhone, session, pageIndex = 0) {
+  const userId = session.user_id;
 
-async function fetchTodayCycles(userId) {
-  const { startOfDay, startOfNextDay } = getTodayBounds();
-  const { data } = await supabase
+  // Fetch pending cycles (similar to frontend data props)
+  const { data: cycles } = await supabase
     .from('obligation_cycles')
-    .select('id, name, category, expected_amount, expectedamount, currency, due_timestamp')
+    .select('id, name, category, expected_amount, expectedamount, currency, due_timestamp, type')
     .eq('user_id', userId)
     .eq('status', 'pending')
-    .gte('due_timestamp', startOfDay.toISOString())
-    .lt('due_timestamp', startOfNextDay.toISOString())
     .order('due_timestamp', { ascending: true });
-  return data || [];
-}
-
-function getTodayBounds() {
-  const timeZone = 'Asia/Kolkata';
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(new Date());
-
-  const getPart = (type) => parts.find((p) => p.type === type).value;
-  const localDate = `${getPart('year')}-${getPart('month')}-${getPart('day')}`;
-  const [year, month, day] = localDate.split('-').map(Number);
-  
-  const startOfDay = new Date(Date.UTC(year, month - 1, day) - 330 * 60 * 1000);
-  const startOfNextDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
-  return { startOfDay, startOfNextDay };
-}
-
-async function handleTodayShortcut(senderPhone, userId) {
-  const cycles = await fetchTodayCycles(userId);
 
   if (!cycles || cycles.length === 0) {
+    await supabase
+      .from('whatsapp_sessions')
+      .update({ step: 'home', payload: {} })
+      .eq('id', session.id);
+
     await sendInteractiveButtons(
       senderPhone,
-      "You're all clear today. 👍",
+      "All clear for now! 🎉 Take a deep breath and enjoy your day.",
       [
         { id: 'BTN_ADD', title: 'Add reminder' },
-        { id: 'BTN_UPCOMING', title: 'Upcoming' },
       ]
     );
     return;
   }
 
+  await supabase
+    .from('whatsapp_sessions')
+    .update({ step: 'today_list', payload: { ...session.payload, page: pageIndex } })
+    .eq('id', session.id);
+
+  const PAGE_SIZE = 9;
+  const startIndex = pageIndex * PAGE_SIZE;
+  const paginatedCycles = cycles.slice(startIndex, startIndex + PAGE_SIZE);
+  const hasMore = startIndex + PAGE_SIZE < cycles.length;
+
   const currencySymbol = getCurrencySymbol(cycles[0]?.currency);
-  const rows = cycles.map((c) => {
-    const amt = Number(c.expected_amount || c.expectedamount) > 0
+  const rows = paginatedCycles.map((c) => {
+    const isEvent = c.type === 'event' || Number(c.expected_amount || c.expectedamount) === 0;
+    const amt = !isEvent
       ? `${currencySymbol}${Number(c.expected_amount || c.expectedamount).toLocaleString('en-IN')}`
       : 'Event';
+    
+    const dueDateLabel = new Date(c.due_timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
     return {
       id: `CYCLE_${c.id}`,
-      title: c.name || 'Untitled',
-      description: amt,
+      title: `${c.name || 'Untitled'}`,
+      description: `${dueDateLabel} • ${amt}`,
     };
   });
 
+  if (hasMore) {
+    rows.push({
+      id: `PAGE_${pageIndex + 1}`,
+      title: '➡️ Next reminders',
+      description: `Showing ${startIndex + 1}-${startIndex + paginatedCycles.length} of ${cycles.length}`,
+    });
+  }
+
   await sendInteractiveList(
     senderPhone,
-    'Today Reminders',
-    'Remaining for today:',
+    'Reminders List',
+    `You have ${cycles.length} pending ${cycles.length === 1 ? 'reminder' : 'reminders'}. Select one to update:`,
     'View Reminders',
     rows
   );
