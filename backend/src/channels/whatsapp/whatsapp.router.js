@@ -2,7 +2,7 @@
 
 const express = require('express');
 const router = express.Router();
-const supabase = require('../../lib/supabase');
+const supabase = require('../../../lib/supabase');
 const {
   sendWhatsAppText,
   sendInteractiveButtons,
