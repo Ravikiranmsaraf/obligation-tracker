@@ -1,9 +1,7 @@
 name: obligation-tracker-green
 services:
   backend-green:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod
+    image: ghcr.io/ravikiranmsaraf/obligation-tracker/backend:latest
     container_name: obligation-backend-green
     restart: always
     ports:
@@ -24,9 +22,7 @@ services:
       - path: .env
         required: false
   frontend-green:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.prod
+    image: ghcr.io/ravikiranmsaraf/obligation-tracker/frontend:latest
     container_name: obligation-frontend-green
     restart: always
     ports:

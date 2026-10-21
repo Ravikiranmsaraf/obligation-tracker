@@ -1,9 +1,7 @@
 name: obligation-tracker-blue
 services:
   backend-blue:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod
+    image: ghcr.io/ravikiranmsaraf/obligation-tracker/backend:latest
     container_name: obligation-backend-blue
     restart: always
     ports:
@@ -25,9 +23,7 @@ services:
       - DEPLOY_COLOR=${DEPLOY_COLOR:-unknown}
 
   frontend-blue:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.prod
+    image: ghcr.io/ravikiranmsaraf/obligation-tracker/frontend:latest
     container_name: obligation-frontend-blue
     restart: always
     ports:

@@ -270,7 +270,7 @@ app.post('/whatsapp/webhook', async (req, res) => {
     if (!session.user_id) {
       await sendWhatsAppText(
         senderPhone,
-        'Welcome to Krona! This WhatsApp number is not linked to a Krona account yet.\n\nPlease sign in at https://Settld.duckdns.org and link this phone number to your account.'
+        'Welcome to Reminder App! This WhatsApp number is not linked to a Krona account yet.\n\nPlease sign in at https://Settld.duckdns.org and link this phone number to your account.'
       );
       return;
     }
