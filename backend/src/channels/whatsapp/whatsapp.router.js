@@ -50,6 +50,57 @@ async function getOrCreateSession(phoneNumber) {
   return created;
 }
 
+// Helper to calculate exact local day boundaries (00:00:00 to 23:59:59.999) for any IANA timezone
+function getTodayBoundsForTimezone(timeZone = 'Asia/Kolkata') {
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date());
+
+    const getPart = (type) => parts.find((p) => p.type === type)?.value;
+    const year = parseInt(getPart('year'), 10);
+    const month = parseInt(getPart('month'), 10);
+    const day = parseInt(getPart('day'), 10);
+
+    // Find the UTC equivalent of local midnight by iterating/testing offset or building via Date lookup
+    // Using a reliable timezone offset tester approach:
+    const targetDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    
+    // Construct local midnight test
+    const utcDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+    
+    // Format this UTC instant back in the target timezone to find the offset difference
+    const options = { timeZone, hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+    const formatter = new Intl.DateTimeFormat('en-US', options);
+    
+    // Binary-search or shift to find exact UTC start of local day
+    // A simpler robust method: Check offset by formatting a base UTC date
+    let guessTime = Date.UTC(year, month - 1, day, 0, 0, 0);
+    for (let i = -14; i <= 14; i++) {
+      const testTime = guessTime + (i * 3600 * 1000);
+      const formatted = formatter.format(new Date(testTime));
+      if (formatted.startsWith(`${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}/${year}`) && formatted.endsWith('00:00:00')) {
+        guessTime = testTime;
+        break;
+      }
+    }
+
+    const startOfDay = new Date(guessTime);
+    const startOfNextDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+
+    return { startOfDay, startOfNextDay };
+  } catch (e) {
+    console.warn(`⚠️ Timezone calculation failed for ${timeZone}, falling back to UTC`, e);
+    const now = new Date();
+    const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0));
+    const startOfNextDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+    return { startOfDay, startOfNextDay };
+  }
+}
+
 // 2. POST: Handle incoming WhatsApp messages & interactive events
 router.post('/webhook', async (req, res) => {
   res.sendStatus(200);
@@ -97,13 +148,13 @@ router.post('/webhook', async (req, res) => {
       buttonPayload === 'BTN_TODAY' ||
       buttonPayload === 'BTN_BACK'
     ) {
-      return renderObligationsList(senderPhone, session, 0);
+      return renderTodayObligationsList(senderPhone, session, 0);
     }
 
     // --- PAGINATION HANDLER ---
     if (listPayload.startsWith('PAGE_')) {
       const targetPage = parseInt(listPayload.replace('PAGE_', ''), 10) || 0;
-      return renderObligationsList(senderPhone, session, targetPage);
+      return renderTodayObligationsList(senderPhone, session, targetPage);
     }
 
     // --- REMINDER DETAIL VIEW ---
@@ -142,7 +193,7 @@ router.post('/webhook', async (req, res) => {
 
       await sendInteractiveButtons(
         senderPhone,
-        `📌 *${cycle.name || 'Untitled'}*\n${amt}Due: ${new Date(cycle.due_timestamp).toLocaleDateString()} ${timeStr}`,
+        `📌 *${cycle.name || 'Untitled'}*\n${amt}Due Today at ${timeStr}`,
         [
           { id: 'BTN_DONE', title: isMonetary ? 'Mark Paid' : 'Mark Done' },
           { id: 'BTN_BACK', title: 'Back' },
@@ -195,7 +246,7 @@ router.post('/webhook', async (req, res) => {
       await sendWhatsAppText(senderPhone, confirmationMsg);
       
       const currentPage = session.payload?.page || 0;
-      return renderObligationsList(senderPhone, session, currentPage);
+      return renderTodayObligationsList(senderPhone, session, currentPage);
     }
 
     // --- FALLBACK ---
@@ -209,15 +260,30 @@ router.post('/webhook', async (req, res) => {
   }
 });
 
-async function renderObligationsList(senderPhone, session, pageIndex = 0) {
+async function renderTodayObligationsList(senderPhone, session, pageIndex = 0) {
   const userId = session.user_id;
 
-  // Fetch pending cycles safely matching obligation_cycles schema
+  // 1. Fetch user's saved timezone from their most recent obligation cycle or default to Asia/Kolkata
+  const { data: sampleCycle } = await supabase
+    .from('obligation_cycles')
+    .select('user_timezone')
+    .eq('user_id', userId)
+    .limit(1)
+    .maybeSingle();
+
+  const userTimezone = sampleCycle?.user_timezone || 'Asia/Kolkata';
+
+  // 2. Calculate exact local day bounds based on user's saved timezone
+  const { startOfDay, startOfNextDay } = getTodayBoundsForTimezone(userTimezone);
+
+  // 3. Query only TODAY'S pending reminders
   const { data: cycles, error: queryError } = await supabase
     .from('obligation_cycles')
-    .select('id, name, category, expected_amount, due_timestamp, obligations(type)')
+    .select('id, name, category, expected_amount, due_timestamp, user_timezone, obligations(type)')
     .eq('user_id', userId)
     .eq('status', 'pending')
+    .gte('due_timestamp', startOfDay.toISOString())
+    .lt('due_timestamp', startOfNextDay.toISOString())
     .order('due_timestamp', { ascending: true });
 
   if (queryError) {
@@ -234,7 +300,7 @@ async function renderObligationsList(senderPhone, session, pageIndex = 0) {
 
     await sendInteractiveButtons(
       senderPhone,
-      "All clear for now! 🎉 Take a deep breath and enjoy your day.",
+      "You're all clear today. 👍",
       [
         { id: 'BTN_ADD', title: 'Add reminder' },
       ]
@@ -259,12 +325,14 @@ async function renderObligationsList(senderPhone, session, pageIndex = 0) {
       ? `₹${Number(c.expected_amount).toLocaleString('en-IN')}`
       : 'Event';
     
-    const dueDateLabel = new Date(c.due_timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const timeStr = c.due_timestamp 
+      ? new Date(c.due_timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+      : '';
 
     return {
       id: `CYCLE_${c.id}`,
       title: `${c.name || 'Untitled'}`,
-      description: `${dueDateLabel} • ${amt}`,
+      description: `${timeStr} • ${amt}`,
     };
   });
 
@@ -278,8 +346,8 @@ async function renderObligationsList(senderPhone, session, pageIndex = 0) {
 
   await sendInteractiveList(
     senderPhone,
-    'Reminders List',
-    `You have ${cycles.length} pending ${cycles.length === 1 ? 'reminder' : 'reminders'}. Select one to update:`,
+    'Today Reminders',
+    `You have ${cycles.length} pending ${cycles.length === 1 ? 'reminder' : 'reminders'} due today. Select one to update:`,
     'View Reminders',
     rows
   );
