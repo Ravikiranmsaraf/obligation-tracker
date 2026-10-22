@@ -32,12 +32,18 @@ async function handleAddFlow(senderPhone, session, messageText, buttonPayload) {
  * Displays the MECE examples prompt.
  */
 async function startAddFlow(senderPhone, session) {
-  await supabase
-    .from('whatsapp_sessions')
-    .update({ step: 'PARSING_NLP', payload: {} })
-    .eq('id', session.id);
+  const { error } = await supabase
+      .from('whatsapp_sessions')
+      .update({ step: 'PARSING_NLP', payload: {} })
+      .eq('id', session.id);
 
-  const promptText = 
+    if (error) {
+      console.error('❌ Failed to update session step to PARSING_NLP:', error);
+      await sendWhatsAppText(senderPhone, "Sorry, something went wrong starting the reminder flow. Please try again.");
+      return;
+    }
+
+    const promptText = 
     "What’s on your mind? Just type it out naturally.\n\n" +
     "Quick examples:\n" +
     "• *Dentist appointment Friday 4pm* (One-off Event)\n" +
