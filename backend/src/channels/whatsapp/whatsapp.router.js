@@ -66,12 +66,24 @@ function getTodayBoundsForTimezone(timeZone = 'Asia/Kolkata') {
     const day = parseInt(getPart('day'), 10);
 
     let guessTime = Date.UTC(year, month - 1, day, 0, 0, 0);
-    const formatter = new Intl.DateTimeFormat('en-US', { timeZone, hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hour12: false,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
 
     for (let i = -14; i <= 14; i++) {
-      const testTime = guessTime + (i * 3600 * 1000);
+      const testTime = guessTime + i * 3600 * 1000;
       const formatted = formatter.format(new Date(testTime));
-      if (formatted.startsWith(`${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}/${year}`) && formatted.endsWith('00:00:00')) {
+      if (
+        formatted.startsWith(`${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}/${year}`) &&
+        formatted.endsWith('00:00:00')
+      ) {
         guessTime = testTime;
         break;
       }
@@ -87,6 +99,38 @@ function getTodayBoundsForTimezone(timeZone = 'Asia/Kolkata') {
     const startOfNextDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
     return { startOfDay, startOfNextDay };
   }
+}
+
+function getMonthBoundsForTimezone(timeZone = 'Asia/Kolkata', target = 'current') {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: 'numeric',
+  });
+  const parts = formatter.formatToParts(now);
+  const year = parseInt(parts.find((p) => p.type === 'year').value, 10);
+  const month = parseInt(parts.find((p) => p.type === 'month').value, 10);
+
+  let targetYear = year;
+  let targetMonth = month;
+
+  if (target === 'next') {
+    targetMonth = month + 1;
+    if (targetMonth > 12) {
+      targetMonth = 1;
+      targetYear += 1;
+    }
+  }
+
+  const startDate = new Date(Date.UTC(targetYear, targetMonth - 1, 1, 0, 0, 0));
+  const endDate = new Date(Date.UTC(targetYear, targetMonth, 1, 0, 0, 0));
+
+  return {
+    startDate,
+    endDate,
+    monthName: new Date(targetYear, targetMonth - 1, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' }),
+  };
 }
 
 // 2. POST: Handle incoming WhatsApp messages & interactive events
@@ -125,7 +169,25 @@ router.post('/webhook', async (req, res) => {
       }
     }
 
-    console.log(`📨 WhatsApp event from ${senderPhone} | Step: ${session.step} | Text: "${incomingText}" | Button: "${buttonPayload}" | List: "${listPayload}"`);
+    console.log(
+      `📨 WhatsApp event from ${senderPhone} | Step: ${session.step} | Text: "${incomingText}" | Button: "${buttonPayload}" | List: "${listPayload}"`
+    );
+
+    // --- UNIVERSAL ESCAPE HATCH: CANCEL / RESET ---
+    if (
+      incomingText === 'cancel' ||
+      incomingText === 'exit' ||
+      incomingText === 'stop' ||
+      incomingText === 'reset' ||
+      buttonPayload === 'ADD_CANCEL'
+    ) {
+      await supabase
+        .from('whatsapp_sessions')
+        .update({ step: 'idle', payload: {} })
+        .eq('id', session.id);
+      await sendWhatsAppText(senderPhone, "Cancelled. Reply 'hi' or 'home' whenever you're ready.");
+      return;
+    }
 
     // --- PRIORITY 1: HANDLE ACTIVE WIZARD STEPS ---
     if (
@@ -146,19 +208,82 @@ router.post('/webhook', async (req, res) => {
       return;
     }
 
-    // --- TRIGGER HOME / GREETING (Hi, Hello) ---
+    // --- TRIGGER HOME / GREETING ---
     if (
       incomingText === 'hi' ||
       incomingText === 'hello' ||
+      incomingText === 'menu' ||
+      incomingText === 'start' ||
+      incomingText === 'home' ||
       buttonPayload === 'BTN_HOME'
     ) {
       await renderHomeGreeting(senderPhone, session);
       return;
     }
 
-    // --- VIEW REMINDERS LIST TRIGGER ---
-    if (incomingText === 'list' || buttonPayload === 'BTN_VIEW_LIST' || buttonPayload === 'BTN_BACK') {
+    // --- HELP COMMAND CARD ---
+    if (incomingText === 'help' || buttonPayload === 'BTN_HELP') {
+      await sendWhatsAppText(
+        senderPhone,
+        "📌 *Krona Command Guide*\n\n" +
+        "• *hi* or *home* - View summary & counts\n" +
+        "• *today* - View today's reminders\n" +
+        "• *overdue* - View unresolved past items\n" +
+        "• *month* - View this month's list\n" +
+        "• *next month* - Preview next month\n" +
+        "• *master* - Web app link\n" +
+        "• *add* - Create a new reminder\n" +
+        "• *cancel* - Abort action"
+      );
+      return;
+    }
+
+    // --- MASTER LIST BRIDGE ---
+    if (incomingText === 'master' || incomingText === 'all') {
+      await sendWhatsAppText(
+        senderPhone,
+        "🌐 *Master Obligation Templates*\n\nTo view and manage master templates, pause recurrences, or edit settings, visit your dashboard:\nhttps://Settld.duckdns.org"
+      );
+      return;
+    }
+
+    // --- VIEW TODAY LIST ---
+    if (
+      incomingText === 'today' ||
+      incomingText === 'due today' ||
+      incomingText === 'list' ||
+      buttonPayload === 'BTN_VIEW_TODAY' ||
+      buttonPayload === 'BTN_VIEW_LIST' ||
+      buttonPayload === 'BTN_BACK'
+    ) {
       await renderTodayObligationsList(senderPhone, session, 0);
+      return;
+    }
+
+    // --- VIEW OVERDUE LIST ---
+    if (
+      incomingText === 'overdue' ||
+      incomingText === 'due overdue' ||
+      buttonPayload === 'BTN_VIEW_OVERDUE'
+    ) {
+      await renderOverdueObligationsList(senderPhone, session, 0);
+      return;
+    }
+
+    // --- VIEW THIS MONTH LIST ---
+    if (
+      incomingText === 'month' ||
+      incomingText === 'this month' ||
+      incomingText === 'due this month' ||
+      buttonPayload === 'BTN_VIEW_MONTH'
+    ) {
+      await renderMonthObligationsList(senderPhone, session, 'current', 0);
+      return;
+    }
+
+    // --- VIEW NEXT MONTH LIST ---
+    if (incomingText === 'next month' || buttonPayload === 'BTN_VIEW_NEXT_MONTH') {
+      await renderMonthObligationsList(senderPhone, session, 'next', 0);
       return;
     }
 
@@ -197,14 +322,14 @@ router.post('/webhook', async (req, res) => {
       const amt = isMonetary
         ? `₹${Number(cycle.expected_amount).toLocaleString('en-IN')} · `
         : 'Event · ';
-      
-      const timeStr = cycle.due_timestamp 
-        ? new Date(cycle.due_timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+
+      const timeStr = cycle.due_timestamp
+        ? new Date(cycle.due_timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         : '';
 
       await sendInteractiveButtons(
         senderPhone,
-        `📌 *${cycle.name || 'Untitled'}*\n${amt}Due Today at ${timeStr}`,
+        `📌 *${cycle.name || 'Untitled'}*\n${amt}Due at ${timeStr}`,
         [
           { id: 'BTN_DONE', title: isMonetary ? 'Mark Paid' : 'Mark Done' },
           { id: 'BTN_BACK', title: 'Back to List' },
@@ -255,15 +380,15 @@ router.post('/webhook', async (req, res) => {
 
       const confirmationMsg = isMonetary ? "Paid 👍 Bill marked as paid." : "All sorted! 👍 That's taken care of.";
       await sendWhatsAppText(senderPhone, confirmationMsg);
-      
+
       const currentPage = session.payload?.page || 0;
       return renderTodayObligationsList(senderPhone, session, currentPage);
     }
 
-    // --- HUMAN-CENTRIC FALLBACK ---
+    // --- FALLBACK ---
     await sendWhatsAppText(
       senderPhone,
-      "I'm not sure what you mean. Reply 'hi' to see your reminders."
+      "I didn't quite catch that. Reply *'hi'* for summary, *'today'* for list, or *'help'* for available commands."
     );
 
   } catch (error) {
@@ -272,7 +397,7 @@ router.post('/webhook', async (req, res) => {
 });
 
 /**
- * Render Home Greeting with Summary + Dual-Action Buttons
+ * Render Welcome Summary with Overdue Count + Today Count + Late-Month Nudge
  */
 async function renderHomeGreeting(senderPhone, session) {
   const userId = session.user_id;
@@ -287,7 +412,16 @@ async function renderHomeGreeting(senderPhone, session) {
   const userTimezone = sampleCycle?.user_timezone || 'Asia/Kolkata';
   const { startOfDay, startOfNextDay } = getTodayBoundsForTimezone(userTimezone);
 
-  const { count } = await supabase
+  // 1. Count Overdue (pending strictly before today)
+  const { count: overdueCount } = await supabase
+    .from('obligation_cycles')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('status', 'pending')
+    .lt('due_timestamp', startOfDay.toISOString());
+
+  // 2. Count Today (pending due strictly today)
+  const { count: todayCount } = await supabase
     .from('obligation_cycles')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
@@ -300,16 +434,33 @@ async function renderHomeGreeting(senderPhone, session) {
     .update({ step: 'home', payload: {} })
     .eq('id', session.id);
 
-  const countText = count > 0 ? `You have ${count} ${count === 1 ? 'reminder' : 'reminders'} due today.` : "You're all clear for today. Take a deep breath! 🌿";
+  let summaryText = `Hey there! 👋 Here’s your update:\n`;
+  if (overdueCount > 0) {
+    summaryText += `\n⚠️ *${overdueCount} Overdue* reminder${overdueCount === 1 ? '' : 's'} (needs attention!)`;
+  }
+  if (todayCount > 0) {
+    summaryText += `\n📌 *${todayCount} Due today*`;
+  }
+  if (overdueCount === 0 && todayCount === 0) {
+    summaryText += `\nYou're all clear for today. Take a deep breath! 🌿`;
+  }
 
-  await sendInteractiveButtons(
-    senderPhone,
-    `Hey there! 👋 ${countText}`,
-    [
-      { id: 'BTN_VIEW_LIST', title: 'View Reminders' },
-      { id: 'BTN_ADD', title: '+ Add Reminder' },
-    ]
-  );
+  // Late-month nudge (> 20th of current month)
+  const currentDay = new Date().getDate();
+  if (currentDay >= 20) {
+    summaryText += `\n\n💡 *Planning ahead?* Type *'next month'* to preview your upcoming bills.`;
+  }
+
+  const buttons = [];
+  if (overdueCount > 0) {
+    buttons.push({ id: 'BTN_VIEW_OVERDUE', title: 'View Overdue' });
+  }
+  if (todayCount > 0 || buttons.length === 0) {
+    buttons.push({ id: 'BTN_VIEW_TODAY', title: 'View Today' });
+  }
+  buttons.push({ id: 'BTN_ADD', title: '+ Add Reminder' });
+
+  await sendInteractiveButtons(senderPhone, summaryText, buttons.slice(0, 3));
 }
 
 /**
@@ -354,6 +505,7 @@ async function renderTodayObligationsList(senderPhone, session, pageIndex = 0) {
       "You're all clear today. 👍",
       [
         { id: 'BTN_ADD', title: '+ Add Reminder' },
+        { id: 'BTN_HOME', title: 'Home' }
       ]
     );
     return;
@@ -375,9 +527,9 @@ async function renderTodayObligationsList(senderPhone, session, pageIndex = 0) {
     const amt = !isEvent
       ? `₹${Number(c.expected_amount).toLocaleString('en-IN')}`
       : 'Event';
-    
-    const timeStr = c.due_timestamp 
-      ? new Date(c.due_timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+
+    const timeStr = c.due_timestamp
+      ? new Date(c.due_timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       : '';
 
     return {
@@ -399,6 +551,103 @@ async function renderTodayObligationsList(senderPhone, session, pageIndex = 0) {
     senderPhone,
     'Today Reminders',
     `Here’s what’s on your plate today (${cycles.length} pending). Tap one to update:`,
+    'Select',
+    rows
+  );
+}
+
+/**
+ * Render Overdue Obligations List
+ */
+async function renderOverdueObligationsList(senderPhone, session, pageIndex = 0) {
+  const userId = session.user_id;
+
+  const { data: sampleCycle } = await supabase
+    .from('obligation_cycles')
+    .select('user_timezone')
+    .eq('user_id', userId)
+    .limit(1)
+    .maybeSingle();
+
+  const userTimezone = sampleCycle?.user_timezone || 'Asia/Kolkata';
+  const { startOfDay } = getTodayBoundsForTimezone(userTimezone);
+
+  const { data: cycles, error } = await supabase
+    .from('obligation_cycles')
+    .select('id, name, expected_amount, due_timestamp, obligations(type)')
+    .eq('user_id', userId)
+    .eq('status', 'pending')
+    .lt('due_timestamp', startOfDay.toISOString())
+    .order('due_timestamp', { ascending: true });
+
+  if (error || !cycles || cycles.length === 0) {
+    await sendWhatsAppText(senderPhone, "You have no overdue reminders! 🎉");
+    return renderHomeGreeting(senderPhone, session);
+  }
+
+  const rows = cycles.map((c) => {
+    const isEvent = c.obligations?.type === 'event' || Number(c.expected_amount || 0) === 0;
+    const dateStr = new Date(c.due_timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return {
+      id: `CYCLE_${c.id}`,
+      title: `${c.name || 'Untitled'}`,
+      description: `${dateStr} • ${!isEvent ? `₹${Number(c.expected_amount).toLocaleString('en-IN')}` : 'Event'}`,
+    };
+  });
+
+  await sendInteractiveList(
+    senderPhone,
+    'Overdue Reminders',
+    `Here are your unresolved past reminders (${cycles.length}):`,
+    'Select',
+    rows
+  );
+}
+
+/**
+ * Render Calendar Month Obligations List (Current or Next)
+ */
+async function renderMonthObligationsList(senderPhone, session, target = 'current', pageIndex = 0) {
+  const userId = session.user_id;
+
+  const { data: sampleCycle } = await supabase
+    .from('obligation_cycles')
+    .select('user_timezone')
+    .eq('user_id', userId)
+    .limit(1)
+    .maybeSingle();
+
+  const userTimezone = sampleCycle?.user_timezone || 'Asia/Kolkata';
+  const { startDate, endDate, monthName } = getMonthBoundsForTimezone(userTimezone, target);
+
+  const { data: cycles, error } = await supabase
+    .from('obligation_cycles')
+    .select('id, name, expected_amount, due_timestamp, obligations(type)')
+    .eq('user_id', userId)
+    .eq('status', 'pending')
+    .gte('due_timestamp', startDate.toISOString())
+    .lt('due_timestamp', endDate.toISOString())
+    .order('due_timestamp', { ascending: true });
+
+  if (error || !cycles || cycles.length === 0) {
+    await sendWhatsAppText(senderPhone, `No pending reminders found for ${monthName}. 👍`);
+    return;
+  }
+
+  const rows = cycles.map((c) => {
+    const isEvent = c.obligations?.type === 'event' || Number(c.expected_amount || 0) === 0;
+    const dateStr = new Date(c.due_timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return {
+      id: `CYCLE_${c.id}`,
+      title: `${c.name || 'Untitled'}`,
+      description: `${dateStr} • ${!isEvent ? `₹${Number(c.expected_amount).toLocaleString('en-IN')}` : 'Event'}`,
+    };
+  });
+
+  await sendInteractiveList(
+    senderPhone,
+    `${monthName}`,
+    `Here are your obligations for ${monthName} (${cycles.length} pending):`,
     'Select',
     rows
   );

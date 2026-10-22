@@ -11,10 +11,11 @@ export default function ObligationListView({
 }) {
   const [selectedCycle, setSelectedCycle] = useState(null);
 
-  // Independent Accordion States (Overdue, Rest of This Week, Next Week all collapsed by default)
+  // Accordion States
   const [isOverdueOpen, setIsOverdueOpen] = useState(false);
   const [isThisWeekOpen, setIsThisWeekOpen] = useState(false);
   const [isNextWeekOpen, setIsNextWeekOpen] = useState(false);
+  const [isNextMonthOpen, setIsNextMonthOpen] = useState(false);
 
   if (!cycles || cycles.length === 0) {
     return (
@@ -46,11 +47,11 @@ export default function ObligationListView({
   // -------------------------------------------------------------
   const now = new Date();
 
-  // Today (00:00:00 to 23:59:59)
+  // Today
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
-  // Tomorrow (00:00:00 to 23:59:59)
+  // Tomorrow
   const tomorrowStart = new Date(todayStart);
   tomorrowStart.setDate(tomorrowStart.getDate() + 1);
   const tomorrowEnd = new Date(todayEnd);
@@ -65,7 +66,7 @@ export default function ObligationListView({
   currentSaturdayEnd.setDate(currentSunday.getDate() + 6);
   currentSaturdayEnd.setHours(23, 59, 59, 999);
 
-  // STRICT Next Calendar Week (Next Sunday 00:00:00 to Next Saturday 23:59:59)
+  // Next Calendar Week
   const nextSundayStart = new Date(currentSunday);
   nextSundayStart.setDate(currentSunday.getDate() + 7);
   nextSundayStart.setHours(0, 0, 0, 0);
@@ -74,48 +75,60 @@ export default function ObligationListView({
   nextSaturdayEnd.setDate(nextSundayStart.getDate() + 6);
   nextSaturdayEnd.setHours(23, 59, 59, 999);
 
-  // Sorting Helper
+  // Next Calendar Month
+  const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0, 0);
+  const nextMonthEnd = new Date(now.getFullYear(), now.getMonth() + 2, 0, 23, 59, 59, 999);
+
   const sortByTime = (a, b) => new Date(a.due_timestamp || a.due_date) - new Date(b.due_timestamp || b.due_date);
 
   // -------------------------------------------------------------
   // BUCKETING LOGIC
   // -------------------------------------------------------------
 
-  // Overdue: Any pending cycle strictly before today
-  const overdueItems = cycles.filter((item) => {
-    if (!item.due_date) return false;
-    return new Date(item.due_date) < todayStart;
-  }).sort(sortByTime);
+  const overdueItems = cycles
+    .filter((item) => item.due_date && new Date(item.due_date) < todayStart)
+    .sort(sortByTime);
 
-  // Today
-  const todayItems = cycles.filter((item) => {
-    if (!item.due_date) return false;
-    const d = new Date(item.due_date);
-    return d >= todayStart && d <= todayEnd;
-  }).sort(sortByTime);
+  const todayItems = cycles
+    .filter((item) => {
+      if (!item.due_date) return false;
+      const d = new Date(item.due_date);
+      return d >= todayStart && d <= todayEnd;
+    })
+    .sort(sortByTime);
 
-  // Tomorrow
-  const tomorrowItems = cycles.filter((item) => {
-    if (!item.due_date) return false;
-    const d = new Date(item.due_date);
-    return d >= tomorrowStart && d <= tomorrowEnd;
-  }).sort(sortByTime);
+  const tomorrowItems = cycles
+    .filter((item) => {
+      if (!item.due_date) return false;
+      const d = new Date(item.due_date);
+      return d >= tomorrowStart && d <= tomorrowEnd;
+    })
+    .sort(sortByTime);
 
-  // Rest of This Week: After tomorrow up to Saturday of current week
-  const thisWeekItems = cycles.filter((item) => {
-    if (!item.due_date) return false;
-    const d = new Date(item.due_date);
-    return d > tomorrowEnd && d <= currentSaturdayEnd;
-  }).sort(sortByTime);
+  const thisWeekItems = cycles
+    .filter((item) => {
+      if (!item.due_date) return false;
+      const d = new Date(item.due_date);
+      return d > tomorrowEnd && d <= currentSaturdayEnd;
+    })
+    .sort(sortByTime);
 
-  // STRICT Next Week: Strictly Next Sunday to Next Saturday
-  const nextWeekItems = cycles.filter((item) => {
-    if (!item.due_date) return false;
-    const d = new Date(item.due_date);
-    return d >= nextSundayStart && d <= nextSaturdayEnd;
-  }).sort(sortByTime);
+  const nextWeekItems = cycles
+    .filter((item) => {
+      if (!item.due_date) return false;
+      const d = new Date(item.due_date);
+      return d >= nextSundayStart && d <= nextSaturdayEnd;
+    })
+    .sort(sortByTime);
 
-  // Render a seamless row with Date • Time • Name • Amount • Light Checkbox
+  const nextMonthItems = cycles
+    .filter((item) => {
+      if (!item.due_date) return false;
+      const d = new Date(item.due_date);
+      return d >= nextMonthStart && d <= nextMonthEnd;
+    })
+    .sort(sortByTime);
+
   const renderRow = (item, showDate = false) => {
     const isEvent = item.type === 'event' || Number(item.expected_amount) === 0;
     const rawTime = item.reminder_time || item.due_time;
@@ -152,7 +165,6 @@ export default function ObligationListView({
               : 'Event'}
           </span>
 
-          {/* Light, Custom Minimalist Check-Button */}
           <button
             type="button"
             onClick={() => setSelectedCycle(item)}
@@ -170,7 +182,7 @@ export default function ObligationListView({
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
-      {/* 1. OVERDUE SECTION (Collapsed by default, text toggle) */}
+      {/* 1. OVERDUE SECTION */}
       {overdueItems.length > 0 && (
         <div>
           <button
@@ -189,7 +201,7 @@ export default function ObligationListView({
         </div>
       )}
 
-      {/* 2. TODAY & TOMORROW (Visible by default, open) */}
+      {/* 2. TODAY & TOMORROW SECTION */}
       <div className="space-y-2">
         {todayItems.length > 0 && (
           <div className="space-y-1">
@@ -220,7 +232,7 @@ export default function ObligationListView({
         )}
       </div>
 
-      {/* 3. THIS WEEK SECTION (Initially collapsed) */}
+      {/* 3. THIS WEEK SECTION */}
       {thisWeekItems.length > 0 && (
         <div>
           <button
@@ -239,7 +251,7 @@ export default function ObligationListView({
         </div>
       )}
 
-      {/* 4. STRICT NEXT WEEK SECTION (Initially collapsed) */}
+      {/* 4. NEXT WEEK SECTION */}
       {nextWeekItems.length > 0 && (
         <div>
           <button
@@ -258,7 +270,26 @@ export default function ObligationListView({
         </div>
       )}
 
-      {/* Standard Payment / Event Modal */}
+      {/* 5. NEXT MONTH PREVIEW SECTION */}
+      {nextMonthItems.length > 0 && (
+        <div>
+          <button
+            onClick={() => setIsNextMonthOpen(!isNextMonthOpen)}
+            className={`w-full flex items-center justify-between py-2 text-left font-bold text-xs tracking-wider uppercase ${activeTheme?.subText || 'text-gray-400'} hover:opacity-80 transition-opacity`}
+          >
+            <span>🗓️ Next Month Preview ({nextMonthItems.length})</span>
+            <span>{isNextMonthOpen ? '▲ Collapse' : '▼ Expand'}</span>
+          </button>
+
+          {isNextMonthOpen && (
+            <div className="pl-2 space-y-1 mt-1 border-l-2 border-zinc-700/30">
+              {nextMonthItems.map((item) => renderRow(item, true))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Modals */}
       {selectedCycle && (
         isMonetary ? (
           <PaymentModal
