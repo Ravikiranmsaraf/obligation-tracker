@@ -173,19 +173,26 @@ router.post('/webhook', async (req, res) => {
       `📨 WhatsApp event from ${senderPhone} | Step: ${session.step} | Text: "${incomingText}" | Button: "${buttonPayload}" | List: "${listPayload}"`
     );
 
-    // --- UNIVERSAL ESCAPE HATCH: CANCEL / RESET ---
+    // --- UNIVERSAL ESCAPE HATCH: CANCEL / RESET / LIST FOOTER CANCEL ---
     if (
       incomingText === 'cancel' ||
       incomingText === 'exit' ||
       incomingText === 'stop' ||
       incomingText === 'reset' ||
-      buttonPayload === 'ADD_CANCEL'
+      buttonPayload === 'ADD_CANCEL' ||
+      listPayload === 'NAV_CANCEL'
     ) {
       await supabase
         .from('whatsapp_sessions')
         .update({ step: 'idle', payload: {} })
         .eq('id', session.id);
       await sendWhatsAppText(senderPhone, "Cancelled. Reply 'hi' or 'home' whenever you're ready.");
+      return;
+    }
+
+    // --- LIST FOOTER NAVIGATION: HOME ---
+    if (listPayload === 'NAV_HOME' || buttonPayload === 'BTN_HOME') {
+      await renderHomeGreeting(senderPhone, session);
       return;
     }
 
@@ -214,8 +221,7 @@ router.post('/webhook', async (req, res) => {
       incomingText === 'hello' ||
       incomingText === 'menu' ||
       incomingText === 'start' ||
-      incomingText === 'home' ||
-      buttonPayload === 'BTN_HOME'
+      incomingText === 'home'
     ) {
       await renderHomeGreeting(senderPhone, session);
       return;
@@ -464,7 +470,7 @@ async function renderHomeGreeting(senderPhone, session) {
 }
 
 /**
- * Render Today's Interactive List with Pagination
+ * Render Today's Interactive List with Pagination & Escape Rows
  */
 async function renderTodayObligationsList(senderPhone, session, pageIndex = 0) {
   const userId = session.user_id;
@@ -516,7 +522,7 @@ async function renderTodayObligationsList(senderPhone, session, pageIndex = 0) {
     .update({ step: 'today_list', payload: { ...session.payload, page: pageIndex } })
     .eq('id', session.id);
 
-  const PAGE_SIZE = 9;
+  const PAGE_SIZE = 7; // Leave room for pagination and navigation footer rows
   const startIndex = pageIndex * PAGE_SIZE;
   const paginatedCycles = cycles.slice(startIndex, startIndex + PAGE_SIZE);
   const hasMore = startIndex + PAGE_SIZE < cycles.length;
@@ -547,6 +553,18 @@ async function renderTodayObligationsList(senderPhone, session, pageIndex = 0) {
     });
   }
 
+  // Always append navigation escape options
+  rows.push({
+    id: 'NAV_HOME',
+    title: '🏠 Back to Home',
+    description: 'Return to welcome summary',
+  });
+  rows.push({
+    id: 'NAV_CANCEL',
+    title: '❌ Cancel / Exit',
+    description: 'Clear current session',
+  });
+
   await sendInteractiveList(
     senderPhone,
     'Today Reminders',
@@ -557,7 +575,7 @@ async function renderTodayObligationsList(senderPhone, session, pageIndex = 0) {
 }
 
 /**
- * Render Overdue Obligations List
+ * Render Overdue Obligations List with Escape Rows
  */
 async function renderOverdueObligationsList(senderPhone, session, pageIndex = 0) {
   const userId = session.user_id;
@@ -585,7 +603,7 @@ async function renderOverdueObligationsList(senderPhone, session, pageIndex = 0)
     return renderHomeGreeting(senderPhone, session);
   }
 
-  const rows = cycles.map((c) => {
+  const rows = cycles.slice(0, 8).map((c) => {
     const isEvent = c.obligations?.type === 'event' || Number(c.expected_amount || 0) === 0;
     const dateStr = new Date(c.due_timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     return {
@@ -593,6 +611,17 @@ async function renderOverdueObligationsList(senderPhone, session, pageIndex = 0)
       title: `${c.name || 'Untitled'}`,
       description: `${dateStr} • ${!isEvent ? `₹${Number(c.expected_amount).toLocaleString('en-IN')}` : 'Event'}`,
     };
+  });
+
+  rows.push({
+    id: 'NAV_HOME',
+    title: '🏠 Back to Home',
+    description: 'Return to welcome summary',
+  });
+  rows.push({
+    id: 'NAV_CANCEL',
+    title: '❌ Cancel / Exit',
+    description: 'Clear current session',
   });
 
   await sendInteractiveList(
@@ -605,7 +634,7 @@ async function renderOverdueObligationsList(senderPhone, session, pageIndex = 0)
 }
 
 /**
- * Render Calendar Month Obligations List (Current or Next)
+ * Render Calendar Month Obligations List (Current or Next) with Escape Rows
  */
 async function renderMonthObligationsList(senderPhone, session, target = 'current', pageIndex = 0) {
   const userId = session.user_id;
@@ -634,7 +663,7 @@ async function renderMonthObligationsList(senderPhone, session, target = 'curren
     return;
   }
 
-  const rows = cycles.map((c) => {
+  const rows = cycles.slice(0, 8).map((c) => {
     const isEvent = c.obligations?.type === 'event' || Number(c.expected_amount || 0) === 0;
     const dateStr = new Date(c.due_timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     return {
@@ -642,6 +671,17 @@ async function renderMonthObligationsList(senderPhone, session, target = 'curren
       title: `${c.name || 'Untitled'}`,
       description: `${dateStr} • ${!isEvent ? `₹${Number(c.expected_amount).toLocaleString('en-IN')}` : 'Event'}`,
     };
+  });
+
+  rows.push({
+    id: 'NAV_HOME',
+    title: '🏠 Back to Home',
+    description: 'Return to welcome summary',
+  });
+  rows.push({
+    id: 'NAV_CANCEL',
+    title: '❌ Cancel / Exit',
+    description: 'Clear current session',
   });
 
   await sendInteractiveList(
