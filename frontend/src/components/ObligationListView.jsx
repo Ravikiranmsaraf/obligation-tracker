@@ -43,11 +43,39 @@ export default function ObligationListView({
   };
 
   // -------------------------------------------------------------
-  // ROBUST UTC-NORMALIZED DATE BOUNDARIES
+  // SHARED TIMEZONE-AWARE BOUNDARY LOGIC (Borrowed from WhatsApp Router)
   // -------------------------------------------------------------
+  function getMonthBounds(target = 'current') {
+    const now = new Date();
+    // Use user's local or fallback timezone mapping safely
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'numeric',
+    });
+    const parts = formatter.formatToParts(now);
+    const year = parseInt(parts.find((p) => p.type === 'year').value, 10);
+    const month = parseInt(parts.find((p) => p.type === 'month').value, 10);
+
+    let targetYear = year;
+    let targetMonth = month;
+
+    if (target === 'next') {
+      targetMonth = month + 1;
+      if (targetMonth > 12) {
+        targetMonth = 1;
+        targetYear += 1;
+      }
+    }
+
+    const startDate = new Date(Date.UTC(targetYear, targetMonth - 1, 1, 0, 0, 0));
+    const endDate = new Date(Date.UTC(targetYear, targetMonth, 1, 0, 0, 0));
+
+    return { startDate, endDate };
+  }
+
   const now = new Date();
 
-  // Today (Local calendar bounds)
+  // Today
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
@@ -75,20 +103,8 @@ export default function ObligationListView({
   nextSaturdayEnd.setDate(nextSundayStart.getDate() + 6);
   nextSaturdayEnd.setHours(23, 59, 59, 999);
 
-  // Robust Next Calendar Month Bounds (UTC aligned to prevent timezone shift drops)
-  const currentUtcYear = now.getUTCFullYear();
-  const currentUtcMonth = now.getUTCMonth(); // 0-11
-  
-  let targetYear = currentUtcYear;
-  let targetMonth = currentUtcMonth + 1;
-  if (targetMonth > 11) {
-    targetMonth = 0;
-    targetYear += 1;
-  }
-
-  const nextMonthStart = new Date(Date.UTC(targetYear, targetMonth, 1, 0, 0, 0, 0));
-  // End of next month is day 0 of the month following next month
-  const nextMonthEnd = new Date(Date.UTC(targetYear, targetMonth + 1, 0, 23, 59, 59, 999));
+  // Next Calendar Month using exact matching UTC bounds
+  const { startDate: nextMonthStart, endDate: nextMonthEnd } = getMonthBounds('next');
 
   const sortByTime = (a, b) => new Date(a.due_timestamp || a.due_date) - new Date(b.due_timestamp || b.due_date);
 
@@ -136,7 +152,7 @@ export default function ObligationListView({
     .filter((item) => {
       if (!item.due_date) return false;
       const d = new Date(item.due_date);
-      return d >= nextMonthStart && d <= nextMonthEnd;
+      return d >= nextMonthStart && d < nextMonthEnd;
     })
     .sort(sortByTime);
 
