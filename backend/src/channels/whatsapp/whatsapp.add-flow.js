@@ -16,9 +16,9 @@ async function handleAddFlow(senderPhone, session, messageText, buttonPayload) {
   }
 
   switch (step) {
-    case 'PARSING_NLP':
+    case 'ADD_NAME':
       return handleNlpInput(senderPhone, session, messageText);
-    case 'ASK_MISSING_FIELD':
+    case 'ADD_DETAILS':
       return handleMissingFieldInput(senderPhone, session, messageText);
     case 'ADD_CONFIRM':
       return handleConfirmation(senderPhone, session, buttonPayload);
@@ -33,24 +33,24 @@ async function handleAddFlow(senderPhone, session, messageText, buttonPayload) {
  */
 async function startAddFlow(senderPhone, session) {
   const { error } = await supabase
-      .from('whatsapp_sessions')
-      .update({ step: 'PARSING_NLP', payload: {} })
-      .eq('id', session.id);
+    .from('whatsapp_sessions')
+    .update({ step: 'ADD_NAME', payload: {} })
+    .eq('id', session.id);
 
-    if (error) {
-      console.error('❌ Failed to update session step to PARSING_NLP:', error);
-      await sendWhatsAppText(senderPhone, "Sorry, something went wrong starting the reminder flow. Please try again.");
-      return;
-    }
+  if (error) {
+    console.error('❌ Failed to update session step to ADD_NAME:', error);
+    await sendWhatsAppText(senderPhone, "Sorry, something went wrong starting the reminder flow. Please try again.");
+    return;
+  }
 
-    const promptText = 
+  const promptText = 
     "What’s on your mind? Just type it out naturally.\n\n" +
     "Quick examples:\n" +
     "• *Dentist appointment Friday 4pm* (One-off Event)\n" +
     "• *Team sync every Tuesday 11am* (Recurring Event)\n" +
     "• *Pay credit card 4500 tomorrow 5pm* (One-off Bill)\n" +
-    "• *Care Insurance 4500 10am on 4th Feb every year* (Recurring Bill)\n" +
-    "• *Son's birthday 11th March every year* (Recurring event)\n" +
+    "• *Car Insurance of 4000 annually 10am on 13 Feb* (Recurring Bill)\n" +
+    "• *Robert's Birthday 10 July every year* (Recurring Event)\n +
     "• *Wifi bill 999 monthly on 5th 10am* (Recurring Bill)\n\n" +
     "Type yours below:";
 
@@ -125,7 +125,7 @@ Rules: Events without cost -> type="event", expected_amount=0. Bills -> type="bi
     if (!parsed.due_day || !parsed.due_month) {
       await supabase
         .from('whatsapp_sessions')
-        .update({ step: 'ASK_MISSING_FIELD', payload: parsed })
+        .update({ step: 'ADD_DETAILS', payload: parsed })
         .eq('id', session.id);
 
       await sendWhatsAppText(
@@ -149,9 +149,7 @@ Rules: Events without cost -> type="event", expected_amount=0. Bills -> type="bi
  */
 async function handleMissingFieldInput(senderPhone, session, messageText) {
   const existingPayload = session.payload || {};
-  const combinedText = `${existingPayload.name} ${messageText}`;
   
-  // Re-run parser with combined context or simple date append
   existingPayload.due_day = new Date(messageText).getDate() || new Date().getDate();
   existingPayload.due_month = new Date(messageText).getMonth() + 1 || new Date().getMonth() + 1;
   
