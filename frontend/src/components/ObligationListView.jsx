@@ -11,11 +11,10 @@ export default function ObligationListView({
 }) {
   const [selectedCycle, setSelectedCycle] = useState(null);
 
-  // Accordion States
+  // Independent Accordion States (Overdue, Rest of This Week, Next Week all collapsed by default)
   const [isOverdueOpen, setIsOverdueOpen] = useState(false);
   const [isThisWeekOpen, setIsThisWeekOpen] = useState(false);
   const [isNextWeekOpen, setIsNextWeekOpen] = useState(false);
-  const [isNextMonthOpen, setIsNextMonthOpen] = useState(false);
 
   if (!cycles || cycles.length === 0) {
     return (
@@ -43,43 +42,15 @@ export default function ObligationListView({
   };
 
   // -------------------------------------------------------------
-  // SHARED TIMEZONE-AWARE BOUNDARY LOGIC (Borrowed from WhatsApp Router)
+  // STRICT DATE BOUNDARIES
   // -------------------------------------------------------------
-  function getMonthBounds(target = 'current') {
-    const now = new Date();
-    // Use user's local or fallback timezone mapping safely
-    const formatter = new Intl.DateTimeFormat('en-US', {
-      year: 'numeric',
-      month: 'numeric',
-    });
-    const parts = formatter.formatToParts(now);
-    const year = parseInt(parts.find((p) => p.type === 'year').value, 10);
-    const month = parseInt(parts.find((p) => p.type === 'month').value, 10);
-
-    let targetYear = year;
-    let targetMonth = month;
-
-    if (target === 'next') {
-      targetMonth = month + 1;
-      if (targetMonth > 12) {
-        targetMonth = 1;
-        targetYear += 1;
-      }
-    }
-
-    const startDate = new Date(Date.UTC(targetYear, targetMonth - 1, 1, 0, 0, 0));
-    const endDate = new Date(Date.UTC(targetYear, targetMonth, 1, 0, 0, 0));
-
-    return { startDate, endDate };
-  }
-
   const now = new Date();
 
-  // Today
+  // Today (00:00:00 to 23:59:59)
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
-  // Tomorrow
+  // Tomorrow (00:00:00 to 23:59:59)
   const tomorrowStart = new Date(todayStart);
   tomorrowStart.setDate(tomorrowStart.getDate() + 1);
   const tomorrowEnd = new Date(todayEnd);
@@ -94,7 +65,7 @@ export default function ObligationListView({
   currentSaturdayEnd.setDate(currentSunday.getDate() + 6);
   currentSaturdayEnd.setHours(23, 59, 59, 999);
 
-  // Next Calendar Week
+  // STRICT Next Calendar Week (Next Sunday 00:00:00 to Next Saturday 23:59:59)
   const nextSundayStart = new Date(currentSunday);
   nextSundayStart.setDate(currentSunday.getDate() + 7);
   nextSundayStart.setHours(0, 0, 0, 0);
@@ -103,59 +74,48 @@ export default function ObligationListView({
   nextSaturdayEnd.setDate(nextSundayStart.getDate() + 6);
   nextSaturdayEnd.setHours(23, 59, 59, 999);
 
-  // Next Calendar Month using exact matching UTC bounds
-  const { startDate: nextMonthStart, endDate: nextMonthEnd } = getMonthBounds('next');
-
+  // Sorting Helper
   const sortByTime = (a, b) => new Date(a.due_timestamp || a.due_date) - new Date(b.due_timestamp || b.due_date);
 
   // -------------------------------------------------------------
   // BUCKETING LOGIC
   // -------------------------------------------------------------
 
-  const overdueItems = cycles
-    .filter((item) => item.due_date && new Date(item.due_date) < todayStart)
-    .sort(sortByTime);
+  // Overdue: Any pending cycle strictly before today
+  const overdueItems = cycles.filter((item) => {
+    if (!item.due_date) return false;
+    return new Date(item.due_date) < todayStart;
+  }).sort(sortByTime);
 
-  const todayItems = cycles
-    .filter((item) => {
-      if (!item.due_date) return false;
-      const d = new Date(item.due_date);
-      return d >= todayStart && d <= todayEnd;
-    })
-    .sort(sortByTime);
+  // Today
+  const todayItems = cycles.filter((item) => {
+    if (!item.due_date) return false;
+    const d = new Date(item.due_date);
+    return d >= todayStart && d <= todayEnd;
+  }).sort(sortByTime);
 
-  const tomorrowItems = cycles
-    .filter((item) => {
-      if (!item.due_date) return false;
-      const d = new Date(item.due_date);
-      return d >= tomorrowStart && d <= tomorrowEnd;
-    })
-    .sort(sortByTime);
+  // Tomorrow
+  const tomorrowItems = cycles.filter((item) => {
+    if (!item.due_date) return false;
+    const d = new Date(item.due_date);
+    return d >= tomorrowStart && d <= tomorrowEnd;
+  }).sort(sortByTime);
 
-  const thisWeekItems = cycles
-    .filter((item) => {
-      if (!item.due_date) return false;
-      const d = new Date(item.due_date);
-      return d > tomorrowEnd && d <= currentSaturdayEnd;
-    })
-    .sort(sortByTime);
+  // Rest of This Week: After tomorrow up to Saturday of current week
+  const thisWeekItems = cycles.filter((item) => {
+    if (!item.due_date) return false;
+    const d = new Date(item.due_date);
+    return d > tomorrowEnd && d <= currentSaturdayEnd;
+  }).sort(sortByTime);
 
-  const nextWeekItems = cycles
-    .filter((item) => {
-      if (!item.due_date) return false;
-      const d = new Date(item.due_date);
-      return d >= nextSundayStart && d <= nextSaturdayEnd;
-    })
-    .sort(sortByTime);
+  // STRICT Next Week: Strictly Next Sunday to Next Saturday
+  const nextWeekItems = cycles.filter((item) => {
+    if (!item.due_date) return false;
+    const d = new Date(item.due_date);
+    return d >= nextSundayStart && d <= nextSaturdayEnd;
+  }).sort(sortByTime);
 
-  const nextMonthItems = cycles
-    .filter((item) => {
-      if (!item.due_date) return false;
-      const d = new Date(item.due_date);
-      return d >= nextMonthStart && d < nextMonthEnd;
-    })
-    .sort(sortByTime);
-
+  // Render a seamless row with Date • Time • Name • Amount • Light Checkbox
   const renderRow = (item, showDate = false) => {
     const isEvent = item.type === 'event' || Number(item.expected_amount) === 0;
     const rawTime = item.reminder_time || item.due_time;
@@ -192,6 +152,7 @@ export default function ObligationListView({
               : 'Event'}
           </span>
 
+          {/* Light, Custom Minimalist Check-Button */}
           <button
             type="button"
             onClick={() => setSelectedCycle(item)}
@@ -209,7 +170,7 @@ export default function ObligationListView({
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
-      {/* 1. OVERDUE SECTION */}
+      {/* 1. OVERDUE SECTION (Collapsed by default, text toggle) */}
       {overdueItems.length > 0 && (
         <div>
           <button
@@ -228,7 +189,7 @@ export default function ObligationListView({
         </div>
       )}
 
-      {/* 2. TODAY & TOMORROW SECTION */}
+      {/* 2. TODAY & TOMORROW (Visible by default, open) */}
       <div className="space-y-2">
         {todayItems.length > 0 && (
           <div className="space-y-1">
@@ -259,7 +220,7 @@ export default function ObligationListView({
         )}
       </div>
 
-      {/* 3. THIS WEEK SECTION */}
+      {/* 3. THIS WEEK SECTION (Initially collapsed) */}
       {thisWeekItems.length > 0 && (
         <div>
           <button
@@ -278,7 +239,7 @@ export default function ObligationListView({
         </div>
       )}
 
-      {/* 4. NEXT WEEK SECTION */}
+      {/* 4. STRICT NEXT WEEK SECTION (Initially collapsed) */}
       {nextWeekItems.length > 0 && (
         <div>
           <button
@@ -297,30 +258,7 @@ export default function ObligationListView({
         </div>
       )}
 
-      {/* 5. NEXT MONTH PREVIEW SECTION */}
-      <div>
-        <button
-          onClick={() => setIsNextMonthOpen(!isNextMonthOpen)}
-          className={`w-full flex items-center justify-between py-2 text-left font-bold text-xs tracking-wider uppercase ${activeTheme?.subText || 'text-gray-400'} hover:opacity-80 transition-opacity`}
-        >
-          <span>🗓️ Next Month Preview ({nextMonthItems.length})</span>
-          <span>{isNextMonthOpen ? '▲ Collapse' : '▼ Expand'}</span>
-        </button>
-
-        {isNextMonthOpen && (
-          <div className="pl-2 space-y-1 mt-1 border-l-2 border-zinc-700/30">
-            {nextMonthItems.length > 0 ? (
-              nextMonthItems.map((item) => renderRow(item, true))
-            ) : (
-              <div className="py-2 text-xs text-zinc-500 italic">
-                No scheduled reminders for next month yet.
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Modals */}
+      {/* Standard Payment / Event Modal */}
       {selectedCycle && (
         isMonetary ? (
           <PaymentModal
