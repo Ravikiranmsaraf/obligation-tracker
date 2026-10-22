@@ -128,13 +128,20 @@ router.post('/webhook', async (req, res) => {
     console.log(`📨 WhatsApp event from ${senderPhone} | Step: ${session.step} | Text: "${incomingText}" | Button: "${buttonPayload}" | List: "${listPayload}"`);
 
     // --- PRIORITY 1: HANDLE ACTIVE WIZARD STEPS ---
-    if (session.step && (session.step.startsWith('ADD_') || session.step === 'PARSING_NLP' || session.step === 'ASK_MISSING_FIELD')) {
-      return handleAddFlow(senderPhone, session, incomingText, buttonPayload);
+    if (
+      session.step &&
+      (session.step.startsWith('ADD_') ||
+        session.step === 'PARSING_NLP' ||
+        session.step === 'ASK_MISSING_FIELD')
+    ) {
+      await handleAddFlow(senderPhone, session, incomingText, buttonPayload);
+      return;
     }
 
     // --- TRIGGER ADD FLOW MANUALLY ---
     if (incomingText === 'add' || incomingText === 'new' || buttonPayload === 'BTN_ADD') {
-      return startAddFlow(senderPhone, session);
+      await startAddFlow(senderPhone, session);
+      return;
     }
 
     // --- TRIGGER HOME / GREETING (Hi, Hello) ---
@@ -143,12 +150,14 @@ router.post('/webhook', async (req, res) => {
       incomingText === 'hello' ||
       buttonPayload === 'BTN_HOME'
     ) {
-      return renderHomeGreeting(senderPhone, session);
+      await renderHomeGreeting(senderPhone, session);
+      return;
     }
 
     // --- VIEW REMINDERS LIST TRIGGER ---
     if (incomingText === 'list' || buttonPayload === 'BTN_VIEW_LIST' || buttonPayload === 'BTN_BACK') {
-      return renderTodayObligationsList(senderPhone, session, 0);
+      await renderTodayObligationsList(senderPhone, session, 0);
+      return;
     }
 
     // --- PAGINATION HANDLER ---
