@@ -270,24 +270,28 @@ export default function ObligationListView({
         </div>
       )}
 
-      {/* 5. NEXT MONTH PREVIEW SECTION */}
-      {nextMonthItems.length > 0 && (
-        <div>
-          <button
-            onClick={() => setIsNextMonthOpen(!isNextMonthOpen)}
-            className={`w-full flex items-center justify-between py-2 text-left font-bold text-xs tracking-wider uppercase ${activeTheme?.subText || 'text-gray-400'} hover:opacity-80 transition-opacity`}
-          >
-            <span>🗓️ Next Month Preview ({nextMonthItems.length})</span>
-            <span>{isNextMonthOpen ? '▲ Collapse' : '▼ Expand'}</span>
-          </button>
+      {/* 5. NEXT MONTH PREVIEW SECTION (Always visible) */}
+      <div>
+        <button
+          onClick={() => setIsNextMonthOpen(!isNextMonthOpen)}
+          className={`w-full flex items-center justify-between py-2 text-left font-bold text-xs tracking-wider uppercase ${activeTheme?.subText || 'text-gray-400'} hover:opacity-80 transition-opacity`}
+        >
+          <span>🗓️ Next Month Preview ({nextMonthItems.length})</span>
+          <span>{isNextMonthOpen ? '▲ Collapse' : '▼ Expand'}</span>
+        </button>
 
-          {isNextMonthOpen && (
-            <div className="pl-2 space-y-1 mt-1 border-l-2 border-zinc-700/30">
-              {nextMonthItems.map((item) => renderRow(item, true))}
-            </div>
-          )}
-        </div>
-      )}
+        {isNextMonthOpen && (
+          <div className="pl-2 space-y-1 mt-1 border-l-2 border-zinc-700/30">
+            {nextMonthItems.length > 0 ? (
+              nextMonthItems.map((item) => renderRow(item, true))
+            ) : (
+              <div className="py-2 text-xs text-zinc-500 italic">
+                No scheduled reminders for next month yet.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Modals */}
       {selectedCycle && (

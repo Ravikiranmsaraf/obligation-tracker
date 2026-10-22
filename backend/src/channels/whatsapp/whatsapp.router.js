@@ -173,7 +173,7 @@ router.post('/webhook', async (req, res) => {
       `📨 WhatsApp event from ${senderPhone} | Step: ${session.step} | Text: "${incomingText}" | Button: "${buttonPayload}" | List: "${listPayload}"`
     );
 
-    // --- UNIVERSAL ESCAPE HATCH: CANCEL / RESET / LIST FOOTER CANCEL ---
+    // --- UNIVERSAL ESCAPE HATCH ---
     if (
       incomingText === 'cancel' ||
       incomingText === 'exit' ||
@@ -293,10 +293,20 @@ router.post('/webhook', async (req, res) => {
       return;
     }
 
-    // --- PAGINATION HANDLER ---
-    if (listPayload.startsWith('PAGE_')) {
-      const targetPage = parseInt(listPayload.replace('PAGE_', ''), 10) || 0;
+    // --- PAGINATION HANDLERS ---
+    if (listPayload.startsWith('PAGE_TODAY_')) {
+      const targetPage = parseInt(listPayload.replace('PAGE_TODAY_', ''), 10) || 0;
       return renderTodayObligationsList(senderPhone, session, targetPage);
+    }
+    if (listPayload.startsWith('PAGE_OVERDUE_')) {
+      const targetPage = parseInt(listPayload.replace('PAGE_OVERDUE_', ''), 10) || 0;
+      return renderOverdueObligationsList(senderPhone, session, targetPage);
+    }
+    if (listPayload.startsWith('PAGE_MONTH_')) {
+      const parts = listPayload.replace('PAGE_MONTH_', '').split('_');
+      const target = parts[0]; // 'current' or 'next'
+      const targetPage = parseInt(parts[1], 10) || 0;
+      return renderMonthObligationsList(senderPhone, session, target, targetPage);
     }
 
     // --- REMINDER DETAIL VIEW ---
@@ -418,7 +428,7 @@ async function renderHomeGreeting(senderPhone, session) {
   const userTimezone = sampleCycle?.user_timezone || 'Asia/Kolkata';
   const { startOfDay, startOfNextDay } = getTodayBoundsForTimezone(userTimezone);
 
-  // 1. Count Overdue (pending strictly before today)
+  // 1. Count Overdue
   const { count: overdueCount } = await supabase
     .from('obligation_cycles')
     .select('*', { count: 'exact', head: true })
@@ -426,7 +436,7 @@ async function renderHomeGreeting(senderPhone, session) {
     .eq('status', 'pending')
     .lt('due_timestamp', startOfDay.toISOString());
 
-  // 2. Count Today (pending due strictly today)
+  // 2. Count Today
   const { count: todayCount } = await supabase
     .from('obligation_cycles')
     .select('*', { count: 'exact', head: true })
@@ -451,7 +461,6 @@ async function renderHomeGreeting(senderPhone, session) {
     summaryText += `\nYou're all clear for today. Take a deep breath! 🌿`;
   }
 
-  // Late-month nudge (> 20th of current month)
   const currentDay = new Date().getDate();
   if (currentDay >= 20) {
     summaryText += `\n\n💡 *Planning ahead?* Type *'next month'* to preview your upcoming bills.`;
@@ -470,7 +479,7 @@ async function renderHomeGreeting(senderPhone, session) {
 }
 
 /**
- * Render Today's Interactive List with Pagination & Escape Rows
+ * Render Today's Interactive List with Full Pagination & Escape Rows (Max 10 rows per Meta constraint)
  */
 async function renderTodayObligationsList(senderPhone, session, pageIndex = 0) {
   const userId = session.user_id;
@@ -522,7 +531,7 @@ async function renderTodayObligationsList(senderPhone, session, pageIndex = 0) {
     .update({ step: 'today_list', payload: { ...session.payload, page: pageIndex } })
     .eq('id', session.id);
 
-  const PAGE_SIZE = 7; // Leave room for pagination and navigation footer rows
+  const PAGE_SIZE = 6; // Leave strict capacity for pagination & nav rows (Max 10 total)
   const startIndex = pageIndex * PAGE_SIZE;
   const paginatedCycles = cycles.slice(startIndex, startIndex + PAGE_SIZE);
   const hasMore = startIndex + PAGE_SIZE < cycles.length;
@@ -547,13 +556,12 @@ async function renderTodayObligationsList(senderPhone, session, pageIndex = 0) {
 
   if (hasMore) {
     rows.push({
-      id: `PAGE_${pageIndex + 1}`,
-      title: '➡️ Next reminders',
+      id: `PAGE_TODAY_${pageIndex + 1}`,
+      title: '➡️ Next Page',
       description: `Showing ${startIndex + 1}-${startIndex + paginatedCycles.length} of ${cycles.length}`,
     });
   }
 
-  // Always append navigation escape options
   rows.push({
     id: 'NAV_HOME',
     title: '🏠 Back to Home',
@@ -575,7 +583,7 @@ async function renderTodayObligationsList(senderPhone, session, pageIndex = 0) {
 }
 
 /**
- * Render Overdue Obligations List with Escape Rows
+ * Render Overdue Obligations List with Full Pagination & Escape Rows
  */
 async function renderOverdueObligationsList(senderPhone, session, pageIndex = 0) {
   const userId = session.user_id;
@@ -603,7 +611,12 @@ async function renderOverdueObligationsList(senderPhone, session, pageIndex = 0)
     return renderHomeGreeting(senderPhone, session);
   }
 
-  const rows = cycles.slice(0, 8).map((c) => {
+  const PAGE_SIZE = 6;
+  const startIndex = pageIndex * PAGE_SIZE;
+  const paginatedCycles = cycles.slice(startIndex, startIndex + PAGE_SIZE);
+  const hasMore = startIndex + PAGE_SIZE < cycles.length;
+
+  const rows = paginatedCycles.map((c) => {
     const isEvent = c.obligations?.type === 'event' || Number(c.expected_amount || 0) === 0;
     const dateStr = new Date(c.due_timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     return {
@@ -612,6 +625,14 @@ async function renderOverdueObligationsList(senderPhone, session, pageIndex = 0)
       description: `${dateStr} • ${!isEvent ? `₹${Number(c.expected_amount).toLocaleString('en-IN')}` : 'Event'}`,
     };
   });
+
+  if (hasMore) {
+    rows.push({
+      id: `PAGE_OVERDUE_${pageIndex + 1}`,
+      title: '➡️ Next Page',
+      description: `Showing ${startIndex + 1}-${startIndex + paginatedCycles.length} of ${cycles.length}`,
+    });
+  }
 
   rows.push({
     id: 'NAV_HOME',
@@ -634,7 +655,7 @@ async function renderOverdueObligationsList(senderPhone, session, pageIndex = 0)
 }
 
 /**
- * Render Calendar Month Obligations List (Current or Next) with Escape Rows
+ * Render Calendar Month Obligations List (Current or Next) with Full Pagination & Escape Rows
  */
 async function renderMonthObligationsList(senderPhone, session, target = 'current', pageIndex = 0) {
   const userId = session.user_id;
@@ -663,7 +684,12 @@ async function renderMonthObligationsList(senderPhone, session, target = 'curren
     return;
   }
 
-  const rows = cycles.slice(0, 8).map((c) => {
+  const PAGE_SIZE = 6;
+  const startIndex = pageIndex * PAGE_SIZE;
+  const paginatedCycles = cycles.slice(startIndex, startIndex + PAGE_SIZE);
+  const hasMore = startIndex + PAGE_SIZE < cycles.length;
+
+  const rows = paginatedCycles.map((c) => {
     const isEvent = c.obligations?.type === 'event' || Number(c.expected_amount || 0) === 0;
     const dateStr = new Date(c.due_timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     return {
@@ -672,6 +698,14 @@ async function renderMonthObligationsList(senderPhone, session, target = 'curren
       description: `${dateStr} • ${!isEvent ? `₹${Number(c.expected_amount).toLocaleString('en-IN')}` : 'Event'}`,
     };
   });
+
+  if (hasMore) {
+    rows.push({
+      id: `PAGE_MONTH_${target}_${pageIndex + 1}`,
+      title: '➡️ Next Page',
+      description: `Showing ${startIndex + 1}-${startIndex + paginatedCycles.length} of ${cycles.length}`,
+    });
+  }
 
   rows.push({
     id: 'NAV_HOME',
