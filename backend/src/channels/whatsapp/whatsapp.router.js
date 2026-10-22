@@ -128,8 +128,8 @@ router.post('/webhook', async (req, res) => {
     console.log(`📨 WhatsApp event from ${senderPhone} | Step: ${session.step} | Text: "${incomingText}" | Button: "${buttonPayload}" | List: "${listPayload}"`);
 
     // --- PRIORITY 1: HANDLE ACTIVE WIZARD STEPS ---
-    if (session.step && session.step.startsWith('ADD_')) {
-      return handleAddFlow(senderPhone, session, incomingText, buttonPayload, listPayload);
+    if (session.step && (session.step.startsWith('ADD_') || session.step === 'PARSING_NLP' || session.step === 'ASK_MISSING_FIELD')) {
+      return handleAddFlow(senderPhone, session, incomingText, buttonPayload);
     }
 
     // --- TRIGGER ADD FLOW MANUALLY ---
