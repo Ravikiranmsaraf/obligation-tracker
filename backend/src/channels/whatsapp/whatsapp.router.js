@@ -130,9 +130,11 @@ router.post('/webhook', async (req, res) => {
     // --- PRIORITY 1: HANDLE ACTIVE WIZARD STEPS ---
     if (
       session.step &&
-      (session.step.startsWith('ADD_') ||
-        session.step === 'PARSING_NLP' ||
-        session.step === 'ASK_MISSING_FIELD')
+      (session.step === 'awaiting_name' ||
+        session.step === 'awaiting_amount' ||
+        session.step === 'awaiting_due_date' ||
+        session.step === 'awaiting_time' ||
+        session.step === 'confirming')
     ) {
       await handleAddFlow(senderPhone, session, incomingText, buttonPayload);
       return;

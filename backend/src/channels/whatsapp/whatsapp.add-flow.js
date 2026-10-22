@@ -48,9 +48,7 @@ async function startAddFlow(senderPhone, session) {
     "Quick examples:\n" +
     "• *Dentist appointment Friday 4pm* (One-off Event)\n" +
     "• *Team sync every Tuesday 11am* (Recurring Event)\n" +
-    "• *Pay credit card 4500 tomorrow 5pm* (One-off Bill)\n" 
-    "• *Car Insurance of 4000 annually 10am on 13 Feb* (Recurring Bill)\n" +
-    "• *Robert's Birthday 10 July every year* (Recurring Event)\n" +
+    "• *Pay credit card 4500 tomorrow 5pm* (One-off Bill)\n" +
     "• *Wifi bill 999 monthly on 5th 10am* (Recurring Bill)\n\n" +
     "Type yours below:";
 
