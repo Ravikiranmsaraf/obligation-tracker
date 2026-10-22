@@ -43,11 +43,11 @@ export default function ObligationListView({
   };
 
   // -------------------------------------------------------------
-  // STRICT DATE BOUNDARIES
+  // ROBUST UTC-NORMALIZED DATE BOUNDARIES
   // -------------------------------------------------------------
   const now = new Date();
 
-  // Today
+  // Today (Local calendar bounds)
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
@@ -75,9 +75,20 @@ export default function ObligationListView({
   nextSaturdayEnd.setDate(nextSundayStart.getDate() + 6);
   nextSaturdayEnd.setHours(23, 59, 59, 999);
 
-  // Next Calendar Month
-  const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0, 0);
-  const nextMonthEnd = new Date(now.getFullYear(), now.getMonth() + 2, 0, 23, 59, 59, 999);
+  // Robust Next Calendar Month Bounds (UTC aligned to prevent timezone shift drops)
+  const currentUtcYear = now.getUTCFullYear();
+  const currentUtcMonth = now.getUTCMonth(); // 0-11
+  
+  let targetYear = currentUtcYear;
+  let targetMonth = currentUtcMonth + 1;
+  if (targetMonth > 11) {
+    targetMonth = 0;
+    targetYear += 1;
+  }
+
+  const nextMonthStart = new Date(Date.UTC(targetYear, targetMonth, 1, 0, 0, 0, 0));
+  // End of next month is day 0 of the month following next month
+  const nextMonthEnd = new Date(Date.UTC(targetYear, targetMonth + 1, 0, 23, 59, 59, 999));
 
   const sortByTime = (a, b) => new Date(a.due_timestamp || a.due_date) - new Date(b.due_timestamp || b.due_date);
 
@@ -270,7 +281,7 @@ export default function ObligationListView({
         </div>
       )}
 
-      {/* 5. NEXT MONTH PREVIEW SECTION (Always visible) */}
+      {/* 5. NEXT MONTH PREVIEW SECTION */}
       <div>
         <button
           onClick={() => setIsNextMonthOpen(!isNextMonthOpen)}
