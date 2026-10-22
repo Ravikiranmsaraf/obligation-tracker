@@ -16,11 +16,11 @@ async function handleAddFlow(senderPhone, session, messageText, buttonPayload) {
   }
 
   switch (step) {
-    case 'ADD_NAME':
+    case 'awaiting_name':
       return handleNlpInput(senderPhone, session, messageText);
-    case 'ADD_DETAILS':
+    case 'awaiting_due_date':
       return handleMissingFieldInput(senderPhone, session, messageText);
-    case 'ADD_CONFIRM':
+    case 'confirming':
       return handleConfirmation(senderPhone, session, buttonPayload);
     default:
       return startAddFlow(senderPhone, session);
@@ -29,16 +29,16 @@ async function handleAddFlow(senderPhone, session, messageText, buttonPayload) {
 
 /**
  * Entry point: Triggered when user clicks [+ Add Reminder]
- * Displays the MECE examples prompt.
+ * Displays the MECE examples prompt and updates step to 'awaiting_name'.
  */
 async function startAddFlow(senderPhone, session) {
   const { error } = await supabase
     .from('whatsapp_sessions')
-    .update({ step: 'ADD_NAME', payload: {} })
+    .update({ step: 'awaiting_name', payload: {} })
     .eq('id', session.id);
 
   if (error) {
-    console.error('❌ Failed to update session step to ADD_NAME:', error);
+    console.error('❌ Failed to update session step to awaiting_name:', error);
     await sendWhatsAppText(senderPhone, "Sorry, something went wrong starting the reminder flow. Please try again.");
     return;
   }
@@ -48,7 +48,7 @@ async function startAddFlow(senderPhone, session) {
     "Quick examples:\n" +
     "• *Dentist appointment Friday 4pm* (One-off Event)\n" +
     "• *Team sync every Tuesday 11am* (Recurring Event)\n" +
-    "• *Pay credit card 4500 tomorrow 5pm* (One-off Bill)\n" +
+    "• *Pay credit card 4500 tomorrow 5pm* (One-off Bill)\n" 
     "• *Car Insurance of 4000 annually 10am on 13 Feb* (Recurring Bill)\n" +
     "• *Robert's Birthday 10 July every year* (Recurring Event)\n" +
     "• *Wifi bill 999 monthly on 5th 10am* (Recurring Bill)\n\n" +
@@ -60,7 +60,7 @@ async function startAddFlow(senderPhone, session) {
 }
 
 /**
- * Parse incoming text using Groq
+ * Parse incoming natural language text using Groq
  */
 async function handleNlpInput(senderPhone, session, messageText) {
   if (!messageText) {
@@ -125,7 +125,7 @@ Rules: Events without cost -> type="event", expected_amount=0. Bills -> type="bi
     if (!parsed.due_day || !parsed.due_month) {
       await supabase
         .from('whatsapp_sessions')
-        .update({ step: 'ADD_DETAILS', payload: parsed })
+        .update({ step: 'awaiting_due_date', payload: parsed })
         .eq('id', session.id);
 
       await sendWhatsAppText(
@@ -159,7 +159,7 @@ async function handleMissingFieldInput(senderPhone, session, messageText) {
 async function saveToConfirmStep(senderPhone, sessionId, payload) {
   await supabase
     .from('whatsapp_sessions')
-    .update({ step: 'ADD_CONFIRM', payload })
+    .update({ step: 'confirming', payload })
     .eq('id', sessionId);
 
   const { name, type, expected_amount, due_day, due_month, due_time, frequency } = payload;
