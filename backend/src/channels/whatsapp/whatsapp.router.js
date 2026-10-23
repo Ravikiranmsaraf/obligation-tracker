@@ -154,6 +154,26 @@ function getMonthBoundsForTimezone(timeZone = 'Asia/Kolkata', target = 'current'
   };
 }
 
+// Helper to check user Pro status
+async function isProUser(userId) {
+  const { data: userProfile } = await supabase
+    .from('profiles')
+    .select('subscription_status')
+    .eq('id', userId)
+    .single();
+
+  return userProfile?.subscription_status === 'active';
+}
+
+// Helper to send Pro Lock error message for Add flow
+async function sendAddProGateMessage(senderPhone) {
+  await sendWhatsAppText(
+    senderPhone,
+    '🔒 *Settld Pro Feature*\n\nAdding new reminders via WhatsApp is exclusive to Settld Pro subscribers.\n\n' +
+    'Please upgrade to Pro on your web app at https://Settld.duckdns.org or create reminders directly on your web dashboard!'
+  );
+}
+
 // 2. POST: Handle incoming WhatsApp messages & interactive events
 router.post('/webhook', async (req, res) => {
   res.sendStatus(200);
@@ -174,23 +194,6 @@ router.post('/webhook', async (req, res) => {
         'Welcome to Settld! 🌿 This WhatsApp number is not linked to an account yet.\n\n' +
         'Please sign in with Google and complete your setup at https://Settld.duckdns.org/login\n\n' +
         'Once completed, come back and reply "hi"!'
-      );
-      return;
-    }
-
-    // --- PRO SUBSCRIPTION CHECK FOR WHATSAPP BOT ---
-    const { data: userProfile } = await supabase
-      .from('profiles')
-      .select('subscription_status')
-      .eq('id', session.user_id)
-      .single();
-
-    const isUserPro = userProfile?.subscription_status === 'active';
-    if (!isUserPro) {
-      await sendWhatsAppText(
-        senderPhone,
-        '🔒 *Settld Pro Required*\n\nYour account is currently on the Free tier. The WhatsApp assistant is exclusive to Settld Pro.\n\n' +
-        'Please open your web app at https://Settld.duckdns.org to upgrade your account and unlock full WhatsApp integration!'
       );
       return;
     }
@@ -236,7 +239,7 @@ router.post('/webhook', async (req, res) => {
       return;
     }
 
-    // --- PRIORITY 1: HANDLE ACTIVE WIZARD STEPS ---
+    // --- PRIORITY 1: HANDLE ACTIVE WIZARD STEPS (GATED TO PRO) ---
     if (
       session.step &&
       (session.step === 'awaiting_name' ||
@@ -245,17 +248,31 @@ router.post('/webhook', async (req, res) => {
         session.step === 'awaiting_time' ||
         session.step === 'confirming')
     ) {
+      const userIsPro = await isProUser(session.user_id);
+      if (!userIsPro) {
+        await supabase
+          .from('whatsapp_sessions')
+          .update({ step: 'idle', payload: {} })
+          .eq('id', session.id);
+        await sendAddProGateMessage(senderPhone);
+        return;
+      }
       await handleAddFlow(senderPhone, session, incomingText, buttonPayload);
       return;
     }
 
-    // --- TRIGGER ADD FLOW MANUALLY ---
+    // --- TRIGGER ADD FLOW MANUALLY (GATED TO PRO) ---
     if (incomingText === 'add' || incomingText === 'new' || buttonPayload === 'BTN_ADD') {
+      const userIsPro = await isProUser(session.user_id);
+      if (!userIsPro) {
+        await sendAddProGateMessage(senderPhone);
+        return;
+      }
       await startAddFlow(senderPhone, session);
       return;
     }
 
-    // --- TRIGGER HOME / GREETING ---
+    // --- TRIGGER HOME / GREETING (FREE FOR EVERYONE) ---
     if (
       incomingText === 'hi' ||
       incomingText === 'hello' ||
@@ -267,7 +284,7 @@ router.post('/webhook', async (req, res) => {
       return;
     }
 
-    // --- HELP COMMAND CARD ---
+    // --- HELP COMMAND CARD (FREE FOR EVERYONE) ---
     if (incomingText === 'help' || buttonPayload === 'BTN_HELP') {
       await sendWhatsAppText(
         senderPhone,
@@ -278,13 +295,13 @@ router.post('/webhook', async (req, res) => {
         "• *month* - View this month's list\n" +
         "• *next month* - Preview next month\n" +
         "• *master* - Web app link\n" +
-        "• *add* - Create a new reminder\n" +
+        "• *add* - Create a new reminder (Pro 👑)\n" +
         "• *cancel* - Abort action"
       );
       return;
     }
 
-    // --- MASTER LIST BRIDGE ---
+    // --- MASTER LIST BRIDGE (FREE FOR EVERYONE) ---
     if (incomingText === 'master' || incomingText === 'all') {
       await sendWhatsAppText(
         senderPhone,
@@ -293,7 +310,7 @@ router.post('/webhook', async (req, res) => {
       return;
     }
 
-    // --- VIEW TODAY LIST ---
+    // --- VIEW TODAY LIST (FREE FOR EVERYONE) ---
     if (
       incomingText === 'today' ||
       incomingText === 'due today' ||
@@ -306,7 +323,7 @@ router.post('/webhook', async (req, res) => {
       return;
     }
 
-    // --- VIEW OVERDUE LIST ---
+    // --- VIEW OVERDUE LIST (FREE FOR EVERYONE) ---
     if (
       incomingText === 'overdue' ||
       incomingText === 'due overdue' ||
@@ -316,7 +333,7 @@ router.post('/webhook', async (req, res) => {
       return;
     }
 
-    // --- VIEW THIS MONTH LIST ---
+    // --- VIEW THIS MONTH LIST (FREE FOR EVERYONE) ---
     if (
       incomingText === 'month' ||
       incomingText === 'this month' ||
@@ -327,13 +344,13 @@ router.post('/webhook', async (req, res) => {
       return;
     }
 
-    // --- VIEW NEXT MONTH LIST ---
+    // --- VIEW NEXT MONTH LIST (FREE FOR EVERYONE) ---
     if (incomingText === 'next month' || buttonPayload === 'BTN_VIEW_NEXT_MONTH') {
       await renderMonthObligationsList(senderPhone, session, 'next', 0);
       return;
     }
 
-    // --- PAGINATION HANDLERS ---
+    // --- PAGINATION HANDLERS (FREE FOR EVERYONE) ---
     if (listPayload.startsWith('PAGE_TODAY_')) {
       const targetPage = parseInt(listPayload.replace('PAGE_TODAY_', ''), 10) || 0;
       return renderTodayObligationsList(senderPhone, session, targetPage);
@@ -349,7 +366,7 @@ router.post('/webhook', async (req, res) => {
       return renderMonthObligationsList(senderPhone, session, target, targetPage);
     }
 
-    // --- REMINDER DETAIL VIEW ---
+    // --- REMINDER DETAIL VIEW (FREE FOR EVERYONE) ---
     if (listPayload.startsWith('CYCLE_')) {
       const cycleId = listPayload.replace('CYCLE_', '');
 
@@ -394,7 +411,7 @@ router.post('/webhook', async (req, res) => {
       return;
     }
 
-    // --- MARK DONE / PAID ACTION ---
+    // --- MARK DONE / PAID ACTION (FREE FOR EVERYONE) ---
     if (buttonPayload === 'BTN_DONE') {
       const cycleId = session.payload?.selected_cycle_id;
 
@@ -513,7 +530,7 @@ async function renderHomeGreeting(senderPhone, session) {
   if (todayCount > 0 || buttons.length === 0) {
     buttons.push({ id: 'BTN_VIEW_TODAY', title: 'View Today' });
   }
-  buttons.push({ id: 'BTN_ADD', title: '+ Add Reminder' });
+  buttons.push({ id: 'BTN_ADD', title: '+ Add (Pro 👑)' });
 
   await sendInteractiveButtons(senderPhone, summaryText, buttons.slice(0, 3));
 }
@@ -559,7 +576,7 @@ async function renderTodayObligationsList(senderPhone, session, pageIndex = 0) {
       senderPhone,
       "You're all clear today. 👍",
       [
-        { id: 'BTN_ADD', title: '+ Add Reminder' },
+        { id: 'BTN_ADD', title: '+ Add (Pro 👑)' },
         { id: 'BTN_HOME', title: 'Home' }
       ]
     );
