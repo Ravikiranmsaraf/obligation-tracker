@@ -6,7 +6,6 @@ export default function SettingsModal({
   onClose,
   currentThemeKey,
   onSelectTheme,
-  currencySymbol,
   onSignOut,
   user,
   activeTheme,
@@ -119,42 +118,29 @@ export default function SettingsModal({
           </span>
         </div>
 
-        {/* Appearance & Theme Chooser */}
+        {/* Minimalist Theme Chips Chooser */}
         <div>
           <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${subTextClass}`}>
             Appearance & Theme
           </label>
-          <div className="space-y-2">
+          <div className="grid grid-cols-3 gap-2">
             {themeOptions.map(({ key, label }) => {
               const isSelected = currentThemeKey === key;
-              const themeButtonClass = isSelected
-                ? 'border-emerald-400 bg-emerald-400/10 text-emerald-400'
-                : `border-black/10 dark:border-zinc-800 ${inputBgClass} ${subTextClass} hover:opacity-80`;
+              const chipClass = isSelected
+                ? 'border-emerald-400 bg-emerald-400/10 text-emerald-400 font-extrabold'
+                : `border-black/10 dark:border-zinc-800 ${inputBgClass} ${subTextClass} hover:opacity-80 font-semibold`;
 
               return (
                 <button
                   key={key}
                   onClick={() => handleThemeChange(key)}
-                  className={`w-full p-3 rounded-xl text-left text-xs font-bold border flex justify-between items-center transition-all ${themeButtonClass}`}
+                  className={`py-2.5 px-2 rounded-xl text-center text-[11px] border transition-all truncate ${chipClass}`}
                 >
-                  <span>{label}</span>
-                  {isSelected && <span className="text-emerald-400">✓</span>}
+                  {label}
                 </button>
               );
             })}
           </div>
-        </div>
-
-        {/* Locked Currency Display */}
-        <div>
-          <label className={`block text-xs font-bold uppercase tracking-wider mb-1 ${subTextClass}`}>
-            Currency Symbol (Locked)
-          </label>
-          <div className={`p-3 rounded-xl border border-black/10 dark:border-zinc-800 ${inputBgClass} flex justify-between items-center text-xs opacity-80 cursor-not-allowed`}>
-            <span>Active Currency</span>
-            <span className="font-bold text-emerald-400">{currencySymbol}</span>
-          </div>
-          <p className="text-[10px] text-gray-500 mt-1">Currency is locked after onboarding to protect past bill amounts.</p>
         </div>
 
         {/* Sign Out Action */}
