@@ -7,6 +7,7 @@ import SettingsModal from './components/SettingsModal';
 import HelpModal from './components/HelpModal';
 import ObligationFormModal from './components/ObligationFormModal';
 import OnboardingWizard from './components/OnboardingWizard';
+import ProGate from './components/ProGate';
 import { GEN_Z_THEMES } from './constants/categories';
 import { useObligationCycles } from './hooks/useObligationCycles';
 import { obligationsService } from './services/obligationsService';
@@ -172,36 +173,38 @@ function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
       </div>
 
       <div className="max-w-md mx-auto px-4 pt-4">
-        {/* Expandable Inline Capture Section */}
-        {showForm ? (
-          <ObligationFormModal
-            editingItem={null}
-            activeTheme={activeTheme}
-            currencySymbol={currencySymbol}
-            onSave={handleSave}
-            onCancel={() => setShowForm(false)}
-            saving={saving}
-          />
-        ) : (
-          /* Theme-aware Quick-Capture Card */
-          <div
-            onClick={() => setShowForm(true)}
-            className={`${activeTheme.inputBg} rounded-2xl p-4 mb-4 shadow-sm cursor-pointer transition-all flex items-center justify-between group border`}
-          >
-            <div className="flex items-center gap-3">
-              <span className="w-10 h-10 rounded-xl bg-emerald-400/10 border border-emerald-400/20 flex items-center justify-center text-lg group-hover:scale-105 transition-transform">
-                🎙️
-              </span>
-              <div>
-                <p className="font-bold text-xs tracking-wide">Add reminder by saying or typing...</p>
-                <p className={`text-[11px] ${activeTheme.subText} mt-0.5`}>Tap to quick-capture bill or event</p>
+        {/* Expandable Inline Capture Section Pro-Gated */}
+        <ProGate user={user} activeTheme={activeTheme}>
+          {showForm ? (
+            <ObligationFormModal
+              editingItem={null}
+              activeTheme={activeTheme}
+              currencySymbol={currencySymbol}
+              onSave={handleSave}
+              onCancel={() => setShowForm(false)}
+              saving={saving}
+            />
+          ) : (
+            /* Theme-aware Quick-Capture Card */
+            <div
+              onClick={() => setShowForm(true)}
+              className={`${activeTheme.inputBg} rounded-2xl p-4 mb-4 shadow-sm cursor-pointer transition-all flex items-center justify-between group border`}
+            >
+              <div className="flex items-center gap-3">
+                <span className="w-10 h-10 rounded-xl bg-emerald-400/10 border border-emerald-400/20 flex items-center justify-center text-lg group-hover:scale-105 transition-transform">
+                  🎙️
+                </span>
+                <div>
+                  <p className="font-bold text-xs tracking-wide">Add reminder by saying or typing...</p>
+                  <p className={`text-[11px] ${activeTheme.subText} mt-0.5`}>Tap to quick-capture bill or event</p>
+                </div>
               </div>
+              <span className="text-xs font-bold text-emerald-500 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 group-hover:bg-emerald-400 group-hover:text-black transition-all">
+                + New
+              </span>
             </div>
-            <span className="text-xs font-bold text-emerald-500 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 group-hover:bg-emerald-400 group-hover:text-black transition-all">
-              + New
-            </span>
-          </div>
-        )}
+          )}
+        </ProGate>
 
         {loading ? (
           <div className={`flex items-center justify-center min-h-[40vh] ${activeTheme.subText} text-sm`}>

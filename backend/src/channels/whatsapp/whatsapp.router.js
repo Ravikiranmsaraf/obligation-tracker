@@ -178,6 +178,23 @@ router.post('/webhook', async (req, res) => {
       return;
     }
 
+    // --- PRO SUBSCRIPTION CHECK FOR WHATSAPP BOT ---
+    const { data: userProfile } = await supabase
+      .from('profiles')
+      .select('subscription_status')
+      .eq('id', session.user_id)
+      .single();
+
+    const isUserPro = userProfile?.subscription_status === 'active';
+    if (!isUserPro) {
+      await sendWhatsAppText(
+        senderPhone,
+        '🔒 *Settld Pro Required*\n\nYour account is currently on the Free tier. The WhatsApp assistant is exclusive to Settld Pro.\n\n' +
+        'Please open your web app at https://Settld.duckdns.org to upgrade your account and unlock full WhatsApp integration!'
+      );
+      return;
+    }
+
     let incomingText = '';
     let buttonPayload = '';
     let listPayload = '';
