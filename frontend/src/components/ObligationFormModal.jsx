@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useVoiceObligation } from '../hooks/useVoiceObligation';
 import { STANDARD_CATEGORIES } from '../constants/categories';
+import { useSubscription } from '../hooks/useSubscription';
+import PaywallModal from './PaywallModal';
 
 const MONTHS = [
   { value: 1, label: 'January' },
@@ -23,10 +25,17 @@ export default function ObligationFormModal({
   currencySymbol,
   onSave,
   onCancel,
-  saving
+  saving,
+  user
 }) {
-  // Default to 'voice' mode when adding a new item, 'form' mode when editing
-  const [activeTab, setActiveTab] = useState(editingItem ? 'form' : 'voice');
+  const { subscription, toggleMockPro } = useSubscription(user?.id);
+  const [showPaywall, setShowPaywall] = useState(false);
+
+  // Default to 'form' mode if free user, or 'voice' mode if Pro user & adding new item
+  const [activeTab, setActiveTab] = useState(
+    editingItem ? 'form' : subscription.isPro ? 'voice' : 'form'
+  );
+
   const defaultCategory = STANDARD_CATEGORIES && STANDARD_CATEGORIES.length > 0 ? STANDARD_CATEGORIES[0] : 'Other';
 
   const [formData, setFormData] = useState({
@@ -99,9 +108,17 @@ export default function ObligationFormModal({
         due_time: '09:00',
         reminder_time: '09:00',
       });
-      setActiveTab('voice');
+      setActiveTab(subscription.isPro ? 'voice' : 'form');
     }
-  }, [editingItem, defaultCategory]);
+  }, [editingItem, defaultCategory, subscription.isPro]);
+
+  const handleTabChange = (tabKey) => {
+    if (tabKey === 'voice' && !subscription.isPro) {
+      setShowPaywall(true);
+      return;
+    }
+    setActiveTab(tabKey);
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -124,18 +141,19 @@ export default function ObligationFormModal({
         <div className="grid grid-cols-2 gap-2 bg-black/10 dark:bg-black/50 p-1 rounded-2xl border border-black/10 dark:border-white/10 mb-5">
           <button
             type="button"
-            onClick={() => setActiveTab('voice')}
-            className={`py-2 text-xs font-bold rounded-xl transition-all ${
+            onClick={() => handleTabChange('voice')}
+            className={`py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1 ${
               activeTab === 'voice'
                 ? 'bg-emerald-400 text-black shadow-md'
                 : `${activeTheme.subText} hover:opacity-80`
             }`}
           >
-            🎙️ Voice Mode
+            <span>🎙️ Voice Mode</span>
+            {!subscription.isPro && <span className="text-[9px] bg-black/20 text-black px-1 rounded">PRO 👑</span>}
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('form')}
+            onClick={() => handleTabChange('form')}
             className={`py-2 text-xs font-bold rounded-xl transition-all ${
               activeTab === 'form'
                 ? 'bg-zinc-800 text-white shadow-md border border-white/10'
@@ -372,6 +390,14 @@ export default function ObligationFormModal({
           </div>
         </form>
       )}
+
+      <PaywallModal
+        isOpen={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        user={user}
+        onUpgradeSuccess={toggleMockPro}
+        activeTheme={activeTheme}
+      />
     </div>
   );
 }

@@ -1,4 +1,3 @@
-// src/components/PaywallModal.jsx
 import React, { useState } from 'react';
 import { billingService } from '../services/billingService';
 
@@ -9,21 +8,24 @@ export default function PaywallModal({ isOpen, onClose, user, onUpgradeSuccess, 
   if (!isOpen) return null;
 
   const handleSimulateGooglePlay = async () => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      setError('User context not available.');
+      return;
+    }
     setLoading(true);
     setError('');
 
     try {
-      // Call our billing service stub
       const result = await billingService.purchasePro(user.id, 'monthly');
       
       if (result.success) {
-        if (onUpgradeSuccess) onUpgradeSuccess();
+        if (onUpgradeSuccess) await onUpgradeSuccess();
         onClose();
       } else {
         setError('Failed to process purchase. Please try again.');
       }
     } catch (err) {
+      console.error('Purchase simulation error:', err);
       setError('An unexpected error occurred.');
     } finally {
       setLoading(false);
@@ -41,7 +43,7 @@ export default function PaywallModal({ isOpen, onClose, user, onUpgradeSuccess, 
           <span className="text-3xl">👑</span>
           <h2 className="text-xl font-extrabold tracking-tight mt-2 text-emerald-400">Unlock Settld Pro</h2>
           <p className={`text-xs ${subTextClass} mt-1`}>
-            Get unlimited cloud sync, advanced exports, and priority WhatsApp features.
+            Get unlimited cloud sync, hands-free voice AI parsing, and priority WhatsApp features.
           </p>
         </div>
 
@@ -59,6 +61,7 @@ export default function PaywallModal({ isOpen, onClose, user, onUpgradeSuccess, 
 
         <div className="space-y-2 pt-2">
           <button
+            type="button"
             onClick={handleSimulateGooglePlay}
             disabled={loading}
             className="w-full py-3 bg-emerald-400 hover:bg-emerald-300 text-black font-extrabold rounded-xl text-xs transition-all shadow-md disabled:opacity-50"

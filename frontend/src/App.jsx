@@ -7,12 +7,13 @@ import SettingsModal from './components/SettingsModal';
 import HelpModal from './components/HelpModal';
 import ObligationFormModal from './components/ObligationFormModal';
 import OnboardingWizard from './components/OnboardingWizard';
-import ProGate from './components/proGate';
+import PaywallModal from './components/PaywallModal';
 import { GEN_Z_THEMES } from './constants/categories';
 import { useObligationCycles } from './hooks/useObligationCycles';
 import { obligationsService } from './services/obligationsService';
 import { useOnboarding } from './hooks/useOnboarding';
 import { useNotifications } from './hooks/useNotifications';
+import { useSubscription } from './hooks/useSubscription';
 import { supabase } from './lib/supabase';
 
 // Inline Login Screen
@@ -91,10 +92,12 @@ function ProtectedRoute({ children }) {
 function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
   const { user, signOut } = useAuth();
   useNotifications(user);
+  const { subscription, toggleMockPro } = useSubscription(user?.id);
 
   const [showSettings, setShowSettings] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const { needsOnboarding, loading: onboardingLoading, completeOnboarding } = useOnboarding(user?.id);
@@ -142,6 +145,15 @@ function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
     await refreshCycles();
   };
 
+  const handleVoiceClick = (e) => {
+    e.stopPropagation();
+    if (!subscription.isPro) {
+      setShowPaywall(true);
+    } else {
+      setShowForm(true);
+    }
+  };
+
   if (onboardingLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-black text-gray-400 text-sm">
@@ -173,38 +185,56 @@ function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
       </div>
 
       <div className="max-w-md mx-auto px-4 pt-4">
-        {/* Expandable Inline Capture Section Pro-Gated */}
-        <ProGate user={user} activeTheme={activeTheme}>
-          {showForm ? (
-            <ObligationFormModal
-              editingItem={null}
-              activeTheme={activeTheme}
-              currencySymbol={currencySymbol}
-              onSave={handleSave}
-              onCancel={() => setShowForm(false)}
-              saving={saving}
-            />
-          ) : (
-            /* Theme-aware Quick-Capture Card */
+        {/* Inline Capture Section */}
+        {showForm ? (
+          <ObligationFormModal
+            editingItem={null}
+            activeTheme={activeTheme}
+            currencySymbol={currencySymbol}
+            onSave={handleSave}
+            onCancel={() => setShowForm(false)}
+            saving={saving}
+            user={user}
+          />
+        ) : (
+          /* Split Action Bar: Text allowed for everyone, Voice triggers Pro Gate if free */
+          <div className={`${activeTheme.inputBg} rounded-2xl p-4 mb-4 shadow-sm border space-y-3`}>
             <div
               onClick={() => setShowForm(true)}
-              className={`${activeTheme.inputBg} rounded-2xl p-4 mb-4 shadow-sm cursor-pointer transition-all flex items-center justify-between group border`}
+              className="cursor-pointer flex items-center justify-between group"
             >
-              <div className="flex items-center gap-3">
-                <span className="w-10 h-10 rounded-xl bg-emerald-400/10 border border-emerald-400/20 flex items-center justify-center text-lg group-hover:scale-105 transition-transform">
+              <div>
+                <p className="font-bold text-xs tracking-wide">Add reminder by typing...</p>
+                <p className={`text-[11px] ${activeTheme.subText} mt-0.5`}>Tap to manually add bill or event</p>
+              </div>
+              <span className="text-xs font-bold text-emerald-500 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 group-hover:bg-emerald-400 group-hover:text-black transition-all">
+                + New Item
+              </span>
+            </div>
+
+            <div className="pt-2 border-t border-black/10 dark:border-white/10 flex items-center justify-between">
+              <div onClick={handleVoiceClick} className="flex items-center gap-2 cursor-pointer group">
+                <span className="w-8 h-8 rounded-lg bg-emerald-400/10 border border-emerald-400/20 flex items-center justify-center text-sm">
                   🎙️
                 </span>
                 <div>
-                  <p className="font-bold text-xs tracking-wide">Add reminder by saying or typing...</p>
-                  <p className={`text-[11px] ${activeTheme.subText} mt-0.5`}>Tap to quick-capture bill or event</p>
+                  <p className="font-bold text-[11px] flex items-center gap-1">
+                    Voice Quick Capture
+                    {!subscription.isPro && <span className="text-[9px] bg-emerald-400/20 text-emerald-400 px-1.5 py-0.2 rounded-md font-extrabold">PRO 👑</span>}
+                  </p>
+                  <p className={`text-[10px] ${activeTheme.subText}`}>Hands-free AI speech parser</p>
                 </div>
               </div>
-              <span className="text-xs font-bold text-emerald-500 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 group-hover:bg-emerald-400 group-hover:text-black transition-all">
-                + New
-              </span>
+              <button
+                type="button"
+                onClick={handleVoiceClick}
+                className="text-[11px] font-bold text-emerald-400 hover:underline"
+              >
+                {subscription.isPro ? 'Speak ➔' : 'Unlock 🔒'}
+              </button>
             </div>
-          )}
-        </ProGate>
+          </div>
+        )}
 
         {loading ? (
           <div className={`flex items-center justify-center min-h-[40vh] ${activeTheme.subText} text-sm`}>
@@ -247,6 +277,13 @@ function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
         onSelectCurrency={setCurrencySymbol}
         onSignOut={signOut}
         user={user}
+        activeTheme={activeTheme}
+      />
+      <PaywallModal
+        isOpen={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        user={user}
+        onUpgradeSuccess={toggleMockPro}
         activeTheme={activeTheme}
       />
     </div>
