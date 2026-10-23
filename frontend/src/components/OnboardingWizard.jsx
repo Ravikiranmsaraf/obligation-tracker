@@ -10,7 +10,7 @@ export default function OnboardingWizard({
   onSelectTheme,
   currentCurrency,
   onSelectCurrency,
-  onComplete,
+  onNext,
 }) {
   const [step, setStep] = useState(1);
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -69,7 +69,7 @@ export default function OnboardingWizard({
           payload: {}
         }, { onConflict: 'phone_number' });
 
-      onComplete();
+      onNext();
     } catch (err) {
       console.error('Failed to save profile:', err);
       setError(err.message || 'Failed to save setup. Please try again.');
