@@ -7,7 +7,7 @@ import SettingsModal from './components/SettingsModal';
 import HelpModal from './components/HelpModal';
 import ObligationFormModal from './components/ObligationFormModal';
 import OnboardingWizard from './components/OnboardingWizard';
-import ProGate from './components/ProGate';
+import ProGate from './components/proGate';
 import { GEN_Z_THEMES } from './constants/categories';
 import { useObligationCycles } from './hooks/useObligationCycles';
 import { obligationsService } from './services/obligationsService';
