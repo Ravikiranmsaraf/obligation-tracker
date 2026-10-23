@@ -44,7 +44,7 @@ export default function OnboardingWizard({
   const activeTheme = GEN_Z_THEMES[currentThemeKey] || GEN_Z_THEMES.light;
   const cardClass = activeTheme?.card || 'bg-zinc-900 border-zinc-800 text-white';
   const subTextClass = activeTheme?.subText || 'text-gray-400';
-  const inputBgClass = activeTheme?.inputBg || 'bg-zinc-950';
+  const inputBgClass = activeTheme?.inputBg || 'bg-zinc-950 border-zinc-800 text-white';
 
   const themeOptions = [
     { key: 'light', label: 'Clean Light ☀️' },
@@ -172,7 +172,7 @@ export default function OnboardingWizard({
                 className={`w-full p-3 rounded-xl border text-xs font-bold flex justify-between items-center transition-all ${
                   isSelected
                     ? 'border-emerald-400 bg-emerald-400/10 text-emerald-400'
-                    : `border-zinc-800 ${inputBgClass} ${subTextClass} hover:border-zinc-700`
+                    : `border-black/10 dark:border-zinc-800 ${inputBgClass} ${subTextClass} hover:opacity-80`
                 }`}
               >
                 <span>{label}</span>
@@ -217,7 +217,7 @@ export default function OnboardingWizard({
               className={`w-full p-2.5 rounded-xl border text-xs font-bold flex justify-between items-center transition-all ${
                 currentCurrency === symbol
                   ? 'border-emerald-400 bg-emerald-400/10 text-emerald-400'
-                  : `border-zinc-800 ${inputBgClass} ${subTextClass} hover:border-zinc-700`
+                  : `border-black/10 dark:border-zinc-800 ${inputBgClass} ${subTextClass} hover:opacity-80`
               }`}
             >
               <span>{code} ({symbol}) - {name}</span>
@@ -273,7 +273,7 @@ export default function OnboardingWizard({
               value={phoneNumber}
               onChange={(e) => setPhoneNumber(e.target.value)}
               required
-              className={`w-full p-3 rounded-xl text-xs border ${inputBgClass} border-zinc-800 focus:border-emerald-400 outline-none`}
+              className={`w-full p-3 rounded-xl text-xs border ${inputBgClass} focus:border-emerald-400 outline-none`}
             />
             <p className={`text-[10px] ${subTextClass} mt-1`}>
               Include your country code without '+' or spaces (e.g., 91 for India, 1 for US).
@@ -286,7 +286,7 @@ export default function OnboardingWizard({
               type="text"
               disabled
               value={detectedTimezone}
-              className={`w-full p-3 rounded-xl text-xs border opacity-70 cursor-not-allowed ${inputBgClass} border-zinc-800`}
+              className={`w-full p-3 rounded-xl text-xs border opacity-70 cursor-not-allowed ${inputBgClass}`}
             />
           </div>
         </div>
@@ -382,7 +382,7 @@ export default function OnboardingWizard({
                 max="31"
                 value={editingPreset.dueDay}
                 onChange={(e) => setEditingPreset({ ...editingPreset, dueDay: e.target.value })}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-2.5 py-1.5 text-xs text-white"
+                className="w-full bg-black/10 dark:bg-zinc-900 border border-black/10 dark:border-zinc-800 rounded-xl px-2.5 py-1.5 text-xs"
               />
             </div>
             <div>
@@ -391,7 +391,7 @@ export default function OnboardingWizard({
                 type="number"
                 value={editingPreset.amount}
                 onChange={(e) => setEditingPreset({ ...editingPreset, amount: e.target.value })}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-2.5 py-1.5 text-xs text-white"
+                className="w-full bg-black/10 dark:bg-zinc-900 border border-black/10 dark:border-zinc-800 rounded-xl px-2.5 py-1.5 text-xs"
               />
             </div>
           </div>
@@ -409,7 +409,7 @@ export default function OnboardingWizard({
 
       {/* Custom Addition Inputs */}
       {!editingPreset && (
-        <div className="border-t border-zinc-800 pt-3 space-y-3">
+        <div className="border-t border-black/10 dark:border-zinc-800 pt-3 space-y-3">
           <label className={`text-[10px] font-bold uppercase tracking-wider ${subTextClass}`}>
             Or Add Custom Reminder
           </label>
@@ -418,13 +418,13 @@ export default function OnboardingWizard({
             placeholder="Reminder name (e.g. Electric Bill)"
             value={customName}
             onChange={(e) => setCustomName(e.target.value)}
-            className={`w-full ${inputBgClass} border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white`}
+            className={`w-full p-2.5 rounded-xl text-xs border ${inputBgClass}`}
           />
           <div className="grid grid-cols-2 gap-2">
             <select
               value={customCategory}
               onChange={(e) => setCustomCategory(e.target.value)}
-              className={`w-full ${inputBgClass} border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white`}
+              className={`w-full p-2.5 rounded-xl text-xs border ${inputBgClass}`}
             >
               {STANDARD_CATEGORIES.map((cat) => (
                 <option key={cat} value={cat}>{cat}</option>
@@ -435,7 +435,7 @@ export default function OnboardingWizard({
               placeholder={`Amount (${currentCurrency})`}
               value={customAmount}
               onChange={(e) => setCustomAmount(e.target.value)}
-              className={`w-full ${inputBgClass} border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white`}
+              className={`w-full p-2.5 rounded-xl text-xs border ${inputBgClass}`}
             />
           </div>
           <div className="grid grid-cols-3 gap-2">
@@ -446,18 +446,18 @@ export default function OnboardingWizard({
               max="31"
               value={customDay}
               onChange={(e) => setCustomDay(e.target.value)}
-              className={`w-full ${inputBgClass} border border-zinc-800 rounded-xl px-2 py-1.5 text-xs text-white text-center`}
+              className={`w-full p-2 rounded-xl text-xs border text-center ${inputBgClass}`}
             />
             <input
               type="time"
               value={customTime}
               onChange={(e) => setCustomTime(e.target.value)}
-              className={`w-full ${inputBgClass} border border-zinc-800 rounded-xl px-2 py-1.5 text-xs text-white text-center`}
+              className={`w-full p-2 rounded-xl text-xs border text-center ${inputBgClass}`}
             />
             <select
               value={customFrequency}
               onChange={(e) => setCustomFrequency(e.target.value)}
-              className={`w-full ${inputBgClass} border border-zinc-800 rounded-xl px-2 py-1.5 text-xs text-white`}
+              className={`w-full p-2 rounded-xl text-xs border ${inputBgClass}`}
             >
               <option value="one-off">One-off</option>
               <option value="monthly">Monthly</option>
@@ -478,7 +478,7 @@ export default function OnboardingWizard({
                 frequency: customFrequency,
               })
             }
-            className="w-full bg-zinc-800 hover:bg-zinc-700 text-emerald-400 font-bold text-xs py-2.5 rounded-xl border border-zinc-700"
+            className="w-full bg-black/5 dark:bg-zinc-800 hover:bg-black/10 dark:hover:bg-zinc-700 text-emerald-400 font-bold text-xs py-2.5 rounded-xl border border-black/10 dark:border-zinc-700"
           >
             + Add Custom Item
           </button>
@@ -486,10 +486,10 @@ export default function OnboardingWizard({
       )}
 
       {addedItems.length > 0 && (
-        <div className={`${inputBgClass} border border-zinc-800/80 rounded-2xl p-3 space-y-1`}>
+        <div className={`p-3 rounded-2xl border ${inputBgClass} space-y-1`}>
           <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Added ({addedItems.length})</span>
           {addedItems.map((item, idx) => (
-            <div key={idx} className="flex justify-between text-xs text-gray-300">
+            <div key={idx} className="flex justify-between text-xs opacity-90">
               <span>• {item.name} ({item.frequency})</span>
               <span className="font-semibold">{currentCurrency}{item.amount}</span>
             </div>
@@ -506,7 +506,6 @@ export default function OnboardingWizard({
           ← Back
         </button>
         
-        {/* Finish button only enabled/shown when at least 1 reminder is added */}
         {addedItems.length > 0 ? (
           <button
             type="submit"
