@@ -1,58 +1,45 @@
-import { useEffect, useState } from 'react';
-import supabase from '../lib/supabase';
+// src/hooks/useOnboarding.js
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 
 export function useOnboarding(userId) {
   const [needsOnboarding, setNeedsOnboarding] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let cancelled = false;
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
 
-    async function checkStatus() {
-      if (!userId) {
-        if (!cancelled) {
-          setNeedsOnboarding(false);
-          setLoading(false);
-        }
-        return;
-      }
-
-      setLoading(true);
-
+    async function checkProfile() {
       try {
-        const { count, error } = await supabase
-          .from('obligations')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', userId)
-          .eq('is_active', true);
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('phone_number, theme_preference, currency_symbol')
+          .eq('id', userId)
+          .maybeSingle();
 
         if (error) throw error;
 
-        const needsSetup = (count || 0) === 0;
-        if (!cancelled) {
-          setNeedsOnboarding(needsSetup);
-          if (needsSetup) localStorage.removeItem(`onboarding_completed_${userId}`);
-          else localStorage.setItem(`onboarding_completed_${userId}`, 'true');
+        // If profile doesn't exist or phone_number is missing/empty, trigger onboarding wizard
+        if (!data || !data.phone_number) {
+          setNeedsOnboarding(true);
+        } else {
+          setNeedsOnboarding(false);
         }
-      } catch (error) {
-        console.error('Could not check onboarding status:', error);
-        if (!cancelled) {
-          setNeedsOnboarding(localStorage.getItem(`onboarding_completed_${userId}`) !== 'true');
-        }
+      } catch (err) {
+        console.error('Error checking onboarding profile:', err);
+        setNeedsOnboarding(true); // Fallback to wizard on error
       } finally {
-        if (!cancelled) setLoading(false);
+        setLoading(false);
       }
     }
 
-    checkStatus();
-    return () => {
-      cancelled = true;
-    };
+    checkProfile();
   }, [userId]);
 
-  const completeOnboarding = async () => {
-    if (!userId) throw new Error('You must be signed in.');
-    localStorage.setItem(`onboarding_completed_${userId}`, 'true');
+  const completeOnboarding = () => {
     setNeedsOnboarding(false);
   };
 

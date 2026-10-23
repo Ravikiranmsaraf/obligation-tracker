@@ -35,12 +35,33 @@ async function getOrCreateSession(phoneNumber) {
     .maybeSingle();
 
   if (selectErr) throw selectErr;
-  if (existing) return existing;
+  if (existing && existing.user_id) return existing;
+
+  // Fallback check against profiles table
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('phone_number', phoneNumber.replace('+', ''))
+    .maybeSingle();
+
+  const linkedUserId = profile ? profile.id : null;
+
+  if (existing) {
+    if (linkedUserId && !existing.user_id) {
+      await supabase
+        .from('whatsapp_sessions')
+        .update({ user_id: linkedUserId })
+        .eq('id', existing.id);
+      existing.user_id = linkedUserId;
+    }
+    return existing;
+  }
 
   const { data: created, error: insertErr } = await supabase
     .from('whatsapp_sessions')
     .insert({
       phone_number: phoneNumber,
+      user_id: linkedUserId,
       step: 'idle',
       payload: {},
     })
@@ -150,7 +171,9 @@ router.post('/webhook', async (req, res) => {
     if (!session.user_id) {
       await sendWhatsAppText(
         senderPhone,
-        'Welcome to Krona! This WhatsApp number is not linked to an account yet.\n\nPlease sign in at https://Settld.duckdns.org and link your phone number.'
+        'Welcome to Settld! 🌿 This WhatsApp number is not linked to an account yet.\n\n' +
+        'Please sign in with Google and complete your setup at https://Settld.duckdns.org/login\n\n' +
+        'Once completed, come back and reply "hi"!'
       );
       return;
     }
