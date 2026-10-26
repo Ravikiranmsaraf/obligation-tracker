@@ -17,7 +17,6 @@ import { useNotifications } from './hooks/useNotifications';
 import { useSubscription } from './hooks/useSubscription';
 import { supabase } from './lib/supabase';
 import { Browser } from '@capacitor/browser';
-import { App as CapApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 
 
