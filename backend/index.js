@@ -22,7 +22,7 @@ app.use(
 app.use(express.json());
 
 app.get('/', (req, res) => {
-  res.json({ message: 'Hello from Reminder Tracker API' });
+  res.json({ message: 'Hello from Cuenuvo Reminder Tracker API' });
 });
 
 const DEPLOY_COLOR = process.env.DEPLOY_COLOR || 'unknown';

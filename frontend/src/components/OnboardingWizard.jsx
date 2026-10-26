@@ -91,8 +91,8 @@ export default function OnboardingWizard({
       setCustomName('');
       setCustomAmount('');
     } catch (err) {
-      console.error('Failed to save onboarding obligation:', err);
-      alert('Could not add obligation. Please try again.');
+      console.error('Failed to save onboarding reminder:', err);
+      alert('Could not add reminder. Please try again.');
     } finally {
       setSaving(false);
     }
