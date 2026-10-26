@@ -22,6 +22,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- DEEP LINK INTENT FILTER FOR SUPABASE OAUTH CALLBACK -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="app.cuenuvo.com" />
+            </intent-filter>
+
         </activity>
 
         <provider

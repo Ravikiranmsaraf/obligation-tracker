@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
+import { App as CapApp } from '@capacitor/app';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ObligationListView from './components/ObligationListView';
 import ObligationsPage from './pages/ObligationsPage';
@@ -15,6 +16,10 @@ import { useOnboarding } from './hooks/useOnboarding';
 import { useNotifications } from './hooks/useNotifications';
 import { useSubscription } from './hooks/useSubscription';
 import { supabase } from './lib/supabase';
+import { Browser } from '@capacitor/browser';
+import { App as CapApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
+
 
 // Inline Login Screen
 function InlineLoginPage() {
@@ -23,13 +28,24 @@ function InlineLoginPage() {
   const handleGoogleLogin = async () => {
     setLoading(true);
     try {
+      // 1. Ask Supabase for the OAuth URL without letting it auto-redirect the window
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin,
+          redirectTo: 'com.cuenuvo.app://',
+          skipBrowserRedirect: true, // Crucial for mobile apps
         },
       });
       if (error) throw error;
+      // 2. If we got a URL back and we are running on a native device/emulator
+      if (data?.url && Capacitor.isNativePlatform()) {
+        // Open the Google sign-in page inside an in-app browser tab
+        await Browser.open({ url: data.url });
+      } else if (data?.url) {
+        // Fallback for regular web browsers
+        window.location.href = data.url;
+      }
+
     } catch (err) {
       console.error('Login error:', err.message);
       alert('Failed to sign in. Please try again.');
@@ -43,7 +59,7 @@ function InlineLoginPage() {
       <div className="max-w-sm w-full space-y-6">
         <div>
           <h1 className="text-4xl font-extrabold tracking-tight text-emerald-400">Cuenuvo</h1>
-          <p className="text-gray-400 text-sm mt-2">Track your monthly reminders with ease.</p>
+          <p className="text-gray-400 text-sm mt-2">Track your reminders with ease.</p>
         </div>
 
         <button
@@ -293,6 +309,27 @@ function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
 export default function App() {
   const [themeKey, setThemeKey] = useState(() => localStorage.getItem('Cuenuvo_theme') || 'system');
   const [currencySymbol, setCurrencySymbol] = useState(() => localStorage.getItem('currencySymbol') || '₹');
+
+  // Listen for native deep links / OAuth redirects coming back into the Capacitor app container
+  useEffect(() => {
+    const handleUrlOpen = async (event) => {
+      const url = event.url;
+      if (url && (url.includes('access_token=') || url.includes('code='))) {
+      // Close the in-app browser tab once Supabase redirects back with tokens
+      try {
+        await Browser.close();
+      } catch (e) {
+        // Browser may already be closed
+      }
+    }
+    };
+
+    const listenerPromise = CapApp.addListener('appUrlOpen', handleUrlOpen);
+
+    return () => {
+      listenerPromise.then((listener) => listener.remove());
+    };
+  }, []);
 
   return (
     <AuthProvider>

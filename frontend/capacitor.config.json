@@ -1,5 +1,8 @@
 {
   "appId": "com.cuenuvo.app",
   "appName": "Cuenuvo",
-  "webDir": "dist"
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
 }

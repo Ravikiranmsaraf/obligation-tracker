@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/browser": "^8.0.5",
     "@capacitor/core": "^8.5.3",
     "@splitsoftware/splitio": "^11.11.2",
     "@supabase/supabase-js": "^2.109.0",
