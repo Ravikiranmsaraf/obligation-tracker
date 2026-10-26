@@ -1,4 +1,4 @@
--- Settld P0/P1/P2/P4 hardening migration.
+-- Cuenuvo P0/P1/P2/P4 hardening migration.
 -- IMPORTANT: Run this in a staging project first and take a database backup.
 -- This migration keeps due_timestamp as the single scheduling source of truth.
 

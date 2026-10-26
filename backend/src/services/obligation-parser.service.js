@@ -12,8 +12,8 @@ async function parseObligationText(rawText) {
   const currentIsoDate = now.toISOString().split('T')[0];
 
   const systemPrompt = `
-You are a fast, precise information extraction engine for the financial admin app 'Settld'.
-Your task is to convert text or speech transcripts into a clean JSON obligation payload.
+You are a fast, precise information extraction engine for the personal reminder app 'Cuenuvo'.
+Your task is to convert text or speech transcripts into a clean JSON reminder payload.
 
 CURRENT TEMPORAL CONTEXT:
 - Today's ISO Date: ${currentIsoDate}

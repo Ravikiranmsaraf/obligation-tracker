@@ -13,7 +13,7 @@ export default function CelebrationCard({ currentMonthName }) {
       </div>
 
       <h2 className="text-2xl font-black text-white mb-2 drop-shadow-md">
-        {currentMonthName} Settld! 🥂
+        {currentMonthName} Cuenuvo! 🥂
       </h2>
 
       <p className="text-xs text-gray-200 font-medium mb-6 leading-relaxed">

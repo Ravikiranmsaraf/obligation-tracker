@@ -171,7 +171,7 @@ async function handleConfirmation(senderPhone, session, buttonPayload) {
     .single();
 
   if (oblErr) {
-    console.error('❌ Failed to create obligation:', oblErr);
+    console.error('❌ Failed to create reminder:', oblErr);
     await sendWhatsAppText(senderPhone, "Sorry, I couldn't save your reminder right now.");
     await resetSession(session.id);
     return;

@@ -22,7 +22,7 @@ app.use(
 app.use(express.json());
 
 app.get('/', (req, res) => {
-  res.json({ message: 'Hello from Obligation Tracker API' });
+  res.json({ message: 'Hello from Reminder Tracker API' });
 });
 
 const DEPLOY_COLOR = process.env.DEPLOY_COLOR || 'unknown';
@@ -39,7 +39,7 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// Voice Parsing Endpoint for Settld (Powered by Unified Parser Service)
+// Voice Parsing Endpoint for Cuenuvo (Powered by Unified Parser Service)
 app.post('/api/parse-voice', async (req, res) => {
   try {
     const { transcript } = req.body;

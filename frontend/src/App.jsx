@@ -42,8 +42,8 @@ function InlineLoginPage() {
     <div className="min-h-screen bg-black text-gray-100 flex flex-col items-center justify-center p-6 text-center">
       <div className="max-w-sm w-full space-y-6">
         <div>
-          <h1 className="text-4xl font-extrabold tracking-tight text-emerald-400">Settld</h1>
-          <p className="text-gray-400 text-sm mt-2">Track your monthly obligations with ease.</p>
+          <h1 className="text-4xl font-extrabold tracking-tight text-emerald-400">Cuenuvo</h1>
+          <p className="text-gray-400 text-sm mt-2">Track your monthly reminders with ease.</p>
         </div>
 
         <button
@@ -133,8 +133,8 @@ function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
       setShowForm(false);
       await refreshCycles();
     } catch (error) {
-      console.error('Error saving obligation:', error);
-      alert('Failed to save obligation. Please try again.');
+      console.error('Error saving reminder:', error);
+      alert('Failed to save your reminder. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -181,7 +181,7 @@ function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
     <div className={`min-h-screen pb-24 transition-colors duration-300 ${activeTheme.bg} ${activeTheme.text}`}>
       {/* Header */}
       <div className={`px-4 py-4 flex justify-between items-center border-b ${activeTheme.card} backdrop-blur-md sticky top-0 z-20`}>
-        <h1 className="text-xl font-extrabold tracking-tight">Settld</h1>
+        <h1 className="text-xl font-extrabold tracking-tight">Cuenuvo</h1>
       </div>
 
       <div className="max-w-md mx-auto px-4 pt-4">
@@ -291,7 +291,7 @@ function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
 }
 
 export default function App() {
-  const [themeKey, setThemeKey] = useState(() => localStorage.getItem('settld_theme') || 'system');
+  const [themeKey, setThemeKey] = useState(() => localStorage.getItem('Cuenuvo_theme') || 'system');
   const [currencySymbol, setCurrencySymbol] = useState(() => localStorage.getItem('currencySymbol') || '₹');
 
   return (
@@ -306,7 +306,7 @@ export default function App() {
                 <Home
                   themeKey={themeKey}
                   setThemeKey={(key) => {
-                    localStorage.setItem('settld_theme', key);
+                    localStorage.setItem('Cuenuvo_theme', key);
                     setThemeKey(key);
                   }}
                   currencySymbol={currencySymbol}

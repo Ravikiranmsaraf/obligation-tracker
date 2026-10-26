@@ -41,7 +41,7 @@ export default function PaywallModal({ isOpen, onClose, user, onUpgradeSuccess, 
       <div className={`max-w-md w-full ${cardClass} rounded-3xl p-6 border shadow-2xl space-y-5`}>
         <div className="text-center">
           <span className="text-3xl">👑</span>
-          <h2 className="text-xl font-extrabold tracking-tight mt-2 text-emerald-400">Unlock Settld Pro</h2>
+          <h2 className="text-xl font-extrabold tracking-tight mt-2 text-emerald-400">Unlock Cuenuvo Pro</h2>
           <p className={`text-xs ${subTextClass} mt-1`}>
             Get unlimited cloud sync, hands-free voice AI parsing, and priority WhatsApp features.
           </p>

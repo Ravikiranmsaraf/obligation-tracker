@@ -65,4 +65,4 @@ jobs:
       - name: Verify Live Endpoint
         run: |
           sleep 15
-          curl --retry 5 --retry-delay 3 --retry-all-errors -f https://settld.duckdns.org || exit 1
+          curl --retry 5 --retry-delay 3 --retry-all-errors -f https://cuenuvo.duckdns.org || exit 1

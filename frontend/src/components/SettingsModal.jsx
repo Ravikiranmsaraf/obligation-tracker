@@ -110,7 +110,7 @@ export default function SettingsModal({
           <div>
             <p className="text-xs font-bold text-emerald-400">Subscription Tier</p>
             <p className="text-[10px] text-gray-400">
-              {profileData.subscriptionStatus === 'active' ? 'Settld Pro (Unlocked)' : 'Free Tier'}
+              {profileData.subscriptionStatus === 'active' ? 'Cuenuvo Pro (Unlocked)' : 'Free Tier'}
             </p>
           </div>
           <span className="px-2.5 py-1 bg-emerald-400 text-black text-[10px] font-extrabold rounded-lg uppercase">

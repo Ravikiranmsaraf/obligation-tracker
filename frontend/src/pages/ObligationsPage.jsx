@@ -35,7 +35,7 @@ export default function ObligationsPage({ themeKey, currencySymbol = '₹' }) {
   }, []);
 
   const getEffectiveThemeKey = (key) => {
-    const resolvedKey = key || localStorage.getItem('settld_theme') || 'system';
+    const resolvedKey = key || localStorage.getItem('Cuenuvo_theme') || 'system';
     if (resolvedKey === 'system') {
       return systemPrefersDark ? 'cyberLime' : 'light';
     }

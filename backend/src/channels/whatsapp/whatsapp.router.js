@@ -169,8 +169,8 @@ async function isProUser(userId) {
 async function sendAddProGateMessage(senderPhone) {
   await sendWhatsAppText(
     senderPhone,
-    '🔒 *Settld Pro Feature*\n\nAdding new reminders via WhatsApp is exclusive to Settld Pro subscribers.\n\n' +
-    'Please upgrade to Pro on your web app at https://Settld.duckdns.org or create reminders directly on your web dashboard!'
+    '🔒 *Cuenuvo Pro Feature*\n\nAdding new reminders via WhatsApp is exclusive to Cuenuvo Pro subscribers.\n\n' +
+    'Please upgrade to Pro on your web app at https://Cuenuvo.duckdns.org or create reminders directly on your web dashboard!'
   );
 }
 
@@ -191,8 +191,8 @@ router.post('/webhook', async (req, res) => {
     if (!session.user_id) {
       await sendWhatsAppText(
         senderPhone,
-        'Welcome to Settld! 🌿 This WhatsApp number is not linked to an account yet.\n\n' +
-        'Please sign in with Google and complete your setup at https://Settld.duckdns.org/login\n\n' +
+        'Welcome to Cuenuvo! 🌿 This WhatsApp number is not linked to an account yet.\n\n' +
+        'Please sign in with Google and complete your setup at https://Cuenuvo.duckdns.org/login\n\n' +
         'Once completed, come back and reply "hi"!'
       );
       return;
@@ -288,7 +288,7 @@ router.post('/webhook', async (req, res) => {
     if (incomingText === 'help' || buttonPayload === 'BTN_HELP') {
       await sendWhatsAppText(
         senderPhone,
-        "📌 *Krona Command Guide*\n\n" +
+        "📌 *Cuenuvo Command Guide*\n\n" +
         "• *hi* or *home* - View summary & counts\n" +
         "• *today* - View today's reminders\n" +
         "• *overdue* - View unresolved past items\n" +
@@ -305,7 +305,7 @@ router.post('/webhook', async (req, res) => {
     if (incomingText === 'master' || incomingText === 'all') {
       await sendWhatsAppText(
         senderPhone,
-        "🌐 *Master Obligation Templates*\n\nTo view and manage master templates, pause recurrences, or edit settings, visit your dashboard:\nhttps://Settld.duckdns.org"
+        "🌐 *Master Reminder Templates*\n\nTo view and manage master templates, pause recurrences, or edit settings, visit your dashboard:\nhttps://Cuenuvo.duckdns.org"
       );
       return;
     }
@@ -778,7 +778,7 @@ async function renderMonthObligationsList(senderPhone, session, target = 'curren
   await sendInteractiveList(
     senderPhone,
     `${monthName}`,
-    `Here are your obligations for ${monthName} (${cycles.length} pending):`,
+    `Here are your reminders for ${monthName} (${cycles.length} pending):`,
     'Select',
     rows
   );
