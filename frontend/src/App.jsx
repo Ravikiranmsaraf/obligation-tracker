@@ -28,7 +28,7 @@ function InlineLoginPage() {
     setLoading(true);
     try {
       // 1. Ask Supabase for the OAuth URL without letting it auto-redirect the window
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: 'com.cuenuvo.app://',
