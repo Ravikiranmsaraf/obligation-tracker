@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { fcmAdapter } from '../modules/notifications/fcmAdapter';
 import { pushTokenService } from '../services/pushTokenService';
 
@@ -7,6 +8,12 @@ export const useNotifications = (user) => {
     console.log('[useNotifications] Hook triggered. User ID:', user?.id || 'No user yet');
 
     if (!user) return;
+
+    // Skip web FCM initialization if running natively inside the Capacitor Android/iOS app
+    if (Capacitor.isNativePlatform()) {
+      console.log('[useNotifications] Skipping web FCM initialization on native platform.');
+      return;
+    }
 
     const initPush = async () => {
       try {

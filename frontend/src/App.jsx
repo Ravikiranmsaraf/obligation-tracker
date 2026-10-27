@@ -21,27 +21,31 @@ import { Capacitor } from '@capacitor/core';
 
 
 // Inline Login Screen
+// Inline Login Screen
 function InlineLoginPage() {
   const [loading, setLoading] = useState(false);
 
   const handleGoogleLogin = async () => {
     setLoading(true);
     try {
-      // 1. Ask Supabase for the OAuth URL without letting it auto-redirect the window
+      const isNative = Capacitor.isNativePlatform();
+      console.log("Is running natively on mobile?", isNative); // Look at this in your eruda/console
+      // 1. Ask Supabase for the OAuth URL, dynamically setting the redirect based on platform
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: 'com.cuenuvo.app://',
-          skipBrowserRedirect: true, // Crucial for mobile apps
+          redirectTo: isNative ? 'com.cuenuvo.app://' : window.location.origin,
+          skipBrowserRedirect: isNative, // Skip automatic browser redirect only on native mobile
         },
       });
       if (error) throw error;
-      // 2. If we got a URL back and we are running on a native device/emulator
-      if (data?.url && Capacitor.isNativePlatform()) {
-        // Open the Google sign-in page inside an in-app browser tab
+
+      // 2. Open the URL depending on whether the app is running natively or in a standard browser
+      if (data?.url && isNative) {
+        // Open the Google sign-in page inside an in-app browser tab overlay
         await Browser.open({ url: data.url });
       } else if (data?.url) {
-        // Fallback for regular web browsers
+        // Fallback standard redirect for web browsers
         window.location.href = data.url;
       }
 
@@ -308,19 +312,47 @@ function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
 export default function App() {
   const [themeKey, setThemeKey] = useState(() => localStorage.getItem('Cuenuvo_theme') || 'system');
   const [currencySymbol, setCurrencySymbol] = useState(() => localStorage.getItem('currencySymbol') || '₹');
-
+  
   // Listen for native deep links / OAuth redirects coming back into the Capacitor app container
   useEffect(() => {
     const handleUrlOpen = async (event) => {
       const url = event.url;
-      if (url && (url.includes('access_token=') || url.includes('code='))) {
-      // Close the in-app browser tab once Supabase redirects back with tokens
-      try {
-        await Browser.close();
-      } catch (e) {
-        // Browser may already be closed
+      console.log('[App] Deep link received:', url);
+
+      if (url && url.includes('com.cuenuvo.app')) {
+        try {
+          // Close the in-app browser tab immediately
+          await Browser.close();
+        } catch (e) {
+          console.log('[App] Browser already closed:', e);
+        }
+
+        try {
+          if (url.includes('access_token=') || url.includes('refresh_token=')) {
+            const hashPart = url.split('#')[1];
+            if (hashPart) {
+              const params = new URLSearchParams(hashPart);
+              const access_token = params.get('access_token');
+              const refresh_token = params.get('refresh_token');
+
+              if (access_token && refresh_token) {
+                const { error } = await supabase.auth.setSession({
+                  access_token,
+                  refresh_token,
+                });
+                if (error) throw error;
+                console.log('[App] Session set successfully! Forcing reload/navigation...');
+                
+                // Force a gentle window location reload to clear the login stack 
+                // and land straight on the authenticated home screen instantly
+                window.location.replace('/');
+              }
+            }
+          }
+        } catch (err) {
+          console.error('[App] Error handling OAuth redirect token:', err);
+        }
       }
-    }
     };
 
     const listenerPromise = CapApp.addListener('appUrlOpen', handleUrlOpen);
