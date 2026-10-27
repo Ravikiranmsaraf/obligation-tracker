@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "894777437404",
+    "project_id": "obligation-tracker-19de9",
+    "storage_bucket": "obligation-tracker-19de9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:894777437404:android:cccbeda812c4f927879819",
+        "android_client_info": {
+          "package_name": "com.cuenuvo.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBYwBabVZtRk1PgdsCDeFtCB1guxLcfrp0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

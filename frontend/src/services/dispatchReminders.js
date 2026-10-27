@@ -106,6 +106,7 @@ export async function dispatchReminders() {
           body,
         },
         data: {
+          reminderId: cycle.id,
           cycleId: cycle.id,
           dueTimestamp: cycle.due_timestamp || '',
         },

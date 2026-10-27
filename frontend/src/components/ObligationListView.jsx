@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PaymentModal from './PaymentModal';
 import EventModal from './EventModal';
 import { triggerFeedback } from '../utils/feedbackUtils';
@@ -10,6 +10,19 @@ export default function ObligationListView({
   activeTheme,
 }) {
   const [selectedCycle, setSelectedCycle] = useState(null);
+  // Auto-select cycle if navigated via notification deep-link (?reminderId=...)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const reminderIdFromUrl = params.get('reminderId');
+    if (reminderIdFromUrl && cycles.length > 0 && !selectedCycle) {
+      const match = cycles.find((c) => c.id === reminderIdFromUrl);
+      if (match) {
+        setSelectedCycle(match);
+        // Clean up the URL so refreshing doesn't re-trigger the modal
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+  }, [cycles, selectedCycle]);
 
   // Independent Accordion States (Overdue, Rest of This Week, Next Week all collapsed by default)
   const [isOverdueOpen, setIsOverdueOpen] = useState(false);
