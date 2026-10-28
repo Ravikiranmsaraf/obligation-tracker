@@ -35,6 +35,16 @@ app.get('/api/info', (req, res) => {
   });
 });
 
+const notificationRoutes = require('./routes/notifications');
+app.use('/api', notificationRoutes);
+
+// Temporary direct route test in index.js
+app.post('/api/notifications/action', async (req, res) => {
+    const { reminderId, actionId } = req.body;
+    console.log(`[Webhook Test] Received reminderId: ${reminderId}, actionId: ${actionId}`);
+    return res.status(200).json({ success: true, message: 'Action processed successfully!' });
+});
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
