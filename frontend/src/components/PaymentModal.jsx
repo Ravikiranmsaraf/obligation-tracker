@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { getQuickDeferralActions } from '../utils/quickDeferralUtils';
 
 export default function PaymentModal({
   isOpen,
@@ -6,6 +7,8 @@ export default function PaymentModal({
   cycle,
   currencySymbol = '₹',
   onConfirmPayment,
+  onDefer,
+  user, // Added user prop to pass user.id for deferrals
   activeTheme,
 }) {
   if (!isOpen || !cycle) return null;
@@ -17,6 +20,11 @@ export default function PaymentModal({
   const cardClass = activeTheme?.card || 'bg-zinc-900 border-zinc-800 text-white';
   const subTextClass = activeTheme?.subText || 'text-gray-400';
   const inputBgClass = activeTheme?.inputBg || 'bg-zinc-950';
+
+  // Filter out the 'complete' action since manual form handles payment confirmation
+  const actions = getQuickDeferralActions(cycle.frequency).filter(
+    (action) => action.type !== 'complete'
+  );
 
   const handlePaymentSubmit = async (e) => {
     e.preventDefault();
@@ -32,11 +40,36 @@ export default function PaymentModal({
     }
   };
 
+  const handleQuickActionClick = async (action) => {
+    if (action.type === 'skip') {
+      setLoading(true);
+      try {
+        await onConfirmPayment(cycle.id, 'skipped', 'Quick action: Skipped');
+        onClose();
+      } catch (err) {
+        console.error('Error skipping cycle:', err);
+      } finally {
+        setLoading(false);
+      }
+    } else if (onDefer && typeof onDefer === 'function') {
+      setLoading(true);
+      try {
+        // Pass user.id along so obligationsService.deferCycle authenticates properly
+        await onDefer(cycle.id, action, user?.id);
+        onClose();
+      } catch (err) {
+        console.error('Error deferring cycle:', err);
+        alert('Failed to snooze reminder.');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
   const handleCancelOccurrence = async () => {
     if (!confirm('Cancel this bill occurrence? It will be removed from your active list.')) return;
     setLoading(true);
     try {
-      // Pass 'cancelled' status directly
       await onConfirmPayment(cycle.id, 'cancelled', 'Cancelled by user');
       onClose();
     } catch (err) {
@@ -61,7 +94,34 @@ export default function PaymentModal({
           Marking payment for <span className="font-bold text-emerald-400">{cycle.obligation_name || cycle.name}</span>
         </p>
 
-        <form onSubmit={handlePaymentSubmit} className="space-y-4">
+        {/* Quick Deferral Strip (Snooze options only) */}
+        {actions.length > 0 && (
+          <div className="mb-4">
+            <p className={`text-[10px] uppercase font-bold tracking-wider ${subTextClass} mb-1.5`}>Quick Actions</p>
+            <div className={`grid gap-2 ${actions.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+              {actions.map((action) => (
+                <button
+                  key={action.id}
+                  type="button"
+                  disabled={loading}
+                  onClick={() => handleQuickActionClick(action)}
+                  className={`py-2.5 px-1 rounded-xl text-[11px] font-extrabold border transition-all text-center truncate ${activeTheme.card} ${subTextClass} hover:border-emerald-400/50 hover:text-white`}
+                >
+                  {action.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="relative flex py-2 items-center">
+          <div className="flex-grow border-t border-zinc-700"></div>
+          <span className="flex-shrink mx-4 text-[10px] uppercase tracking-wider text-zinc-500">or record payment</span>
+          <div className="flex-grow border-t border-zinc-700"></div>
+        </div>
+
+        {/* Manual Payment Form */}
+        <form onSubmit={handlePaymentSubmit} className="space-y-4 mt-2">
           <div>
             <label className={`block text-xs font-semibold ${subTextClass} mb-1`}>
               Amount Paid ({currencySymbol})

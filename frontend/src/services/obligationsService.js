@@ -233,6 +233,64 @@ export const obligationsService = {
     if (error) throw error;
   },
 
+  /**
+   * Handles Google Calendar style quick deferrals (Snooze 1hr, 1day, Tomorrow 9 AM, Skip today)
+   * directly updating obligation_cycles as defined in DDL.
+   */
+  async deferCycle(cycleId, action, userId) {
+    if (!userId) throw new Error('You must be signed in.');
+
+    // 1. Fetch current cycle details
+    const { data: cycle, error: fetchError } = await supabase
+      .from('obligation_cycles')
+      .select('due_timestamp, user_timezone')
+      .eq('id', cycleId)
+      .eq('user_id', userId)
+      .single();
+
+    if (fetchError || !cycle) throw new Error('Cycle not found.');
+
+    const tz = cycle.user_timezone || 'UTC';
+
+    if (action.type === 'skip') {
+      const { error } = await supabase
+        .from('obligation_cycles')
+        .update({
+          status: 'skipped',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', cycleId)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+      return;
+    }
+
+    const currentDue = new Date(cycle.due_timestamp);
+    let newDueDate = new Date(currentDue);
+
+    if (action.hours) {
+      newDueDate.setHours(newDueDate.getHours() + action.hours);
+    } else if (action.days) {
+      newDueDate.setDate(newDueDate.getDate() + action.days);
+    } else if (action.target === 'tomorrow_9am') {
+      newDueDate.setDate(newDueDate.getDate() + 1);
+      newDueDate.setHours(9, 0, 0, 0);
+    }
+
+    const { error } = await supabase
+      .from('obligation_cycles')
+      .update({
+        due_timestamp: newDueDate.toISOString(),
+        notification_sent: false, // Reset so dispatcher can notify fresh
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', cycleId)
+      .eq('user_id', userId);
+
+    if (error) throw error;
+  },
+
   async createCycles({
     userId,
     obligationId,

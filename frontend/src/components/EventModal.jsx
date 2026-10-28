@@ -1,17 +1,23 @@
 import React from 'react';
+import { getQuickDeferralActions } from '../utils/quickDeferralUtils';
 
-export default function EventModal({ isOpen, onClose, eventItem, activeTheme, onConfirm }) {
+export default function EventModal({ isOpen, onClose, eventItem, activeTheme, onConfirm, onDefer }) {
   if (!isOpen || !eventItem) return null;
 
   const cardClass = activeTheme?.card || 'bg-zinc-900 border-zinc-800 text-white';
   const subTextClass = activeTheme?.subText || 'text-gray-400';
 
-  const handleAction = async (status) => {
-    if (onConfirm) {
-      await onConfirm(status);
-    } else {
-      onClose();
+  const actions = getQuickDeferralActions(eventItem.frequency);
+
+  const handleActionClick = async (action) => {
+    if (action.type === 'complete') {
+      if (onConfirm) await onConfirm('completed');
+    } else if (action.type === 'skip') {
+      if (onConfirm) await onConfirm('skipped');
+    } else if (action.type === 'snooze' && onDefer) {
+      await onDefer(eventItem.id, action);
     }
+    onClose();
   };
 
   return (
@@ -39,19 +45,30 @@ export default function EventModal({ isOpen, onClose, eventItem, activeTheme, on
           </div>
         </div>
 
+        {/* Quick Deferral Strip (Google Calendar style) */}
         <div className="space-y-2">
-          <button
-            onClick={() => handleAction('completed')}
-            className="w-full py-3 bg-emerald-400 hover:bg-emerald-300 text-black font-extrabold rounded-xl text-xs transition-all shadow-md active:scale-95"
-          >
-            Mark Completed ✓
-          </button>
+          <p className={`text-[10px] uppercase font-bold tracking-wider ${subTextClass} mb-1`}>Quick Actions</p>
+          <div className="grid grid-cols-3 gap-2">
+            {actions.map((action) => (
+              <button
+                key={action.id}
+                onClick={() => handleActionClick(action)}
+                className={`py-2.5 px-1 rounded-xl text-[11px] font-extrabold border transition-all text-center truncate ${
+                  action.type === 'complete'
+                    ? 'bg-emerald-400 text-black border-emerald-400 hover:bg-emerald-300 col-span-3'
+                    : `${activeTheme.card} ${subTextClass} hover:border-emerald-400/50 hover:text-white`
+                }`}
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
 
           <button
-            onClick={() => handleAction('skipped')}
-            className={`w-full py-2.5 rounded-xl text-xs font-semibold border transition-all ${activeTheme.card} ${subTextClass} hover:opacity-90`}
+            onClick={onClose}
+            className={`w-full mt-2 py-2 rounded-xl text-xs font-semibold ${subTextClass} hover:opacity-90`}
           >
-            Skip this time ⏭️
+            Close
           </button>
         </div>
       </div>

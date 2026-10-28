@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Link, useSearchParams } from 'react-router-dom';
 import { App as CapApp } from '@capacitor/app';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ObligationListView from './components/ObligationListView';
@@ -9,6 +9,8 @@ import HelpModal from './components/HelpModal';
 import ObligationFormModal from './components/ObligationFormModal';
 import OnboardingWizard from './components/OnboardingWizard';
 import PaywallModal from './components/PaywallModal';
+import PaymentModal from './components/PaymentModal';
+import EventModal from './components/EventModal';
 import { GEN_Z_THEMES } from './constants/categories';
 import { useObligationCycles } from './hooks/useObligationCycles';
 import { obligationsService } from './services/obligationsService';
@@ -21,7 +23,6 @@ import { Capacitor } from '@capacitor/core';
 
 
 // Inline Login Screen
-// Inline Login Screen
 function InlineLoginPage() {
   const [loading, setLoading] = useState(false);
 
@@ -29,23 +30,19 @@ function InlineLoginPage() {
     setLoading(true);
     try {
       const isNative = Capacitor.isNativePlatform();
-      console.log("Is running natively on mobile?", isNative); // Look at this in your eruda/console
-      // 1. Ask Supabase for the OAuth URL, dynamically setting the redirect based on platform
+      console.log("Is running natively on mobile?", isNative);
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: isNative ? 'com.cuenuvo.app://' : window.location.origin,
-          skipBrowserRedirect: isNative, // Skip automatic browser redirect only on native mobile
+          skipBrowserRedirect: isNative,
         },
       });
       if (error) throw error;
 
-      // 2. Open the URL depending on whether the app is running natively or in a standard browser
       if (data?.url && isNative) {
-        // Open the Google sign-in page inside an in-app browser tab overlay
         await Browser.open({ url: data.url });
       } else if (data?.url) {
-        // Fallback standard redirect for web browsers
         window.location.href = data.url;
       }
 
@@ -108,7 +105,7 @@ function ProtectedRoute({ children }) {
   return <>{children}</>;
 }
 
-function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
+function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
   const { user, signOut } = useAuth();
   useNotifications(user);
   const { subscription, toggleMockPro } = useSubscription(user?.id);
@@ -118,6 +115,10 @@ function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
   const [showForm, setShowForm] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const reminderId = searchParams.get('reminderId');
+  const [selectedCycleForModal, setSelectedCycleForModal] = useState(null);
 
   const { needsOnboarding, loading: onboardingLoading, completeOnboarding } = useOnboarding(user?.id);
 
@@ -144,6 +145,21 @@ function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
   const activeTheme = GEN_Z_THEMES[effectiveThemeKey] || GEN_Z_THEMES.light;
 
   const { cycles, loading, markCyclePaid, refreshCycles } = useObligationCycles(user?.id);
+
+  // Auto-trigger modal when reminderId is present in URL query params
+  useEffect(() => {
+    if (reminderId && cycles?.length) {
+      const match = cycles.find((c) => c.id === reminderId || c.obligation_id === reminderId);
+      if (match) {
+        setSelectedCycleForModal(match);
+      }
+    }
+  }, [reminderId, cycles]);
+
+  const closeModal = () => {
+    setSelectedCycleForModal(null);
+    setSearchParams({}, { replace: true });
+  };
 
   const handleSave = async (formData) => {
     setSaving(true);
@@ -216,7 +232,6 @@ function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
             user={user}
           />
         ) : (
-          /* Split Action Bar: Text allowed for everyone, Voice triggers Pro Gate if free */
           <div className={`${activeTheme.inputBg} rounded-2xl p-4 mb-4 shadow-sm border space-y-3`}>
             <div
               onClick={() => setShowForm(true)}
@@ -285,6 +300,45 @@ function Home({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
           <span className="mt-0.5">Profile</span>
         </button>
       </div>
+      
+      {/* Auto-Triggered Modal from Push Notification */}
+      {selectedCycleForModal && (
+        selectedCycleForModal.type === 'event' ? (
+          <EventModal
+            isOpen={true}
+            onClose={closeModal}
+            eventItem={selectedCycleForModal}
+            activeTheme={activeTheme}
+            onConfirm={async (status) => {
+              // status can be 'completed' or 'skipped'
+              await markCyclePaid(selectedCycleForModal.id, status, 'Updated via modal');
+              await refreshCycles();
+            }}
+            onDefer={async (cycleId, action) => {
+              // Wire up the new service function here!
+              await obligationsService.deferCycle(cycleId, action, user.id);
+              await refreshCycles();
+            }}
+          />
+        ) : (
+          <PaymentModal
+            isOpen={true}
+            onClose={closeModal}
+            cycle={selectedCycleForModal}
+            currencySymbol={currencySymbol}
+            activeTheme={activeTheme}
+            onConfirmPayment={async (cycleId, amount, notes) => {
+              await markCyclePaid(cycleId, amount, notes);
+              await refreshCycles();
+            }}
+            onDefer={async (cycleId, action) => {
+              // Wire up the new service function here!
+              await obligationsService.deferCycle(cycleId, action, user.id);
+              await refreshCycles();
+            }}
+          />
+        )
+      )}
 
       <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
       <SettingsModal
@@ -321,7 +375,6 @@ export default function App() {
 
       if (url && url.includes('com.cuenuvo.app')) {
         try {
-          // Close the in-app browser tab immediately
           await Browser.close();
         } catch (e) {
           console.log('[App] Browser already closed:', e);
@@ -342,9 +395,6 @@ export default function App() {
                 });
                 if (error) throw error;
                 console.log('[App] Session set successfully! Forcing reload/navigation...');
-                
-                // Force a gentle window location reload to clear the login stack 
-                // and land straight on the authenticated home screen instantly
                 window.location.replace('/');
               }
             }
@@ -371,7 +421,7 @@ export default function App() {
             path="/"
             element={
               <ProtectedRoute>
-                <Home
+                <HomeContent
                   themeKey={themeKey}
                   setThemeKey={(key) => {
                     localStorage.setItem('Cuenuvo_theme', key);

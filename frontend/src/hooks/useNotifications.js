@@ -3,6 +3,7 @@ import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { fcmAdapter } from '../modules/notifications/fcmAdapter';
 import { pushTokenService } from '../services/pushTokenService';
+import { obligationsService } from '../services/obligationsService';
 import { supabase } from '../lib/supabase';
 
 export const useNotifications = (user) => {
@@ -30,8 +31,6 @@ export const useNotifications = (user) => {
           // 3. Listen for the native FCM token delivery
           PushNotifications.addListener('registration', async (token) => {
             console.log('[useNotifications] Native FCM Token received:', token.value);
-            
-            // Save to Supabase using your existing service
             await pushTokenService.saveToken(user.id, token.value, 'fcm');
             console.log('[useNotifications] Native FCM token saved to Supabase successfully.');
           });
@@ -41,21 +40,37 @@ export const useNotifications = (user) => {
             console.error('[useNotifications] Error on native push registration:', error);
           });
 
-          // 5. Handle notification click actions (when user taps the notification)
+          // 5. Handle notification click / action button performed
           PushNotifications.addListener('pushNotificationActionPerformed', async (notification) => {
-            console.log('[useNotifications] Push notification action performed (clicked):', notification);
+            console.log('[useNotifications] Push notification action performed:', notification);
             
             const data = notification.notification.data;
-            if (data?.reminderId) {
-              // Optional: Handle quick action if passed
-              if (data?.action === 'MARK_COMPLETE' || data?.action === 'MARK_PAID') {
-                await supabase
-                  .from('reminders')
-                  .update({ status: 'completed', updated_at: new Date().toISOString() })
-                  .eq('id', data.reminderId);
+            const reminderId = data?.reminderId;
+            const actionType = data?.action;
+
+            if (reminderId) {
+              try {
+                if (actionType === 'MARK_COMPLETE' || actionType === 'MARK_PAID') {
+                  await supabase
+                    .from('obligation_cycles')
+                    .update({ status: 'paid', paid_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+                    .eq('id', reminderId)
+                    .eq('user_id', user.id);
+                } else if (actionType === 'SKIP_TODAY') {
+                  await obligationsService.deferCycle(reminderId, { type: 'skip' }, user.id);
+                } else if (actionType === 'PLUS_1H') {
+                  await obligationsService.deferCycle(reminderId, { type: 'snooze', hours: 1 }, user.id);
+                } else if (actionType === 'PLUS_1D') {
+                  await obligationsService.deferCycle(reminderId, { type: 'snooze', days: 1 }, user.id);
+                } else if (actionType === 'TOMORROW_9AM') {
+                  await obligationsService.deferCycle(reminderId, { type: 'snooze', target: 'tomorrow_9am' }, user.id);
+                }
+              } catch (err) {
+                console.error('[useNotifications] Error handling background tray action:', err);
               }
-              // Route user straight to the reminder view inside the app
-              window.location.replace(`/dashboard?reminderId=${data.reminderId}`);
+
+              // Route user straight to home view with modal pre-loaded
+              window.location.replace(`/?reminderId=${reminderId}`);
             }
           });
 
