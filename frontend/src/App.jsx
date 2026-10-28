@@ -300,7 +300,7 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
           <span className="mt-0.5">Profile</span>
         </button>
       </div>
-      
+
       {/* Auto-Triggered Modal from Push Notification */}
       {selectedCycleForModal && (
         selectedCycleForModal.type === 'event' ? (
@@ -309,6 +309,7 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
             onClose={closeModal}
             eventItem={selectedCycleForModal}
             activeTheme={activeTheme}
+            user={user}
             onConfirm={async (status) => {
               // status can be 'completed' or 'skipped'
               await markCyclePaid(selectedCycleForModal.id, status, 'Updated via modal');
@@ -327,6 +328,7 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
             cycle={selectedCycleForModal}
             currencySymbol={currencySymbol}
             activeTheme={activeTheme}
+            user={user}
             onConfirmPayment={async (cycleId, amount, notes) => {
               await markCyclePaid(cycleId, amount, notes);
               await refreshCycles();
