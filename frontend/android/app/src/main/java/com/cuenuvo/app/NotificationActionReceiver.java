@@ -35,7 +35,7 @@ public class NotificationActionReceiver extends BroadcastReceiver {
         executorService.execute(() -> {
             try {
                 // Replace with your actual Oracle VM backend webhook URL or IP
-                URL url = new URL("https://cuenuvo.com/api/notifications/action"); 
+                URL url = new URL("https://app.cuenuvo.com/api/notifications/action"); 
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json; utf-8");
