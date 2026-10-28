@@ -167,26 +167,28 @@ export async function dispatchReminders() {
     const isBill = amount > 0;
     const body = isBill ? `Reminder due now. Amount: ${amount}` : 'Reminder due now.';
 
-    const actions = resolveReminderActions(cycle.frequency, localHour, isBill);
+    const actions = resolveReminderActions(cycle.frequency, localHour);
 
     try {
       const response = await admin.messaging().sendEachForMulticast({
-        notification: {
-          title: cycle.name || 'Reminder due',
-          body,
-        },
+        // PURE DATA PAYLOAD (No top-level 'notification' block)
+        // This forces Android to route through CustomFirebaseMessagingService
         data: {
           reminderId: cycle.id,
           cycleId: cycle.id,
+          title: cycle.name || 'Reminder due',
+          body: body,
           dueTimestamp: cycle.due_timestamp || '',
           REMINDER_ACTIONS: JSON.stringify(actions),
+        },
+        android: {
+          priority: 'high',
         },
         tokens: deviceTokens,
       });
 
       await deleteInvalidTokens(deviceTokens, response);
 
-      // Mark sent only after at least one successful delivery.
       if (response.successCount > 0) {
         const { error: updateError } = await supabase
           .from('obligation_cycles')
@@ -198,12 +200,12 @@ export async function dispatchReminders() {
           console.error(`Could not mark cycle ${cycle.id} as notified:`, updateError.message);
         } else {
           console.log(
-            `Cycle ${cycle.id}: notification delivered to ${response.successCount} device(s). Actions attached: ${actions.map((a) => a.id).join(', ')}`
+            `Cycle ${cycle.id}: data push delivered to ${response.successCount} device(s). Actions attached: ${actions.map((a) => a.id).join(', ')}`
           );
         }
       } else {
         console.error(
-          `Cycle ${cycle.id}: notification failed for every device.`,
+          `Cycle ${cycle.id}: push failed for every device.`,
           JSON.stringify(
             response.responses.map((r) => ({
               success: r.success,

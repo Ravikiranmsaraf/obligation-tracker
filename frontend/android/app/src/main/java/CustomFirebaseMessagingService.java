@@ -18,11 +18,21 @@ public class CustomFirebaseMessagingService extends FirebaseMessagingService {
     public void onMessageReceived(RemoteMessage remoteMessage) {
         super.onMessageReceived(remoteMessage);
 
+        // Check if data payload exists
         if (remoteMessage.getData().size() > 0) {
-            String title = remoteMessage.getNotification() != null ? remoteMessage.getNotification().getTitle() : "Cuenuvo Reminder";
-            String body = remoteMessage.getNotification() != null ? remoteMessage.getNotification().getBody() : "You have a pending reminder.";
+            // Extract title and body directly from the data payload
+            String title = remoteMessage.getData().get("title");
+            if (title == null) title = "Cuenuvo Reminder";
+
+            String body = remoteMessage.getData().get("body");
+            if (body == null) body = "You have a pending reminder.";
+
             String reminderId = remoteMessage.getData().get("reminderId");
-            String actionsJson = remoteMessage.getData().get("actions");
+            // Match the data key used in dispatchReminders.js ("REMINDER_ACTIONS" or "actions")
+            String actionsJson = remoteMessage.getData().get("REMINDER_ACTIONS");
+            if (actionsJson == null) {
+                actionsJson = remoteMessage.getData().get("actions");
+            }
 
             showNotificationWithActions(title, body, reminderId, actionsJson);
         }
@@ -41,7 +51,12 @@ public class CustomFirebaseMessagingService extends FirebaseMessagingService {
         Intent intent = new Intent(this, MainActivity.class);
         intent.putExtra("reminderId", reminderId);
         intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        PendingIntent pendingIntent = PendingIntent.getActivity(this, reminderId.hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                this, 
+                reminderId != null ? reminderId.hashCode() : 0, 
+                intent, 
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, channelId)
                 .setSmallIcon(R.mipmap.ic_launcher)
@@ -60,7 +75,7 @@ public class CustomFirebaseMessagingService extends FirebaseMessagingService {
                     String actionId = action.getString("id");
                     String label = action.getString("label");
 
-                    // Create an intent that triggers a BroadcastReceiver or opens app with action payload
+                    // Create an intent that triggers the BroadcastReceiver
                     Intent actionIntent = new Intent(this, NotificationActionReceiver.class);
                     actionIntent.setAction("com.cuenuvo.app.ACTION_" + actionId);
                     actionIntent.putExtra("reminderId", reminderId);
@@ -80,6 +95,6 @@ public class CustomFirebaseMessagingService extends FirebaseMessagingService {
             e.printStackTrace();
         }
 
-        notificationManager.notify(reminderId.hashCode(), builder.build());
+        notificationManager.notify(reminderId != null ? reminderId.hashCode() : 1001, builder.build());
     }
 }
