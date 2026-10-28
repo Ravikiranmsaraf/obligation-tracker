@@ -32,6 +32,20 @@
 
         </activity>
 
+        <!-- CUSTOM FIREBASE MESSAGING SERVICE FOR ACTION BUTTONS -->
+        <service
+            android:name=".CustomFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- NOTIFICATION ACTION RECEIVER FOR TAPS -->
+        <receiver 
+            android:name=".NotificationActionReceiver" 
+            android:exported="false" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -44,6 +58,6 @@
     </application>
 
     <!-- Permissions -->
-
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 </manifest>
