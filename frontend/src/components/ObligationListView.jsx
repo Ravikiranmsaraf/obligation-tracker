@@ -37,7 +37,6 @@ export default function ObligationListView({
     );
   }
 
-  // Local Timezone-aware formatting using cycle's stored user_timezone
   const formatDueTime = (timestamp, timeZone = 'UTC') => {
     if (!timestamp) return '';
     try {
@@ -94,7 +93,6 @@ export default function ObligationListView({
   nextSaturdayEnd.setDate(nextSundayStart.getDate() + 6);
   nextSaturdayEnd.setHours(23, 59, 59, 999);
 
-  // Strict Chronological Ascending Sorting Comparator
   const sortByChronologicalAsc = (a, b) => {
     const timeA = new Date(a.due_timestamp || a.due_date || 0).getTime();
     const timeB = new Date(b.due_timestamp || b.due_date || 0).getTime();
@@ -141,9 +139,10 @@ export default function ObligationListView({
       <div
         key={item.id}
         onClick={() => setSelectedCycle(item)}
-        className="flex items-center justify-between py-3 px-3 rounded-xl border border-zinc-800/20 hover:bg-black/5 dark:hover:bg-white/5 transition-all cursor-pointer group shadow-xs"
+        className={`flex items-center justify-between py-3.5 px-4 rounded-2xl border ${activeTheme?.card || 'bg-zinc-900 border-zinc-800'} hover:border-[#6556e8]/40 transition-all cursor-pointer group shadow-xs gap-3`}
       >
-        <div className="flex items-center gap-2.5 min-w-0 pr-2">
+        {/* Left Side: Time + Full Un-truncated Title */}
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
           {dateLabel && (
             <span className={`text-xs font-mono font-semibold shrink-0 ${activeTheme?.subText || 'text-gray-400'}`}>
               {dateLabel}
@@ -158,11 +157,14 @@ export default function ObligationListView({
           )}
           {formattedTime && <span className={activeTheme?.subText || 'text-gray-400'}>•</span>}
 
-          <h3 className="font-medium text-xs sm:text-sm truncate">{item.name}</h3>
+          <h3 className="font-bold text-xs sm:text-sm tracking-tight leading-snug break-words">
+            {item.name || item.obligation_name}
+          </h3>
         </div>
 
+        {/* Right Side: Amount or Category Badge */}
         <div className="flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
-          <span className="text-xs font-bold">
+          <span className="text-xs font-extrabold text-emerald-400">
             {!isEvent
               ? `${currencySymbol}${Number(item.expected_amount || 0).toLocaleString('en-IN')}`
               : 'Event'}
@@ -171,7 +173,7 @@ export default function ObligationListView({
           <button
             type="button"
             onClick={() => setSelectedCycle(item)}
-            className="w-6 h-6 rounded-lg border-2 border-emerald-400/80 bg-zinc-800/40 hover:bg-emerald-400/20 hover:border-emerald-300 flex items-center justify-center transition-all active:scale-90"
+            className="w-7 h-7 rounded-xl border-2 border-emerald-400/80 bg-zinc-800/40 hover:bg-emerald-400/20 hover:border-emerald-300 flex items-center justify-center transition-all active:scale-90 shadow-xs"
             title="Mark as done"
           >
             <span className="text-emerald-300 text-xs font-bold">✓</span>
@@ -195,17 +197,17 @@ export default function ObligationListView({
             <span>{isOverdueOpen ? '▲ Collapse' : '▼ Expand'}</span>
           </button>
           {isOverdueOpen && (
-            <div className="pl-2 space-y-1.5 mt-1 border-l-2 border-red-500/30">
+            <div className="pl-2 space-y-2 mt-1 border-l-2 border-red-500/30">
               {overdueItems.map((item) => renderRow(item, true))}
             </div>
           )}
         </div>
       )}
 
-      <div className="space-y-2">
+      <div className="space-y-3">
         {todayItems.length > 0 && (
-          <div className="space-y-1.5">
-            <h2 className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 px-1 mb-1">
+          <div className="space-y-2">
+            <h2 className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-400 px-1">
               Today
             </h2>
             {todayItems.map((item) => renderRow(item, false))}
@@ -213,8 +215,8 @@ export default function ObligationListView({
         )}
 
         {tomorrowItems.length > 0 && (
-          <div className="pt-3">
-            <div className="flex items-center gap-3 my-3">
+          <div className="pt-2 space-y-2">
+            <div className="flex items-center gap-3 my-2">
               <div className="h-px bg-zinc-700/30 flex-1" />
               <span className={`text-[10px] font-bold uppercase tracking-wider ${activeTheme?.subText || 'text-gray-400'}`}>
                 Tomorrow
@@ -242,7 +244,7 @@ export default function ObligationListView({
             <span>{isThisWeekOpen ? '▲ Collapse' : '▼ Expand'}</span>
           </button>
           {isThisWeekOpen && (
-            <div className="pl-2 space-y-1.5 mt-1 border-l-2 border-zinc-700/30">
+            <div className="pl-2 space-y-2 mt-1 border-l-2 border-zinc-700/30">
               {thisWeekItems.map((item) => renderRow(item, true))}
             </div>
           )}
@@ -259,12 +261,21 @@ export default function ObligationListView({
             <span>{isNextWeekOpen ? '▲ Collapse' : '▼ Expand'}</span>
           </button>
           {isNextWeekOpen && (
-            <div className="pl-2 space-y-1.5 mt-1 border-l-2 border-zinc-700/30">
+            <div className="pl-2 space-y-2 mt-1 border-l-2 border-zinc-700/30">
               {nextWeekItems.map((item) => renderRow(item, true))}
             </div>
           )}
         </div>
       )}
+
+      {/* Step 5: Next Month Planning Chip at Base of List */}
+      <div className="pt-4 pb-6 flex justify-center">
+        <button className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#6556e8]/10 hover:bg-[#6556e8]/20 border border-[#6556e8]/30 text-[#6556e8] text-xs font-bold transition-all shadow-xs">
+          <span>🗓️</span>
+          <span>Looking ahead: 4 items scheduled for next month</span>
+          <span>➔</span>
+        </button>
+      </div>
 
       {selectedCycle && (
         isMonetary ? (

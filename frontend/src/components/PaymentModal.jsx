@@ -95,22 +95,27 @@ export default function PaymentModal({
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 font-sans">
-      <div className={`${cardClass} rounded-3xl max-w-sm w-full p-6 shadow-2xl border transition-all`}>
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-bold">Record Bill Payment</h3>
-          <button onClick={onClose} className={`${subTextClass} hover:opacity-80 text-lg`}>✕</button>
+      {/* Exact same container geometry and border styling as EventModal */}
+      <div className={`${cardClass} rounded-3xl max-w-sm w-full p-6 shadow-2xl border transition-all space-y-4`}>
+        
+        <div className="flex justify-between items-center border-b pb-3 border-white/10">
+          <div>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-400">Payment Obligation</span>
+            <h3 className="text-base font-bold tracking-tight mt-0.5">{cycle.obligation_name || cycle.name}</h3>
+          </div>
+          <button onClick={onClose} className={`${subTextClass} hover:opacity-100 text-lg p-1`}>✕</button>
         </div>
 
-        <p className={`text-xs ${subTextClass} mb-2`}>
-          Marking payment for <span className="font-bold text-emerald-400">{cycle.obligation_name || cycle.name}</span>
-        </p>
-
-        <p className={`text-[11px] font-mono ${subTextClass} mb-4`}>
-          Due: {formatLocalDueDate(cycle.due_timestamp, cycle.user_timezone || 'UTC')}
-        </p>
+        {/* Due Date & Time Display Box (Parity with EventModal) */}
+        <div className="bg-slate-800/40 border border-white/5 rounded-2xl p-3 flex items-center justify-between text-xs">
+          <span className={subTextClass}>Due Date</span>
+          <span className="font-bold text-emerald-400">
+            {formatLocalDueDate(cycle.due_timestamp, cycle.user_timezone || 'UTC')}
+          </span>
+        </div>
 
         {actions.length > 0 && (
-          <div className="mb-4">
+          <div>
             <p className={`text-[10px] uppercase font-bold tracking-wider ${subTextClass} mb-1.5`}>Quick Actions</p>
             <div className={`grid gap-2 ${actions.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
               {actions.map((action) => (
@@ -128,13 +133,7 @@ export default function PaymentModal({
           </div>
         )}
 
-        <div className="relative flex py-2 items-center">
-          <div className="flex-grow border-t border-zinc-700"></div>
-          <span className="flex-shrink mx-4 text-[10px] uppercase tracking-wider text-zinc-500">or record payment</span>
-          <div className="flex-grow border-t border-zinc-700"></div>
-        </div>
-
-        <form onSubmit={handlePaymentSubmit} className="space-y-4 mt-2">
+        <form onSubmit={handlePaymentSubmit} className="space-y-3">
           <div>
             <label className={`block text-xs font-semibold ${subTextClass} mb-1`}>Amount Paid ({currencySymbol})</label>
             <input
@@ -143,7 +142,7 @@ export default function PaymentModal({
               required
               value={amountPaid}
               onChange={(e) => setAmountPaid(e.target.value)}
-              className={`w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 border ${inputBgClass}`}
+              className={`w-full rounded-xl px-3 py-2.5 text-sm font-extrabold text-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 border ${inputBgClass}`}
             />
           </div>
 
@@ -154,7 +153,7 @@ export default function PaymentModal({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="e.g., Paid via UPI / GPay"
-              className={`w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 border ${inputBgClass}`}
+              className={`w-full rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 border ${inputBgClass}`}
             />
           </div>
 
@@ -163,7 +162,7 @@ export default function PaymentModal({
               <button
                 type="button"
                 onClick={onClose}
-                className={`w-1/3 font-semibold px-4 py-3 rounded-xl transition-all border ${cardClass}`}
+                className={`w-1/3 font-semibold px-4 py-3 rounded-xl transition-all border text-xs ${cardClass}`}
               >
                 Back
               </button>
@@ -180,7 +179,7 @@ export default function PaymentModal({
               type="button"
               disabled={loading}
               onClick={handleCancelOccurrence}
-              className="w-full py-2.5 text-red-400 hover:text-red-300 font-semibold text-xs transition-all"
+              className="w-full py-2 text-red-400 hover:text-red-300 font-semibold text-[11px] transition-all"
             >
               Cancel this occurrence ✕
             </button>

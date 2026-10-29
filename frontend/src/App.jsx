@@ -94,6 +94,11 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
   const [showPaywall, setShowPaywall] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // Profile Drawer State
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  // Bottom Capsule Active Tab: 'today' or 'master'
+  const [activeTab, setActiveTab] = useState('today');
+
   const [searchParams, setSearchParams] = useSearchParams();
   const reminderId = searchParams.get('reminderId');
   const [selectedCycleForModal, setSelectedCycleForModal] = useState(null);
@@ -173,29 +178,47 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
   }
 
   return (
-    <div className={`min-h-screen pb-24 transition-colors duration-300 ${activeTheme.bg} ${activeTheme.text} font-sans`}>
-      <div className={`px-4 py-4 flex justify-between items-center border-b ${activeTheme.card} backdrop-blur-md sticky top-0 z-20`}>
-        <h1 className="text-xl font-extrabold tracking-tight">Cuenuvo</h1>
-      </div>
+    <div className={`min-h-screen pb-28 transition-colors duration-300 ${activeTheme.bg} ${activeTheme.text} font-sans relative`}>
+      
+      {/* Top Header Bar: Minimalistic Logo (Violet box with C) + Cuenuvo + Profile Avatar Top Right */}
+      <header className={`px-4 py-3 flex justify-between items-center border-b ${activeTheme.card} backdrop-blur-md sticky top-0 z-30`}>
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-[#6556e8] flex items-center justify-center shadow-xs">
+            <span className="text-white font-extrabold text-base tracking-tight">C</span>
+          </div>
+          <h1 className="text-lg font-extrabold tracking-tight">Cuenuvo</h1>
+        </div>
+
+        <button
+          onClick={() => setIsProfileOpen(true)}
+          className="w-9 h-9 rounded-full bg-[#6556e8]/15 border border-[#6556e8]/30 flex items-center justify-center text-[#6556e8] font-bold text-xs hover:scale-105 transition-transform"
+          aria-label="User Profile & Menu"
+        >
+          {(user?.user_metadata?.full_name || user?.email || 'U')[0].toUpperCase()}
+        </button>
+      </header>
 
       <div className="max-w-md mx-auto px-4 pt-4 space-y-4">
-        {/* Monthly Progress Summary Chip */}
-        <div className={`${activeTheme.card} rounded-2xl p-4 shadow-sm border flex items-center justify-between`}>
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Monthly Progress</p>
-            <p className="text-xs font-bold mt-0.5">
-              {monthlyStats.completedCount} Completed / {monthlyStats.remainingCount} remaining
-            </p>
-            <p className={`text-[11px] ${activeTheme.subText} mt-0.5`}>
-              {currencySymbol} {monthlyStats.spentAmount.toLocaleString('en-IN')} spent / {currencySymbol} {monthlyStats.plannedAmount.toLocaleString('en-IN')} planned
-            </p>
+        
+        {/* Step 1: Compact Single-Line "This month" Banner */}
+        <div className={`mx-4 mt-3 ${activeTheme.card} rounded-2xl px-3.5 py-2.5 shadow-xs border flex items-center justify-between text-xs`}>
+          <div className="flex items-center gap-1.5">
+            <span className="font-bold tracking-tight text-[11px] opacity-80">This month:</span>
+            <Link
+              to="/completed"
+              className="inline-flex items-center gap-1 bg-emerald-400/15 hover:bg-emerald-400/25 text-emerald-400 font-extrabold px-2 py-0.5 rounded-md border border-emerald-400/30 transition-all text-xs"
+            >
+              {monthlyStats.completedCount} done ➔
+            </Link>
+            <span className={`text-[11px] ${activeTheme.subText}`}>
+              of {monthlyStats.completedCount + monthlyStats.remainingCount}
+            </span>
           </div>
-          <Link
-            to="/completed"
-            className="text-xs font-extrabold bg-emerald-400/20 text-emerald-400 hover:bg-emerald-400/30 px-3 py-2 rounded-xl transition-all border border-emerald-400/30 flex items-center gap-1"
-          >
-            {monthlyStats.completedCount} Completed ➔
-          </Link>
+
+          <div className="text-right text-xs">
+            <span className="font-bold text-emerald-400">{currencySymbol}{monthlyStats.spentAmount.toLocaleString('en-IN')}</span>
+            <span className={`text-[11px] ${activeTheme.subText}`}> / {currencySymbol}{monthlyStats.plannedAmount.toLocaleString('en-IN')}</span>
+          </div>
         </div>
 
         {showForm ? (
@@ -240,36 +263,117 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
         {loading ? (
           <div className={`flex items-center justify-center min-h-[40vh] ${activeTheme.subText} text-sm`}>Loading upcoming items...</div>
         ) : (
-          <ObligationListView
-            cycles={cycles}
-            onMarkPaid={markCyclePaid}
-            currencySymbol={currencySymbol}
-            activeTheme={activeTheme}
-            user={user}
-            onDefer={async (cycleId, action) => {
-              await obligationsService.deferCycle(cycleId, action, user.id);
-              await refreshCycles();
-            }}
-          />
+          /* Conditional view based on Floating Capsule activeTab */
+          activeTab === 'today' ? (
+            <ObligationListView
+              cycles={cycles}
+              onMarkPaid={markCyclePaid}
+              currencySymbol={currencySymbol}
+              activeTheme={activeTheme}
+              user={user}
+              onDefer={async (cycleId, action) => {
+                await obligationsService.deferCycle(cycleId, action, user.id);
+                await refreshCycles();
+              }}
+            />
+          ) : (
+            <div className="space-y-3">
+              <h2 className="text-xs font-extrabold uppercase tracking-wider text-[#6556e8] px-1">Master Obligations List</h2>
+              <p className={`text-xs ${activeTheme.subText} px-1`}>Viewing all active and recurring obligations.</p>
+              {/* Master list summary/link */}
+              <div className={`p-4 rounded-2xl border ${activeTheme.card} flex items-center justify-between`}>
+                <span className="text-xs font-bold">Manage full master database</span>
+                <Link to="/obligations" className="text-xs font-bold text-emerald-400 hover:underline">Open Master Page ➔</Link>
+              </div>
+            </div>
+          )
         )}
       </div>
 
-      <div className={`fixed bottom-0 left-0 right-0 border-t flex justify-around py-3 px-4 z-40 ${activeTheme.card}`}>
-        <Link to="/" className="flex flex-col items-center text-xs font-bold hover:opacity-85">
-          <span>🏠</span>
-          <span className="mt-0.5">Home</span>
-        </Link>
-        <Link to="/obligations" className="flex flex-col items-center text-xs font-bold hover:opacity-85">
-          <span>📌</span>
-          <span className="mt-0.5">Master List</span>
-        </Link>
-        <button onClick={() => setShowSettings(true)} className={`flex flex-col items-center text-xs font-bold ${activeTheme.subText} hover:opacity-85`}>
-          <span className="w-5 h-5 rounded-full bg-emerald-400 text-black flex items-center justify-center text-[10px] font-extrabold">
-            {(user?.user_metadata?.full_name || user?.email || 'U')[0].toUpperCase()}
-          </span>
-          <span className="mt-0.5">Profile</span>
-        </button>
+      {/* Step 4: Floating Action Capsule (Bottom-Center Navigation) */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
+        <nav className="bg-slate-900/90 dark:bg-slate-800/90 backdrop-blur-xl border border-white/10 p-1.5 rounded-full shadow-2xl flex items-center gap-1">
+          <button
+            onClick={() => setActiveTab('today')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all ${
+              activeTab === 'today'
+                ? 'bg-[#6556e8] text-white shadow-md'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <span>🏠</span>
+            <span>Today</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('master')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all ${
+              activeTab === 'master'
+                ? 'bg-[#6556e8] text-white shadow-md'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <span>📌</span>
+            <span>Master List</span>
+          </button>
+        </nav>
       </div>
+
+      {/* Top-Right Profile Drawer (Secondary Hub: Settings, Completed, Help, Next Month) */}
+      {isProfileOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-xs">
+          <div className={`w-72 h-full ${activeTheme.card} border-l p-5 shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200`}>
+            <div>
+              <div className="flex items-center justify-between border-b pb-4 mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-[#6556e8] text-white flex items-center justify-center font-bold text-sm">
+                    {(user?.user_metadata?.full_name || user?.email || 'U')[0].toUpperCase()}
+                  </div>
+                  <div className="overflow-hidden">
+                    <p className="font-bold text-xs truncate">{user?.user_metadata?.full_name || 'User'}</p>
+                    <p className={`text-[11px] truncate ${activeTheme.subText}`}>{user?.email}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsProfileOpen(false)}
+                  className="text-lg opacity-60 hover:opacity-100 p-1"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-1">
+                <Link
+                  to="/completed"
+                  onClick={() => setIsProfileOpen(false)}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#6556e8]/10 text-xs font-semibold transition-colors"
+                >
+                  <span>✅</span> Completed This Month
+                </Link>
+                <button
+                  onClick={() => { setIsProfileOpen(false); setShowSettings(true); }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#6556e8]/10 text-xs font-semibold transition-colors text-left"
+                >
+                  <span>⚙️</span> Settings & Currency
+                </button>
+                <button
+                  onClick={() => { setIsProfileOpen(false); setShowHelp(true); }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#6556e8]/10 text-xs font-semibold transition-colors text-left"
+                >
+                  <span>❓</span> Help & Guide
+                </button>
+              </div>
+            </div>
+
+            <button
+              onClick={() => { setIsProfileOpen(false); signOut(); }}
+              className="w-full py-2.5 rounded-xl border border-red-500/20 text-red-400 hover:bg-red-500/10 text-xs font-bold transition-colors"
+            >
+              Sign Out 🚪
+            </button>
+          </div>
+        </div>
+      )}
 
       {selectedCycleForModal && (
         selectedCycleForModal.type === 'event' ? (

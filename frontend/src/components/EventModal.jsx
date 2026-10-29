@@ -37,30 +37,30 @@ export default function EventModal({ isOpen, onClose, eventItem, activeTheme, on
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 font-sans">
-      <div className={`${cardClass} rounded-3xl max-w-sm w-full p-6 shadow-2xl border transition-all`}>
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-bold">Reminder Details</h3>
-          <button onClick={onClose} className={`${subTextClass} hover:opacity-80 text-lg`}>✕</button>
+      {/* Exact same container geometry and border styling as PaymentModal */}
+      <div className={`${cardClass} rounded-3xl max-w-sm w-full p-6 shadow-2xl border transition-all space-y-4`}>
+        
+        <div className="flex justify-between items-center border-b pb-3 border-white/10">
+          <div>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#6556e8]">Scheduled Event</span>
+            <h3 className="text-base font-bold tracking-tight mt-0.5">{eventItem.name || eventItem.obligation_name}</h3>
+          </div>
+          <button onClick={onClose} className={`${subTextClass} hover:opacity-100 text-lg p-1`}>✕</button>
         </div>
 
-        <div className="space-y-3 mb-6">
-          <div>
-            <p className={`text-[11px] uppercase tracking-wider ${subTextClass}`}>Reminder Name</p>
-            <p className="font-bold text-sm mt-0.5">{eventItem.name || eventItem.obligation_name}</p>
-          </div>
-          <div>
-            <p className={`text-[11px] uppercase tracking-wider ${subTextClass}`}>Category</p>
-            <p className="font-semibold text-xs mt-0.5 capitalize">{eventItem.category || 'Events'}</p>
-          </div>
-          <div>
-            <p className={`text-[11px] uppercase tracking-wider ${subTextClass}`}>Due Date & Time</p>
-            <p className="font-bold text-emerald-400 text-xs mt-0.5">
-              {formatLocalDueDate(eventItem.due_timestamp, eventItem.user_timezone || 'UTC')}
-            </p>
-          </div>
+        {/* Due Date & Time Display Box (Parity with PaymentModal) */}
+        <div className="bg-slate-800/40 border border-white/5 rounded-2xl p-3 flex items-center justify-between text-xs">
+          <span className={subTextClass}>Due Date</span>
+          <span className="font-bold text-emerald-400">
+            {formatLocalDueDate(eventItem.due_timestamp, eventItem.user_timezone || 'UTC')}
+          </span>
         </div>
 
-        <div className="space-y-2">
+        <div className="text-xs opacity-80 leading-relaxed bg-slate-800/20 p-3 rounded-2xl border border-white/5">
+          {eventItem.description || 'No additional details provided for this event.'}
+        </div>
+
+        <div className="space-y-2 pt-2">
           <p className={`text-[10px] uppercase font-bold tracking-wider ${subTextClass} mb-1`}>Quick Actions</p>
           <div className="grid grid-cols-3 gap-2">
             {actions.map((action) => (
@@ -69,21 +69,23 @@ export default function EventModal({ isOpen, onClose, eventItem, activeTheme, on
                 onClick={() => handleActionClick(action)}
                 className={`py-2.5 px-1 rounded-xl text-[11px] font-extrabold border transition-all text-center truncate ${
                   action.type === 'complete'
-                    ? 'bg-emerald-400 text-black border-emerald-400 hover:bg-emerald-300 col-span-3'
-                    : `${activeTheme.card} ${subTextClass} hover:border-emerald-400/50 hover:text-white`
+                    ? 'bg-[#6556e8] text-white border-[#6556e8] hover:bg-[#5344d6] col-span-3'
+                    : `${activeTheme.card} ${subTextClass} hover:border-[#6556e8]/50 hover:text-white`
                 }`}
               >
-                {action.label}
+                {action.type === 'complete' ? 'Mark Done ✓' : action.label}
               </button>
             ))}
           </div>
 
-          <button
-            onClick={onClose}
-            className={`w-full mt-2 py-2 rounded-xl text-xs font-semibold ${subTextClass} hover:opacity-90`}
-          >
-            Close
-          </button>
+          <div className="flex items-center gap-2 pt-2">
+            <button
+              onClick={onClose}
+              className={`w-full py-2.5 rounded-xl border text-xs font-semibold ${subTextClass} hover:opacity-90`}
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </div>
