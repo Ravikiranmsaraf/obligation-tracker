@@ -4,7 +4,6 @@ const supabase = require('../lib/supabase.js');
 
 const router = express.Router();
 
-
 router.post('/notifications/action', async (req, res) => {
   const { reminderId, actionId } = req.body;
 
@@ -38,10 +37,9 @@ router.post('/notifications/action', async (req, res) => {
     } 
     // 3. Handle Snooze actions (PLUS_1H, PLUS_1D, TOMORROW_9AM)
     else if (actionId === 'PLUS_1H' || actionId === 'PLUS_1D' || actionId === 'TOMORROW_9AM') {
-      // Fetch the current cycle to get its due_timestamp and timezone
       const { data: cycle, error: fetchError } = await supabase
         .from('obligation_cycles')
-        .select('due_timestamp, user_timezone')
+        .select('due_timestamp')
         .eq('id', reminderId)
         .single();
 
@@ -61,7 +59,6 @@ router.post('/notifications/action', async (req, res) => {
         newDueDate.setHours(9, 0, 0, 0);
       }
 
-      // Update Supabase: Shift due_timestamp and reset notification_sent to false
       await supabase
         .from('obligation_cycles')
         .update({
