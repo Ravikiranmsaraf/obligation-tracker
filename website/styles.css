@@ -71,6 +71,7 @@ a { color: inherit; }
   color: var(--muted);
   font-size: 14px;
   text-decoration: none;
+  transition: color 150ms ease;
 }
 
 .nav a:hover, .footer-links a:hover, .text-link:hover {
@@ -95,12 +96,14 @@ a { color: inherit; }
   font-size: 15px;
   font-weight: 700;
   text-decoration: none;
-  transition: transform 150ms ease, background 150ms ease;
+  transition: transform 150ms ease, background 150ms ease, box-shadow 150ms ease;
+  box-shadow: 0 4px 14px rgba(101, 86, 232, 0.25);
 }
 
 .button:hover {
   background: var(--violet-dark);
   transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(101, 86, 232, 0.35);
 }
 
 .button-small { min-height: 42px; padding: 0 17px; }
@@ -152,6 +155,7 @@ h1, h2, h3 {
   font-size: 14px;
   font-weight: 600;
   text-decoration: none;
+  transition: color 150ms ease;
 }
 
 .text-link span { margin-left: 5px; }
@@ -187,7 +191,7 @@ h1, h2, h3 {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #63d8a6;
+  background: #34d399;
 }
 
 .demo-menu { margin-left: auto; letter-spacing: 2px; }
@@ -233,6 +237,7 @@ h1, h2, h3 {
   padding: 15px;
   border: 1px solid var(--line);
   border-radius: 16px;
+  background: var(--white);
 }
 
 .reminder-icon {
@@ -247,7 +252,7 @@ h1, h2, h3 {
 
 .reminder strong { font-size: 13px; }
 .reminder p { margin: 3px 0 0; color: var(--muted); font-size: 11px; }
-.check { margin-left: auto; color: #49bd8d; font-weight: 700; }
+.check { margin-left: auto; color: #10b981; font-weight: 700; }
 .demo-caption { margin: 14px 0 0; color: #a1a1a8; font-size: 11px; text-align: center; }
 
 .steps-section {
@@ -273,6 +278,12 @@ h1, h2, h3 {
   border: 1px solid #e8e5df;
   border-radius: var(--radius);
   background: rgba(255,255,255,0.68);
+  transition: transform 150ms ease, border-color 150ms ease;
+}
+
+.step:hover {
+  transform: translateY(-3px);
+  border-color: rgba(101, 86, 232, 0.3);
 }
 
 .step-number { color: var(--violet); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; }
@@ -288,7 +299,7 @@ h1, h2, h3 {
 
 .closing .eyebrow { color: var(--mint); }
 .closing h2 { margin-bottom: 28px; }
-.button-light { background: white; color: var(--violet) !important; }
+.button-light { background: white; color: var(--violet) !important; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1); }
 .button-light:hover { background: #f2f0ff; }
 
 .page-content {
@@ -320,6 +331,27 @@ h1, h2, h3 {
 .site-footer > p { margin: 0; color: var(--muted); font-size: 12px; }
 .site-footer .footer-links { justify-content: flex-end; gap: 20px; }
 .copyright { grid-column: 1 / -1; }
+
+.whatsapp-icon {
+  width: 58px;
+  height: 58px;
+  flex: 0 0 58px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #e9f8ef;
+  color: #168a54;
+}
+
+.whatsapp-icon svg {
+  display: block;
+  width: 27px;
+  height: 27px;
+  max-width: 27px;
+  max-height: 27px;
+  flex: 0 0 27px;
+}
 
 @media (max-width: 760px) {
   .site-header { width: min(100% - 32px, 560px); min-height: 74px; }
@@ -353,24 +385,4 @@ h1, h2, h3 {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
   }
-}
-.whatsapp-icon {
-  width: 58px;
-  height: 58px;
-  flex: 0 0 58px;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  border-radius: 18px;
-  background: #e9f8ef;
-  color: #168a54;
-}
-
-.whatsapp-icon svg {
-  display: block;
-  width: 27px;
-  height: 27px;
-  max-width: 27px;
-  max-height: 27px;
-  flex: 0 0 27px;
 }
