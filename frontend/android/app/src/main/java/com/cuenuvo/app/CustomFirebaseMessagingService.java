@@ -20,7 +20,6 @@ public class CustomFirebaseMessagingService extends FirebaseMessagingService {
 
         // Check if data payload exists
         if (remoteMessage.getData().size() > 0) {
-            // Extract title and body directly from the data payload
             String title = remoteMessage.getData().get("title");
             if (title == null) title = "Cuenuvo Reminder";
 
@@ -28,17 +27,33 @@ public class CustomFirebaseMessagingService extends FirebaseMessagingService {
             if (body == null) body = "You have a pending reminder.";
 
             String reminderId = remoteMessage.getData().get("reminderId");
-            // Match the data key used in dispatchReminders.js ("REMINDER_ACTIONS" or "actions")
+            String notificationIdStr = remoteMessage.getData().get("notificationId");
+            
+            // Safely parse notificationId as a long to prevent NumberFormatException overflow crashes
+            int notificationId;
+            try {
+                if (notificationIdStr != null) {
+                    long parsedLong = Long.parseLong(notificationIdStr);
+                    notificationId = (int) (Math.abs(parsedLong) % Integer.MAX_VALUE);
+                } else if (reminderId != null) {
+                    notificationId = Math.abs(reminderId.hashCode());
+                } else {
+                    notificationId = 1001;
+                }
+            } catch (Exception e) {
+                notificationId = reminderId != null ? Math.abs(reminderId.hashCode()) : 1001;
+            }
+
             String actionsJson = remoteMessage.getData().get("REMINDER_ACTIONS");
             if (actionsJson == null) {
                 actionsJson = remoteMessage.getData().get("actions");
             }
 
-            showNotificationWithActions(title, body, reminderId, actionsJson);
+            showNotificationWithActions(title, body, reminderId, notificationId, actionsJson);
         }
     }
 
-    private void showNotificationWithActions(String title, String body, String reminderId, String actionsJson) {
+    private void showNotificationWithActions(String title, String body, String reminderId, int notificationId, String actionsJson) {
         String channelId = "cuenuvo_reminders";
         NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
 
@@ -53,7 +68,7 @@ public class CustomFirebaseMessagingService extends FirebaseMessagingService {
         intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent pendingIntent = PendingIntent.getActivity(
                 this, 
-                reminderId != null ? reminderId.hashCode() : 0, 
+                notificationId, 
                 intent, 
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
@@ -80,10 +95,11 @@ public class CustomFirebaseMessagingService extends FirebaseMessagingService {
                     actionIntent.setAction("com.cuenuvo.app.ACTION_" + actionId);
                     actionIntent.putExtra("reminderId", reminderId);
                     actionIntent.putExtra("actionId", actionId);
+                    actionIntent.putExtra("notificationId", notificationId);
 
                     PendingIntent actionPendingIntent = PendingIntent.getBroadcast(
                             this,
-                            (reminderId + "_" + actionId).hashCode(),
+                            (notificationId + "_" + actionId).hashCode(),
                             actionIntent,
                             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
                     );
@@ -95,6 +111,6 @@ public class CustomFirebaseMessagingService extends FirebaseMessagingService {
             e.printStackTrace();
         }
 
-        notificationManager.notify(reminderId != null ? reminderId.hashCode() : 1001, builder.build());
+        notificationManager.notify(notificationId, builder.build());
     }
 }
