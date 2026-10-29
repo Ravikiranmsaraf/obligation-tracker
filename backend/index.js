@@ -3,7 +3,7 @@ require('dotenv').config(); // MUST BE AT THE VERY TOP
 
 const express = require('express');
 const cors = require('cors');
-const supabase = require('./lib/supabase');
+const supabase = require('./lib/supabase.js');
 const { parseObligationText } = require('./src/services/obligation-parser.service');
 
 const app = express();

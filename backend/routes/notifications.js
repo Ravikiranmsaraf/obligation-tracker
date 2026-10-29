@@ -1,7 +1,6 @@
-  // backend/routes/notifications.js
-import express from 'express';
-import supabase from '@supabase/supabase-js';  
-// --updated_at 9am 29 Oct2026
+// backend/routes/notifications.js
+const express = require('express');
+const supabase = require('../lib/supabase.js');
 
 const router = express.Router();
 

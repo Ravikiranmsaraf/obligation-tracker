@@ -1,3 +1,4 @@
+// backend/lib/supabase.js
 const { createClient } = require('@supabase/supabase-js');
 const ws = require('ws');
 
