@@ -1,6 +1,6 @@
-// backend/routes/notifications.js
+  // backend/routes/notifications.js
 import express from 'express';
-import { supabase } from '../lib/supabase';
+import supabase from '@supabase/supabase-js';
 
 const router = express.Router();
 
