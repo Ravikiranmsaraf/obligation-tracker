@@ -8,9 +8,11 @@ export default function ObligationListView({
   onMarkPaid,
   currencySymbol = '₹',
   activeTheme,
+  user,
+  onDefer,
 }) {
   const [selectedCycle, setSelectedCycle] = useState(null);
-  // Auto-select cycle if navigated via notification deep-link (?reminderId=...)
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const reminderIdFromUrl = params.get('reminderId');
@@ -18,13 +20,11 @@ export default function ObligationListView({
       const match = cycles.find((c) => c.id === reminderIdFromUrl);
       if (match) {
         setSelectedCycle(match);
-        // Clean up the URL so refreshing doesn't re-trigger the modal
         window.history.replaceState({}, document.title, window.location.pathname);
       }
     }
   }, [cycles, selectedCycle]);
 
-  // Independent Accordion States (Overdue, Rest of This Week, Next Week all collapsed by default)
   const [isOverdueOpen, setIsOverdueOpen] = useState(false);
   const [isThisWeekOpen, setIsThisWeekOpen] = useState(false);
   const [isNextWeekOpen, setIsNextWeekOpen] = useState(false);
@@ -37,39 +37,47 @@ export default function ObligationListView({
     );
   }
 
-  const formatDueTime = (timeStr) => {
-    if (!timeStr || timeStr === 'No Time') return '';
-    const [hours, minutes] = timeStr.split(':');
-    const h = parseInt(hours, 10);
-    if (isNaN(h)) return timeStr;
-    const suffix = h >= 12 ? 'PM' : 'AM';
-    const formattedHour = h % 12 === 0 ? 12 : h % 12;
-    return `${String(formattedHour).padStart(2, '0')}:${minutes} ${suffix}`;
+  // Local Timezone-aware formatting using cycle's stored user_timezone
+  const formatDueTime = (timestamp, timeZone = 'UTC') => {
+    if (!timestamp) return '';
+    try {
+      const d = new Date(timestamp);
+      if (isNaN(d.getTime())) return '';
+      return new Intl.DateTimeFormat('en-US', {
+        timeZone,
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      }).format(d);
+    } catch (e) {
+      return '';
+    }
   };
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '';
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return '';
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const formatDate = (timestamp, timeZone = 'UTC') => {
+    if (!timestamp) return '';
+    try {
+      const d = new Date(timestamp);
+      if (isNaN(d.getTime())) return '';
+      return new Intl.DateTimeFormat('en-US', {
+        timeZone,
+        month: 'short',
+        day: 'numeric',
+      }).format(d);
+    } catch (e) {
+      return '';
+    }
   };
 
-  // -------------------------------------------------------------
-  // STRICT DATE BOUNDARIES
-  // -------------------------------------------------------------
   const now = new Date();
-
-  // Today (00:00:00 to 23:59:59)
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
-  // Tomorrow (00:00:00 to 23:59:59)
   const tomorrowStart = new Date(todayStart);
   tomorrowStart.setDate(tomorrowStart.getDate() + 1);
   const tomorrowEnd = new Date(todayEnd);
   tomorrowEnd.setDate(tomorrowEnd.getDate() + 1);
 
-  // Current Calendar Week (Sunday to Saturday)
   const currentSunday = new Date(now);
   currentSunday.setDate(now.getDate() - now.getDay());
   currentSunday.setHours(0, 0, 0, 0);
@@ -78,7 +86,6 @@ export default function ObligationListView({
   currentSaturdayEnd.setDate(currentSunday.getDate() + 6);
   currentSaturdayEnd.setHours(23, 59, 59, 999);
 
-  // STRICT Next Calendar Week (Next Sunday 00:00:00 to Next Saturday 23:59:59)
   const nextSundayStart = new Date(currentSunday);
   nextSundayStart.setDate(currentSunday.getDate() + 7);
   nextSundayStart.setHours(0, 0, 0, 0);
@@ -87,58 +94,54 @@ export default function ObligationListView({
   nextSaturdayEnd.setDate(nextSundayStart.getDate() + 6);
   nextSaturdayEnd.setHours(23, 59, 59, 999);
 
-  // Sorting Helper
-  const sortByTime = (a, b) => new Date(a.due_timestamp || a.due_date) - new Date(b.due_timestamp || b.due_date);
+  // Strict Chronological Ascending Sorting Comparator
+  const sortByChronologicalAsc = (a, b) => {
+    const timeA = new Date(a.due_timestamp || a.due_date || 0).getTime();
+    const timeB = new Date(b.due_timestamp || b.due_date || 0).getTime();
+    if (timeA !== timeB) return timeA - timeB;
+    return (a.name || '').localeCompare(b.name || '');
+  };
 
-  // -------------------------------------------------------------
-  // BUCKETING LOGIC
-  // -------------------------------------------------------------
-
-  // Overdue: Any pending cycle strictly before today
   const overdueItems = cycles.filter((item) => {
-    if (!item.due_date) return false;
-    return new Date(item.due_date) < todayStart;
-  }).sort(sortByTime);
+    if (!item.due_timestamp && !item.due_date) return false;
+    return new Date(item.due_timestamp || item.due_date) < todayStart;
+  }).sort(sortByChronologicalAsc);
 
-  // Today
   const todayItems = cycles.filter((item) => {
-    if (!item.due_date) return false;
-    const d = new Date(item.due_date);
+    if (!item.due_timestamp && !item.due_date) return false;
+    const d = new Date(item.due_timestamp || item.due_date);
     return d >= todayStart && d <= todayEnd;
-  }).sort(sortByTime);
+  }).sort(sortByChronologicalAsc);
 
-  // Tomorrow
   const tomorrowItems = cycles.filter((item) => {
-    if (!item.due_date) return false;
-    const d = new Date(item.due_date);
+    if (!item.due_timestamp && !item.due_date) return false;
+    const d = new Date(item.due_timestamp || item.due_date);
     return d >= tomorrowStart && d <= tomorrowEnd;
-  }).sort(sortByTime);
+  }).sort(sortByChronologicalAsc);
 
-  // Rest of This Week: After tomorrow up to Saturday of current week
   const thisWeekItems = cycles.filter((item) => {
-    if (!item.due_date) return false;
-    const d = new Date(item.due_date);
+    if (!item.due_timestamp && !item.due_date) return false;
+    const d = new Date(item.due_timestamp || item.due_date);
     return d > tomorrowEnd && d <= currentSaturdayEnd;
-  }).sort(sortByTime);
+  }).sort(sortByChronologicalAsc);
 
-  // STRICT Next Week: Strictly Next Sunday to Next Saturday
   const nextWeekItems = cycles.filter((item) => {
-    if (!item.due_date) return false;
-    const d = new Date(item.due_date);
+    if (!item.due_timestamp && !item.due_date) return false;
+    const d = new Date(item.due_timestamp || item.due_date);
     return d >= nextSundayStart && d <= nextSaturdayEnd;
-  }).sort(sortByTime);
+  }).sort(sortByChronologicalAsc);
 
-  // Render a seamless row with Date • Time • Name • Amount • Light Checkbox
   const renderRow = (item, showDate = false) => {
     const isEvent = item.type === 'event' || Number(item.expected_amount) === 0;
-    const rawTime = item.reminder_time || item.due_time;
-    const formattedTime = formatDueTime(rawTime);
-    const dateLabel = showDate ? formatDate(item.due_date) : '';
+    const tz = item.user_timezone || 'UTC';
+    const formattedTime = formatDueTime(item.due_timestamp, tz);
+    const dateLabel = showDate ? formatDate(item.due_timestamp, tz) : '';
 
     return (
       <div
         key={item.id}
-        className="flex items-center justify-between py-2.5 px-1 border-b border-zinc-800/20 last:border-0 hover:bg-black/5 dark:hover:bg-white/5 transition-colors group"
+        onClick={() => setSelectedCycle(item)}
+        className="flex items-center justify-between py-3 px-3 rounded-xl border border-zinc-800/20 hover:bg-black/5 dark:hover:bg-white/5 transition-all cursor-pointer group shadow-xs"
       >
         <div className="flex items-center gap-2.5 min-w-0 pr-2">
           {dateLabel && (
@@ -158,21 +161,20 @@ export default function ObligationListView({
           <h3 className="font-medium text-xs sm:text-sm truncate">{item.name}</h3>
         </div>
 
-        <div className="flex items-center gap-4 shrink-0">
+        <div className="flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
           <span className="text-xs font-bold">
             {!isEvent
               ? `${currencySymbol}${Number(item.expected_amount || 0).toLocaleString('en-IN')}`
               : 'Event'}
           </span>
 
-          {/* Light, Custom Minimalist Check-Button */}
           <button
             type="button"
             onClick={() => setSelectedCycle(item)}
-            className="w-5 h-5 rounded-md border-2 border-emerald-400/80 bg-zinc-800/40 hover:bg-emerald-400/20 hover:border-emerald-300 flex items-center justify-center transition-all active:scale-90"
+            className="w-6 h-6 rounded-lg border-2 border-emerald-400/80 bg-zinc-800/40 hover:bg-emerald-400/20 hover:border-emerald-300 flex items-center justify-center transition-all active:scale-90"
             title="Mark as done"
           >
-            <span className="opacity-0 hover:opacity-100 text-emerald-300 text-xs font-bold">✓</span>
+            <span className="text-emerald-300 text-xs font-bold">✓</span>
           </button>
         </div>
       </div>
@@ -182,30 +184,27 @@ export default function ObligationListView({
   const isMonetary = selectedCycle && Number(selectedCycle.expected_amount) > 0;
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
-      {/* 1. OVERDUE SECTION (Collapsed by default, text toggle) */}
+    <div className="space-y-6 max-w-2xl mx-auto font-sans">
       {overdueItems.length > 0 && (
         <div>
           <button
             onClick={() => setIsOverdueOpen(!isOverdueOpen)}
-            className="w-full flex items-center justify-between py-2 text-left font-bold text-red-400 text-xs tracking-wider uppercase hover:opacity-80 transition-opacity"
+            className="w-full flex items-center justify-between py-2 text-left font-bold text-red-400 text-xs tracking-wider uppercase hover:opacity-85 transition-opacity"
           >
             <span>⚠️ Overdue ({overdueItems.length})</span>
             <span>{isOverdueOpen ? '▲ Collapse' : '▼ Expand'}</span>
           </button>
-
           {isOverdueOpen && (
-            <div className="pl-2 space-y-1 mt-1 border-l-2 border-red-500/30">
+            <div className="pl-2 space-y-1.5 mt-1 border-l-2 border-red-500/30">
               {overdueItems.map((item) => renderRow(item, true))}
             </div>
           )}
         </div>
       )}
 
-      {/* 2. TODAY & TOMORROW (Visible by default, open) */}
       <div className="space-y-2">
         {todayItems.length > 0 && (
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <h2 className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 px-1 mb-1">
               Today
             </h2>
@@ -233,45 +232,40 @@ export default function ObligationListView({
         )}
       </div>
 
-      {/* 3. THIS WEEK SECTION (Initially collapsed) */}
       {thisWeekItems.length > 0 && (
         <div>
           <button
             onClick={() => setIsThisWeekOpen(!isThisWeekOpen)}
-            className={`w-full flex items-center justify-between py-2 text-left font-bold text-xs tracking-wider uppercase ${activeTheme?.subText || 'text-gray-400'} hover:opacity-80 transition-opacity`}
+            className={`w-full flex items-center justify-between py-2 text-left font-bold text-xs tracking-wider uppercase ${activeTheme?.subText || 'text-gray-400'} hover:opacity-85 transition-opacity`}
           >
             <span>📅 Rest of This Week ({thisWeekItems.length})</span>
             <span>{isThisWeekOpen ? '▲ Collapse' : '▼ Expand'}</span>
           </button>
-
           {isThisWeekOpen && (
-            <div className="pl-2 space-y-1 mt-1 border-l-2 border-zinc-700/30">
+            <div className="pl-2 space-y-1.5 mt-1 border-l-2 border-zinc-700/30">
               {thisWeekItems.map((item) => renderRow(item, true))}
             </div>
           )}
         </div>
       )}
 
-      {/* 4. STRICT NEXT WEEK SECTION (Initially collapsed) */}
       {nextWeekItems.length > 0 && (
         <div>
           <button
             onClick={() => setIsNextWeekOpen(!isNextWeekOpen)}
-            className={`w-full flex items-center justify-between py-2 text-left font-bold text-xs tracking-wider uppercase ${activeTheme?.subText || 'text-gray-400'} hover:opacity-80 transition-opacity`}
+            className={`w-full flex items-center justify-between py-2 text-left font-bold text-xs tracking-wider uppercase ${activeTheme?.subText || 'text-gray-400'} hover:opacity-85 transition-opacity`}
           >
             <span>📅 Next Week ({nextWeekItems.length})</span>
             <span>{isNextWeekOpen ? '▲ Collapse' : '▼ Expand'}</span>
           </button>
-
           {isNextWeekOpen && (
-            <div className="pl-2 space-y-1 mt-1 border-l-2 border-zinc-700/30">
+            <div className="pl-2 space-y-1.5 mt-1 border-l-2 border-zinc-700/30">
               {nextWeekItems.map((item) => renderRow(item, true))}
             </div>
           )}
         </div>
       )}
 
-      {/* Standard Payment / Event Modal */}
       {selectedCycle && (
         isMonetary ? (
           <PaymentModal
@@ -279,10 +273,16 @@ export default function ObligationListView({
             cycle={selectedCycle}
             activeTheme={activeTheme}
             currencySymbol={currencySymbol}
+            user={user}
             onClose={() => setSelectedCycle(null)}
             onConfirmPayment={async (cycleId, paymentData) => {
               triggerFeedback();
               if (onMarkPaid) await onMarkPaid(cycleId, paymentData.amount_paid, paymentData.notes);
+              setSelectedCycle(null);
+            }}
+            onDefer={async (cycleId, action, userId) => {
+              triggerFeedback();
+              if (onDefer) await onDefer(cycleId, action, userId);
               setSelectedCycle(null);
             }}
           />
@@ -291,10 +291,16 @@ export default function ObligationListView({
             isOpen={Boolean(selectedCycle)}
             eventItem={selectedCycle}
             activeTheme={activeTheme}
+            user={user}
             onClose={() => setSelectedCycle(null)}
             onConfirm={async (status = 'completed') => {
               triggerFeedback();
               if (onMarkPaid) await onMarkPaid(selectedCycle.id, status, status);
+              setSelectedCycle(null);
+            }}
+            onDefer={async (cycleId, action, userId) => {
+              triggerFeedback();
+              if (onDefer) await onDefer(cycleId, action, userId);
               setSelectedCycle(null);
             }}
           />

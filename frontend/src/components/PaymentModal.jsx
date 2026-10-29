@@ -8,7 +8,7 @@ export default function PaymentModal({
   currencySymbol = '₹',
   onConfirmPayment,
   onDefer,
-  user, // Added user prop to pass user.id for deferrals
+  user,
   activeTheme,
 }) {
   if (!isOpen || !cycle) return null;
@@ -21,16 +21,30 @@ export default function PaymentModal({
   const subTextClass = activeTheme?.subText || 'text-gray-400';
   const inputBgClass = activeTheme?.inputBg || 'bg-zinc-950';
 
-  // Filter out the 'complete' action since manual form handles payment confirmation
   const actions = getQuickDeferralActions(cycle.frequency).filter(
     (action) => action.type !== 'complete'
   );
+
+  const formatLocalDueDate = (timestamp, timeZone = 'UTC') => {
+    if (!timestamp) return 'Scheduled';
+    try {
+      const d = new Date(timestamp);
+      if (isNaN(d.getTime())) return timestamp;
+      return new Intl.DateTimeFormat('en-US', {
+        timeZone,
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }).format(d);
+    } catch (e) {
+      return timestamp;
+    }
+  };
 
   const handlePaymentSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await onConfirmPayment(cycle.id, Number(amountPaid), notes.trim());
+      await onConfirmPayment(cycle.id, { amount_paid: Number(amountPaid), notes: notes.trim() });
       onClose();
     } catch (err) {
       console.error('Error recording payment:', err);
@@ -44,7 +58,7 @@ export default function PaymentModal({
     if (action.type === 'skip') {
       setLoading(true);
       try {
-        await onConfirmPayment(cycle.id, 'skipped', 'Quick action: Skipped');
+        await onConfirmPayment(cycle.id, { amount_paid: 'skipped', notes: 'Quick action: Skipped' });
         onClose();
       } catch (err) {
         console.error('Error skipping cycle:', err);
@@ -54,7 +68,6 @@ export default function PaymentModal({
     } else if (onDefer && typeof onDefer === 'function') {
       setLoading(true);
       try {
-        // Pass user.id along so obligationsService.deferCycle authenticates properly
         await onDefer(cycle.id, action, user?.id);
         onClose();
       } catch (err) {
@@ -70,7 +83,7 @@ export default function PaymentModal({
     if (!confirm('Cancel this bill occurrence? It will be removed from your active list.')) return;
     setLoading(true);
     try {
-      await onConfirmPayment(cycle.id, 'cancelled', 'Cancelled by user');
+      await onConfirmPayment(cycle.id, { amount_paid: 'cancelled', notes: 'Cancelled by user' });
       onClose();
     } catch (err) {
       console.error('Error cancelling bill:', err);
@@ -81,20 +94,21 @@ export default function PaymentModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 font-sans">
       <div className={`${cardClass} rounded-3xl max-w-sm w-full p-6 shadow-2xl border transition-all`}>
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-bold">Record Bill Payment</h3>
-          <button onClick={onClose} className={`${subTextClass} hover:opacity-80 text-lg`}>
-            ✕
-          </button>
+          <button onClick={onClose} className={`${subTextClass} hover:opacity-80 text-lg`}>✕</button>
         </div>
 
-        <p className={`text-xs ${subTextClass} mb-4`}>
+        <p className={`text-xs ${subTextClass} mb-2`}>
           Marking payment for <span className="font-bold text-emerald-400">{cycle.obligation_name || cycle.name}</span>
         </p>
 
-        {/* Quick Deferral Strip (Snooze options only) */}
+        <p className={`text-[11px] font-mono ${subTextClass} mb-4`}>
+          Due: {formatLocalDueDate(cycle.due_timestamp, cycle.user_timezone || 'UTC')}
+        </p>
+
         {actions.length > 0 && (
           <div className="mb-4">
             <p className={`text-[10px] uppercase font-bold tracking-wider ${subTextClass} mb-1.5`}>Quick Actions</p>
@@ -120,12 +134,9 @@ export default function PaymentModal({
           <div className="flex-grow border-t border-zinc-700"></div>
         </div>
 
-        {/* Manual Payment Form */}
         <form onSubmit={handlePaymentSubmit} className="space-y-4 mt-2">
           <div>
-            <label className={`block text-xs font-semibold ${subTextClass} mb-1`}>
-              Amount Paid ({currencySymbol})
-            </label>
+            <label className={`block text-xs font-semibold ${subTextClass} mb-1`}>Amount Paid ({currencySymbol})</label>
             <input
               type="number"
               step="0.01"

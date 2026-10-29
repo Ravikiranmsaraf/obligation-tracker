@@ -4,6 +4,7 @@ import { App as CapApp } from '@capacitor/app';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ObligationListView from './components/ObligationListView';
 import ObligationsPage from './pages/ObligationsPage';
+import CompletedItemsPage from './pages/CompletedItemsPage';
 import SettingsModal from './components/SettingsModal';
 import HelpModal from './components/HelpModal';
 import ObligationFormModal from './components/ObligationFormModal';
@@ -21,16 +22,12 @@ import { supabase } from './lib/supabase';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 
-
-// Inline Login Screen
 function InlineLoginPage() {
   const [loading, setLoading] = useState(false);
-
   const handleGoogleLogin = async () => {
     setLoading(true);
     try {
       const isNative = Capacitor.isNativePlatform();
-      console.log("Is running natively on mobile?", isNative);
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -39,13 +36,11 @@ function InlineLoginPage() {
         },
       });
       if (error) throw error;
-
       if (data?.url && isNative) {
         await Browser.open({ url: data.url });
       } else if (data?.url) {
         window.location.href = data.url;
       }
-
     } catch (err) {
       console.error('Login error:', err.message);
       alert('Failed to sign in. Please try again.');
@@ -61,29 +56,16 @@ function InlineLoginPage() {
           <h1 className="text-4xl font-extrabold tracking-tight text-emerald-400">Cuenuvo</h1>
           <p className="text-gray-400 text-sm mt-2">Track your reminders with ease.</p>
         </div>
-
         <button
           onClick={handleGoogleLogin}
           disabled={loading}
           className="w-full bg-white hover:bg-gray-100 text-zinc-900 font-bold py-3 px-4 rounded-2xl flex items-center justify-center gap-3 transition-all shadow-lg active:scale-95 border border-gray-200"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
-            <path
-              fill="#4285F4"
-              d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-            />
-            <path
-              fill="#34A853"
-              d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-            />
-            <path
-              fill="#FBBC05"
-              d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-            />
-            <path
-              fill="#EA4335"
-              d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-            />
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
           </svg>
           {loading ? 'Connecting...' : 'Continue with Google'}
         </button>
@@ -95,11 +77,7 @@ function InlineLoginPage() {
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-black text-gray-400">
-        Loading...
-      </div>
-    );
+    return <div className="flex items-center justify-center min-h-screen bg-black text-gray-400">Loading...</div>;
   }
   if (!user) return <Navigate to="/login" />;
   return <>{children}</>;
@@ -121,11 +99,7 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
   const [selectedCycleForModal, setSelectedCycleForModal] = useState(null);
 
   const { needsOnboarding, loading: onboardingLoading, completeOnboarding } = useOnboarding(user?.id);
-
-  // Real-time system preference listener for 'system' theme option
-  const [systemPrefersDark, setSystemPrefersDark] = useState(
-    window.matchMedia('(prefers-color-scheme: dark)').matches
-  );
+  const [systemPrefersDark, setSystemPrefersDark] = useState(window.matchMedia('(prefers-color-scheme: dark)').matches);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -134,25 +108,15 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
     return () => mediaQuery.removeEventListener('change', handler);
   }, []);
 
-  const getEffectiveThemeKey = (key) => {
-    if (key === 'system') {
-      return systemPrefersDark ? 'cyberLime' : 'light';
-    }
-    return key || 'light';
-  };
+  const getEffectiveThemeKey = (key) => key === 'system' ? (systemPrefersDark ? 'cyberLime' : 'light') : (key || 'light');
+  const activeTheme = GEN_Z_THEMES[getEffectiveThemeKey(themeKey)] || GEN_Z_THEMES.light;
 
-  const effectiveThemeKey = getEffectiveThemeKey(themeKey);
-  const activeTheme = GEN_Z_THEMES[effectiveThemeKey] || GEN_Z_THEMES.light;
+  const { cycles, loading, markCyclePaid, refreshCycles, monthlyStats } = useObligationCycles(user?.id);
 
-  const { cycles, loading, markCyclePaid, refreshCycles } = useObligationCycles(user?.id);
-
-  // Auto-trigger modal when reminderId is present in URL query params
   useEffect(() => {
     if (reminderId && cycles?.length) {
       const match = cycles.find((c) => c.id === reminderId || c.obligation_id === reminderId);
-      if (match) {
-        setSelectedCycleForModal(match);
-      }
+      if (match) setSelectedCycleForModal(match);
     }
   }, [reminderId, cycles]);
 
@@ -190,11 +154,7 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
   };
 
   if (onboardingLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-black text-gray-400 text-sm">
-        Setting up your workspace...
-      </div>
-    );
+    return <div className="flex items-center justify-center min-h-screen bg-black text-gray-400 text-sm">Setting up your workspace...</div>;
   }
 
   if (needsOnboarding) {
@@ -213,14 +173,31 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
   }
 
   return (
-    <div className={`min-h-screen pb-24 transition-colors duration-300 ${activeTheme.bg} ${activeTheme.text}`}>
-      {/* Header */}
+    <div className={`min-h-screen pb-24 transition-colors duration-300 ${activeTheme.bg} ${activeTheme.text} font-sans`}>
       <div className={`px-4 py-4 flex justify-between items-center border-b ${activeTheme.card} backdrop-blur-md sticky top-0 z-20`}>
         <h1 className="text-xl font-extrabold tracking-tight">Cuenuvo</h1>
       </div>
 
-      <div className="max-w-md mx-auto px-4 pt-4">
-        {/* Inline Capture Section */}
+      <div className="max-w-md mx-auto px-4 pt-4 space-y-4">
+        {/* Monthly Progress Summary Chip */}
+        <div className={`${activeTheme.card} rounded-2xl p-4 shadow-sm border flex items-center justify-between`}>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Monthly Progress</p>
+            <p className="text-xs font-bold mt-0.5">
+              {monthlyStats.completedCount} Completed / {monthlyStats.remainingCount} remaining
+            </p>
+            <p className={`text-[11px] ${activeTheme.subText} mt-0.5`}>
+              {currencySymbol} {monthlyStats.spentAmount.toLocaleString('en-IN')} spent / {currencySymbol} {monthlyStats.plannedAmount.toLocaleString('en-IN')} planned
+            </p>
+          </div>
+          <Link
+            to="/completed"
+            className="text-xs font-extrabold bg-emerald-400/20 text-emerald-400 hover:bg-emerald-400/30 px-3 py-2 rounded-xl transition-all border border-emerald-400/30 flex items-center gap-1"
+          >
+            {monthlyStats.completedCount} Completed ➔
+          </Link>
+        </div>
+
         {showForm ? (
           <ObligationFormModal
             editingItem={null}
@@ -232,11 +209,8 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
             user={user}
           />
         ) : (
-          <div className={`${activeTheme.inputBg} rounded-2xl p-4 mb-4 shadow-sm border space-y-3`}>
-            <div
-              onClick={() => setShowForm(true)}
-              className="cursor-pointer flex items-center justify-between group"
-            >
+          <div className={`${activeTheme.inputBg} rounded-2xl p-4 shadow-sm border space-y-3`}>
+            <div onClick={() => setShowForm(true)} className="cursor-pointer flex items-center justify-between group">
               <div>
                 <p className="font-bold text-xs tracking-wide">Add reminder by typing...</p>
                 <p className={`text-[11px] ${activeTheme.subText} mt-0.5`}>Tap to manually add bill or event</p>
@@ -245,12 +219,9 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
                 + New Item
               </span>
             </div>
-
             <div className="pt-2 border-t border-black/10 dark:border-white/10 flex items-center justify-between">
               <div onClick={handleVoiceClick} className="flex items-center gap-2 cursor-pointer group">
-                <span className="w-8 h-8 rounded-lg bg-emerald-400/10 border border-emerald-400/20 flex items-center justify-center text-sm">
-                  🎙️
-                </span>
+                <span className="w-8 h-8 rounded-lg bg-emerald-400/10 border border-emerald-400/20 flex items-center justify-center text-sm">🎙️</span>
                 <div>
                   <p className="font-bold text-[11px] flex items-center gap-1">
                     Voice Quick Capture
@@ -259,11 +230,7 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
                   <p className={`text-[10px] ${activeTheme.subText}`}>Hands-free AI speech parser</p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={handleVoiceClick}
-                className="text-[11px] font-bold text-emerald-400 hover:underline"
-              >
+              <button type="button" onClick={handleVoiceClick} className="text-[11px] font-bold text-emerald-400 hover:underline">
                 {subscription.isPro ? 'Speak ➔' : 'Unlock 🔒'}
               </button>
             </div>
@@ -271,29 +238,32 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
         )}
 
         {loading ? (
-          <div className={`flex items-center justify-center min-h-[40vh] ${activeTheme.subText} text-sm`}>
-            Loading upcoming items...
-          </div>
+          <div className={`flex items-center justify-center min-h-[40vh] ${activeTheme.subText} text-sm`}>Loading upcoming items...</div>
         ) : (
           <ObligationListView
             cycles={cycles}
             onMarkPaid={markCyclePaid}
             currencySymbol={currencySymbol}
             activeTheme={activeTheme}
+            user={user}
+            onDefer={async (cycleId, action) => {
+              await obligationsService.deferCycle(cycleId, action, user.id);
+              await refreshCycles();
+            }}
           />
         )}
       </div>
 
-      {/* Navigation Bar */}
       <div className={`fixed bottom-0 left-0 right-0 border-t flex justify-around py-3 px-4 z-40 ${activeTheme.card}`}>
-        <Link to="/obligations" className="flex flex-col items-center text-xs font-bold hover:opacity-80">
+        <Link to="/" className="flex flex-col items-center text-xs font-bold hover:opacity-85">
+          <span>🏠</span>
+          <span className="mt-0.5">Home</span>
+        </Link>
+        <Link to="/obligations" className="flex flex-col items-center text-xs font-bold hover:opacity-85">
           <span>📌</span>
           <span className="mt-0.5">Master List</span>
         </Link>
-        <button
-          onClick={() => setShowSettings(true)}
-          className={`flex flex-col items-center text-xs font-bold ${activeTheme.subText} hover:opacity-80`}
-        >
+        <button onClick={() => setShowSettings(true)} className={`flex flex-col items-center text-xs font-bold ${activeTheme.subText} hover:opacity-85`}>
           <span className="w-5 h-5 rounded-full bg-emerald-400 text-black flex items-center justify-center text-[10px] font-extrabold">
             {(user?.user_metadata?.full_name || user?.email || 'U')[0].toUpperCase()}
           </span>
@@ -301,7 +271,6 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
         </button>
       </div>
 
-      {/* Auto-Triggered Modal from Push Notification */}
       {selectedCycleForModal && (
         selectedCycleForModal.type === 'event' ? (
           <EventModal
@@ -311,14 +280,14 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
             activeTheme={activeTheme}
             user={user}
             onConfirm={async (status) => {
-              // status can be 'completed' or 'skipped'
               await markCyclePaid(selectedCycleForModal.id, status, 'Updated via modal');
               await refreshCycles();
+              closeModal();
             }}
             onDefer={async (cycleId, action) => {
-              // Wire up the new service function here!
               await obligationsService.deferCycle(cycleId, action, user.id);
               await refreshCycles();
+              closeModal();
             }}
           />
         ) : (
@@ -332,11 +301,12 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
             onConfirmPayment={async (cycleId, amount, notes) => {
               await markCyclePaid(cycleId, amount, notes);
               await refreshCycles();
+              closeModal();
             }}
             onDefer={async (cycleId, action) => {
-              // Wire up the new service function here!
               await obligationsService.deferCycle(cycleId, action, user.id);
               await refreshCycles();
+              closeModal();
             }}
           />
         )
@@ -354,13 +324,7 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
         user={user}
         activeTheme={activeTheme}
       />
-      <PaywallModal
-        isOpen={showPaywall}
-        onClose={() => setShowPaywall(false)}
-        user={user}
-        onUpgradeSuccess={toggleMockPro}
-        activeTheme={activeTheme}
-      />
+      <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} user={user} onUpgradeSuccess={toggleMockPro} activeTheme={activeTheme} />
     </div>
   );
 }
@@ -368,20 +332,12 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
 export default function App() {
   const [themeKey, setThemeKey] = useState(() => localStorage.getItem('Cuenuvo_theme') || 'system');
   const [currencySymbol, setCurrencySymbol] = useState(() => localStorage.getItem('currencySymbol') || '₹');
-  
-  // Listen for native deep links / OAuth redirects coming back into the Capacitor app container
+
   useEffect(() => {
     const handleUrlOpen = async (event) => {
       const url = event.url;
-      console.log('[App] Deep link received:', url);
-
       if (url && url.includes('com.cuenuvo.app')) {
-        try {
-          await Browser.close();
-        } catch (e) {
-          console.log('[App] Browser already closed:', e);
-        }
-
+        try { await Browser.close(); } catch (e) {}
         try {
           if (url.includes('access_token=') || url.includes('refresh_token=')) {
             const hashPart = url.split('#')[1];
@@ -389,14 +345,9 @@ export default function App() {
               const params = new URLSearchParams(hashPart);
               const access_token = params.get('access_token');
               const refresh_token = params.get('refresh_token');
-
               if (access_token && refresh_token) {
-                const { error } = await supabase.auth.setSession({
-                  access_token,
-                  refresh_token,
-                });
+                const { error } = await supabase.auth.setSession({ access_token, refresh_token });
                 if (error) throw error;
-                console.log('[App] Session set successfully! Forcing reload/navigation...');
                 window.location.replace('/');
               }
             }
@@ -406,12 +357,8 @@ export default function App() {
         }
       }
     };
-
     const listenerPromise = CapApp.addListener('appUrlOpen', handleUrlOpen);
-
-    return () => {
-      listenerPromise.then((listener) => listener.remove());
-    };
+    return () => { listenerPromise.then((listener) => listener.remove()); };
   }, []);
 
   return (
@@ -419,33 +366,9 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<InlineLoginPage />} />
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <HomeContent
-                  themeKey={themeKey}
-                  setThemeKey={(key) => {
-                    localStorage.setItem('Cuenuvo_theme', key);
-                    setThemeKey(key);
-                  }}
-                  currencySymbol={currencySymbol}
-                  setCurrencySymbol={(symbol) => {
-                    localStorage.setItem('currencySymbol', symbol);
-                    setCurrencySymbol(symbol);
-                  }}
-                />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/obligations"
-            element={
-              <ProtectedRoute>
-                <ObligationsPage themeKey={themeKey} currencySymbol={currencySymbol} />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/completed" element={<ProtectedRoute><CompletedItemsPage currencySymbol={currencySymbol} themeKey={themeKey} /></ProtectedRoute>} />
+          <Route path="/obligations" element={<ProtectedRoute><ObligationsPage themeKey={themeKey} currencySymbol={currencySymbol} /></ProtectedRoute>} />
+          <Route path="/" element={<ProtectedRoute><HomeContent themeKey={themeKey} setThemeKey={(key) => { localStorage.setItem('Cuenuvo_theme', key); setThemeKey(key); }} currencySymbol={currencySymbol} setCurrencySymbol={(symbol) => { localStorage.setItem('currencySymbol', symbol); setCurrencySymbol(symbol); }} /></ProtectedRoute>} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
