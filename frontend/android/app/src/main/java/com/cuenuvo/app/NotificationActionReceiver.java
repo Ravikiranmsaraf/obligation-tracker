@@ -1,4 +1,4 @@
-ackage com.cuenuvo.app;
+package com.cuenuvo.app;
 
 import android.app.NotificationManager;
 import android.content.BroadcastReceiver;
