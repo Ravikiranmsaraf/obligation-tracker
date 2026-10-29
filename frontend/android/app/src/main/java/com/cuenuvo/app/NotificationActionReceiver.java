@@ -22,19 +22,21 @@ public class NotificationActionReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         String reminderId = intent.getStringExtra("reminderId");
         String actionId = intent.getStringExtra("actionId");
+        
+        // Retrieve the exact notification ID passed from the notification payload, fallback to hashCode if missing
+        int notificationId = intent.getIntExtra("notificationId", reminderId != null ? reminderId.hashCode() : 1001);
 
         if (reminderId == null || actionId == null) return;
 
-        int notificationId = reminderId.hashCode();
         NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
 
-        // 1. SHOW INSTANT VISUAL FEEDBACK (Progress State in Notification Shade)
+        // 1. SHOW PROGRESS STATE INSTANTLY IN THE TRAY
         NotificationCompat.Builder progressBuilder = new NotificationCompat.Builder(context, "reminders_channel")
                 .setSmallIcon(android.R.drawable.ic_popup_sync)
                 .setContentTitle("Cuenuvo")
                 .setContentText(getProgressMessage(actionId))
                 .setProgress(0, 0, true) // Indeterminate loading spinner
-                .setOngoing(true)
+                .setOngoing(true)        // Prevent user from swiping away mid-sync
                 .setAutoCancel(false);
 
         notificationManager.notify(notificationId, progressBuilder.build());
@@ -62,13 +64,14 @@ public class NotificationActionReceiver extends BroadcastReceiver {
                 Log.d(TAG, "Backend sync response code: " + responseCode);
 
                 if (responseCode >= 200 && responseCode < 300) {
-                    // 3. SUCCESS STATE: Show quick confirmation then dismiss
+                    // 3. SUCCESS STATE: Show confirmation briefly, then auto-cancel
                     NotificationCompat.Builder successBuilder = new NotificationCompat.Builder(context, "reminders_channel")
                             .setSmallIcon(android.R.drawable.checkbox_on_background)
                             .setContentTitle("Cuenuvo")
                             .setContentText(getSuccessMessage(actionId))
+                            .setOngoing(false)
                             .setAutoCancel(true)
-                            .setTimeoutAfter(1200); // Auto-dismiss after 1.2 seconds
+                            .setTimeoutAfter(1000); // Disappears after 1 second
 
                     notificationManager.notify(notificationId, successBuilder.build());
                 } else {
@@ -78,11 +81,12 @@ public class NotificationActionReceiver extends BroadcastReceiver {
             } catch (Exception e) {
                 Log.e(TAG, "Failed to sync notification action with VM backend", e);
 
-                // 4. ERROR STATE: Let user know it failed
+                // 4. ERROR STATE
                 NotificationCompat.Builder errorBuilder = new NotificationCompat.Builder(context, "reminders_channel")
                         .setSmallIcon(android.R.drawable.ic_dialog_alert)
                         .setContentTitle("Cuenuvo")
-                        .setContentText("Failed to update reminder. Tap to retry.")
+                        .setContentText("Failed to update. Tap to retry.")
+                        .setOngoing(false)
                         .setAutoCancel(true);
 
                 notificationManager.notify(notificationId, errorBuilder.build());

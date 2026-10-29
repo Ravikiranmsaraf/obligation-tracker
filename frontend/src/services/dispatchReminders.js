@@ -1,3 +1,4 @@
+// frontend/src/services/dispatchReminders.js
 import 'dotenv/config';
 import ws from 'ws';
 import { createClient } from '@supabase/supabase-js';
@@ -169,16 +170,21 @@ export async function dispatchReminders() {
 
     const actions = resolveReminderActions(cycle.frequency, localHour);
 
+    // Generate a consistent numeric notification ID based on the cycle ID string hash
+    const notificationIdNum = Math.abs(
+      cycle.id.split('').reduce((acc, char) => (acc << 5) - acc + char.charCodeAt(0), 0)
+    );
+
     try {
       const response = await admin.messaging().sendEachForMulticast({
-        // PURE DATA PAYLOAD (No top-level 'notification' block)
-        // This forces Android to route through CustomFirebaseMessagingService
+        // PURE DATA PAYLOAD
         data: {
           reminderId: cycle.id,
           cycleId: cycle.id,
           title: cycle.name || 'Reminder due',
           body: body,
           dueTimestamp: cycle.due_timestamp || '',
+          notificationId: String(notificationIdNum), // <-- Passed down so Java receiver can update it in place!
           REMINDER_ACTIONS: JSON.stringify(actions),
         },
         android: {
