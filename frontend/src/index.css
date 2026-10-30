@@ -15,12 +15,14 @@
     --shadow:
       rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
 
-    --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-    --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-    --mono: ui-monospace, Consolas, monospace;
+    /* High Usability System Font Stack */
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --heading: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 
-    font: 18px/145% var(--sans);
-    letter-spacing: 0.18px;
+    /* Default Font Scale: Standard Preset */
+    font: 15px/145% var(--sans);
+    letter-spacing: 0.15px;
     color-scheme: light dark;
     font-synthesis: none;
     text-rendering: optimizeLegibility;
@@ -28,15 +30,29 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
+  /* Root Font Size Presets */
+  [data-font-size="compact"] {
+    font-size: 13.5px;
+  }
+
+  [data-font-size="standard"] {
+    font-size: 15px;
+  }
+
+  [data-font-size="large"] {
+    font-size: 17px;
+  }
+
   body {
     margin: 0;
+    font-family: var(--sans);
   }
 
   code {
     font-family: var(--mono);
     display: inline-flex;
     border-radius: 4px;
-    font-size: 15px;
+    font-size: 0.9em;
     line-height: 135%;
     padding: 4px 8px;
     background: var(--code-bg);

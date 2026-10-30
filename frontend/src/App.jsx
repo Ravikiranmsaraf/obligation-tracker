@@ -120,7 +120,7 @@ function FloatingActionCapsule() {
   );
 }
 
-function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
+function HomeContent({ themeKey, setThemeKey, fontSizeKey, setFontSizeKey, currencySymbol, setCurrencySymbol }) {
   const { user, signOut } = useAuth();
   useNotifications(user);
   const { subscription, toggleMockPro } = useSubscription(user?.id);
@@ -130,10 +130,7 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
   const [showForm, setShowForm] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [saving, setSaving] = useState(false);
-  // Victory card modal
   const [showVictoryModal, setShowVictoryModal] = useState(false);
-
-  // Profile Drawer State
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -214,10 +211,11 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
     );
   }
 
+  const totalTasks = monthlyStats.completedCount + monthlyStats.remainingCount;
+
   return (
     <div className={`min-h-screen pb-28 transition-colors duration-300 ${activeTheme.bg} ${activeTheme.text} font-sans relative`}>
       
-      {/* Top Header Bar (Hidden when Form is active) */}
       {!showForm && (
         <header className={`px-4 py-3 flex justify-between items-center border-b ${activeTheme.card} backdrop-blur-md sticky top-0 z-30`}>
           <div className="flex items-center gap-2.5">
@@ -238,8 +236,6 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
       )}
 
       <div className="max-w-md mx-auto px-4 pt-4 space-y-4">
-        
-        {/* If Form is Open, hide everything else and display full screen modal card */}
         {showForm ? (
           <div className="pt-2">
             <ObligationFormModal
@@ -254,23 +250,28 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
           </div>
         ) : (
           <>
-            {/* Achievement Banner */}
+            {/* Achievement Banner (Redesigned Hierarchy) */}
             <div 
               onClick={() => setShowVictoryModal(true)}
-              className={`w-full mt-1 ${activeTheme.card} rounded-2xl px-5 py-3.5 shadow-sm border border-emerald-500/30 bg-gradient-to-r from-emerald-500/5 via-[#6556e8]/5 to-emerald-500/5 cursor-pointer hover:border-emerald-400/60 transition-all group`}
+              className={`w-full mt-1 ${activeTheme.card} rounded-2xl p-4 shadow-xs border border-emerald-500/30 bg-gradient-to-r from-emerald-500/5 via-[#6556e8]/5 to-emerald-500/5 cursor-pointer hover:border-emerald-400/60 transition-all group space-y-1`}
             >
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5">
-                  <span className="text-base shrink-0 group-hover:scale-110 transition-transform">✨</span>
-                  <span className="text-xs font-bold tracking-tight text-emerald-400 leading-normal">
-                    This month: {monthlyStats.completedCount} of {monthlyStats.completedCount + monthlyStats.remainingCount} done &nbsp;•&nbsp; {currencySymbol}{monthlyStats.spentAmount.toLocaleString('en-IN')} spent of {currencySymbol}{monthlyStats.plannedAmount.toLocaleString('en-IN')} planned
-                  </span>
+              <div className="flex items-center justify-between">
+                <span className={`text-[10px] font-extrabold uppercase tracking-wider ${activeTheme.subText}`}>
+                  ✨ THIS MONTH'S PROGRESS
+                </span>
+                <span className="text-xs font-bold text-[#6556e8]">Details ›</span>
+              </div>
+
+              <div className="space-y-0.5 text-xs font-bold">
+                <div className="text-emerald-400">
+                  ✅ {monthlyStats.completedCount} of {totalTasks} items completed
                 </div>
-                <span className="text-xs font-bold text-[#6556e8] shrink-0"> › </span>
+                <div className={activeTheme.text}>
+                  💳 {currencySymbol}{monthlyStats.spentAmount.toLocaleString('en-IN')} spent of {currencySymbol}{monthlyStats.plannedAmount.toLocaleString('en-IN')} planned
+                </div>
               </div>
             </div>
 
-            {/* TapToSpeakPillBar */}
             <TapToSpeakPillBar
               onVoiceClick={handleVoiceClick}
               onOpenForm={() => setShowForm(true)}
@@ -297,10 +298,8 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
         )}
       </div>
 
-      {/* Floating Action Capsule Navigation (Hidden when Form is active) */}
       {!showForm && <FloatingActionCapsule />}
 
-      {/* Zen Victory Card Modal */}
       {showVictoryModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
           <div className={`w-full max-w-xs ${activeTheme.card} border rounded-3xl p-6 shadow-2xl text-center space-y-4 relative`}>
@@ -310,7 +309,7 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
             
             <div className="space-y-1">
               <h3 className="text-base font-extrabold tracking-tight">In Control 💎</h3>
-              <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed font-medium">
+              <p className={`text-xs ${activeTheme.subText} leading-relaxed font-medium`}>
                 You are aligned and moving forward effortlessly.
               </p>
             </div>
@@ -331,7 +330,7 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
               <Link
                 to="/completed?tab=completed"
                 onClick={() => setShowVictoryModal(false)}
-                className="block w-full py-2 text-[11px] font-bold text-emerald-400 hover:underline"
+                className="block w-full py-2 text-xs font-bold text-emerald-400 hover:underline"
               >
                 View completed history & undo items ➔
               </Link>
@@ -340,14 +339,13 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
         </div>
       )}
 
-      {/* Profile Drawer */}
       {isProfileOpen && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-xs">
           <div className={`w-72 h-full ${activeTheme.card} border-l p-5 shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200`}>
             <div>
               <div className="flex items-center justify-between border-b pb-4 mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#6556e8] text-white flex items-center justify-center font-bold text-sm">
+                  <div className="w-10 h-10 rounded-full bg-[#6556e8] text-white flex items-center justify-center font-bold text-xs">
                     {(user?.user_metadata?.full_name || user?.email || 'U')[0].toUpperCase()}
                   </div>
                   <div className="overflow-hidden">
@@ -357,7 +355,7 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
                 </div>
                 <button
                   onClick={() => setIsProfileOpen(false)}
-                  className="text-lg opacity-60 hover:opacity-100 p-1"
+                  className="text-base opacity-60 hover:opacity-100 p-1"
                 >
                   ✕
                 </button>
@@ -369,13 +367,13 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
                   onClick={() => setIsProfileOpen(false)}
                   className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#6556e8]/10 text-xs font-semibold transition-colors"
                 >
-                  <span>✅</span> Completed This Month
+                  <span>✅</span> Completed History
                 </Link>
                 <button
                   onClick={() => { setIsProfileOpen(false); setShowSettings(true); }}
                   className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#6556e8]/10 text-xs font-semibold transition-colors text-left"
                 >
-                  <span>⚙️</span> Settings & Currency
+                  <span>⚙️</span> Settings & Typography
                 </button>
                 <button
                   onClick={() => { setIsProfileOpen(false); setShowHelp(true); }}
@@ -443,6 +441,8 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
         onClose={() => setShowSettings(false)}
         currentThemeKey={themeKey}
         onSelectTheme={setThemeKey}
+        fontSizeKey={fontSizeKey}
+        onSelectFontSize={setFontSizeKey}
         currencySymbol={currencySymbol}
         onSelectCurrency={setCurrencySymbol}
         onSignOut={signOut}
@@ -456,7 +456,17 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
 
 export default function App() {
   const [themeKey, setThemeKey] = useState(() => localStorage.getItem('Cuenuvo_theme') || 'system');
+  const [fontSizeKey, setFontSizeKey] = useState(() => localStorage.getItem('Cuenuvo_fontSize') || 'standard');
   const [currencySymbol, setCurrencySymbol] = useState(() => localStorage.getItem('currencySymbol') || '₹');
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-font-size', fontSizeKey);
+  }, [fontSizeKey]);
+
+  const handleUpdateFontSize = (newKey) => {
+    localStorage.setItem('Cuenuvo_fontSize', newKey);
+    setFontSizeKey(newKey);
+  };
 
   useEffect(() => {
     const handleUrlOpen = async (event) => {
@@ -492,7 +502,21 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<InlineLoginPage />} />
           <Route path="/obligations" element={<ProtectedRoute><ObligationsPage themeKey={themeKey} currencySymbol={currencySymbol} /></ProtectedRoute>} />
-          <Route path="/" element={<ProtectedRoute><HomeContent themeKey={themeKey} setThemeKey={(key) => { localStorage.setItem('Cuenuvo_theme', key); setThemeKey(key); }} currencySymbol={currencySymbol} setCurrencySymbol={(symbol) => { localStorage.setItem('currencySymbol', symbol); setCurrencySymbol(symbol); }} /></ProtectedRoute>} />
+          <Route 
+            path="/" 
+            element={
+              <ProtectedRoute>
+                <HomeContent 
+                  themeKey={themeKey} 
+                  setThemeKey={(key) => { localStorage.setItem('Cuenuvo_theme', key); setThemeKey(key); }} 
+                  fontSizeKey={fontSizeKey}
+                  setFontSizeKey={handleUpdateFontSize}
+                  currencySymbol={currencySymbol} 
+                  setCurrencySymbol={(symbol) => { localStorage.setItem('currencySymbol', symbol); setCurrencySymbol(symbol); }} 
+                />
+              </ProtectedRoute>
+            } 
+          />
           <Route path="/completed" element={<ProtectedRoute><CompletedOrNextMonthPage currencySymbol={currencySymbol} themeKey={themeKey} /></ProtectedRoute>} />
           <Route path="/archive" element={<ProtectedRoute><CompletedOrNextMonthPage currencySymbol={currencySymbol} themeKey={themeKey} /></ProtectedRoute>} />
         </Routes>

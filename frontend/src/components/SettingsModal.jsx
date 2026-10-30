@@ -6,6 +6,8 @@ export default function SettingsModal({
   onClose,
   currentThemeKey,
   onSelectTheme,
+  fontSizeKey = 'standard',
+  onSelectFontSize,
   onSignOut,
   user,
   activeTheme,
@@ -55,6 +57,12 @@ export default function SettingsModal({
     { key: 'system', label: 'System Auto 💻' },
   ];
 
+  const fontSizeOptions = [
+    { key: 'compact', label: '📱 Compact' },
+    { key: 'standard', label: '⚖️ Standard' },
+    { key: 'large', label: '🔍 Large' },
+  ];
+
   const cardClass = activeTheme?.card || 'bg-zinc-900 border-zinc-800 text-white';
   const subTextClass = activeTheme?.subText || 'text-gray-400';
   const inputBgClass = activeTheme?.inputBg || 'bg-zinc-950';
@@ -73,8 +81,8 @@ export default function SettingsModal({
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className={`${cardClass} rounded-3xl max-w-sm w-full p-6 shadow-2xl border transition-all space-y-5 max-h-[90vh] overflow-y-auto`}>
         <div className="flex justify-between items-center">
-          <h3 className="text-lg font-bold">Profile & Settings</h3>
-          <button onClick={onClose} className={`${subTextClass} hover:opacity-80 text-lg`}>
+          <h3 className="text-base font-extrabold tracking-tight">Profile & Settings</h3>
+          <button onClick={onClose} className={`${subTextClass} hover:opacity-80 text-base font-bold`}>
             ✕
           </button>
         </div>
@@ -83,7 +91,7 @@ export default function SettingsModal({
         {user && (
           <div className="p-3.5 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 space-y-3">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-emerald-400 text-black font-extrabold flex items-center justify-center text-sm shadow-sm">
+              <div className="w-10 h-10 rounded-full bg-emerald-400 text-black font-extrabold flex items-center justify-center text-xs shadow-xs shrink-0">
                 {(user?.user_metadata?.full_name || user?.email || 'U')[0].toUpperCase()}
               </div>
               <div className="overflow-hidden">
@@ -109,7 +117,7 @@ export default function SettingsModal({
         <div className="p-3 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 flex justify-between items-center">
           <div>
             <p className="text-xs font-bold text-emerald-400">Subscription Tier</p>
-            <p className="text-[10px] text-gray-400">
+            <p className={`text-[11px] ${subTextClass}`}>
               {profileData.subscriptionStatus === 'active' ? 'Cuenuvo Pro (Unlocked)' : 'Free Tier'}
             </p>
           </div>
@@ -118,10 +126,10 @@ export default function SettingsModal({
           </span>
         </div>
 
-        {/* Minimalist Theme Chips Chooser */}
+        {/* Theme Chooser */}
         <div>
           <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${subTextClass}`}>
-            Appearance & Theme
+            Appearance Theme
           </label>
           <div className="grid grid-cols-3 gap-2">
             {themeOptions.map(({ key, label }) => {
@@ -133,8 +141,35 @@ export default function SettingsModal({
               return (
                 <button
                   key={key}
+                  type="button"
                   onClick={() => handleThemeChange(key)}
-                  className={`py-2.5 px-2 rounded-xl text-center text-[11px] border transition-all truncate ${chipClass}`}
+                  className={`py-2.5 px-2 rounded-xl text-center text-xs border transition-all truncate ${chipClass}`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Font Size Preset Selector */}
+        <div>
+          <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${subTextClass}`}>
+            Text Size Preference
+          </label>
+          <div className="grid grid-cols-3 gap-2">
+            {fontSizeOptions.map(({ key, label }) => {
+              const isSelected = fontSizeKey === key;
+              const chipClass = isSelected
+                ? 'border-[#6556e8] bg-[#6556e8]/15 text-[#6556e8] font-extrabold'
+                : `border-black/10 dark:border-zinc-800 ${inputBgClass} ${subTextClass} hover:opacity-80 font-semibold`;
+
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => onSelectFontSize && onSelectFontSize(key)}
+                  className={`py-2.5 px-2 rounded-xl text-center text-xs border transition-all truncate ${chipClass}`}
                 >
                   {label}
                 </button>
@@ -146,14 +181,16 @@ export default function SettingsModal({
         {/* Sign Out Action */}
         <div className="pt-2 border-t border-black/10 dark:border-white/10">
           <button
+            type="button"
             onClick={onSignOut}
-            className="w-full py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold rounded-xl text-xs transition-all border border-red-500/20 shadow-sm"
+            className="w-full py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold rounded-xl text-xs transition-all border border-red-500/20 shadow-xs"
           >
             Sign Out 🚪
           </button>
         </div>
 
         <button
+          type="button"
           onClick={onClose}
           className="w-full py-3 bg-emerald-400 hover:bg-emerald-300 text-black font-extrabold rounded-xl text-xs transition-all shadow-md active:scale-95"
         >
