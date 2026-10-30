@@ -1,14 +1,45 @@
+// src/components/OnboardingWizard.jsx
 import { useState } from 'react';
-import { GEN_Z_THEMES, CATEGORY_ICONS, STANDARD_CATEGORIES } from '../constants/categories';
+import { GEN_Z_THEMES } from '../constants/categories';
 import { WORLD_CURRENCIES } from '../constants/currencies';
 import { obligationsService } from '../services/obligationsService';
 import { supabase } from '../lib/supabase';
 
+// Common country calling codes for the prefix dropdown
+const COUNTRY_CODES = [
+  { code: '+91', label: 'India (+91)' },
+  { code: '+1', label: 'US / Canada (+1)' },
+  { code: '+44', label: 'United Kingdom (+44)' },
+  { code: '+971', label: 'United Arab Emirates (+971)' },
+  { code: '+61', label: 'Australia (+61)' },
+  { code: '+65', label: 'Singapore (+65)' },
+  { code: '+49', label: 'Germany (+49)' },
+  { code: '+33', label: 'France (+33)' },
+  { code: '+81', label: 'Japan (+81)' },
+];
+
+const MONTHS = [
+  { value: 1, label: 'Jan' },
+  { value: 2, label: 'Feb' },
+  { value: 3, label: 'Mar' },
+  { value: 4, label: 'Apr' },
+  { value: 5, label: 'May' },
+  { value: 6, label: 'Jun' },
+  { value: 7, label: 'Jul' },
+  { value: 8, label: 'Aug' },
+  { value: 9, label: 'Sep' },
+  { value: 10, label: 'Oct' },
+  { value: 11, label: 'Nov' },
+  { value: 12, label: 'Dec' },
+];
+
 const PRESETS = [
-  { name: 'House Rent', category: 'Bills', defaultDay: 1, defaultAmount: 15000, frequency: 'monthly' },
-  { name: 'Electricity Bill', category: 'Bills', defaultDay: 2, defaultAmount: 1500, frequency: 'monthly' },
-  { name: 'OTT Subscription', category: 'Subscriptions', defaultDay: 5, defaultAmount: 499, frequency: 'monthly' },
-  { name: 'Car Insurance Renewal', category: 'Insurance', defaultDay: 15, defaultAmount: 8500, frequency: 'yearly' },
+  { name: 'House Rent', category: 'Bills', defaultDay: 1, defaultMonth: 1, defaultAmount: 15000, frequency: 'monthly', type: 'monetary' },
+  { name: 'Electricity Bill', category: 'Bills', defaultDay: 5, defaultMonth: 1, defaultAmount: 1500, frequency: 'monthly', type: 'monetary' },
+  { name: "Spouse's Birthday 🎂", category: 'Personal', defaultDay: 15, defaultMonth: 3, defaultAmount: 0, frequency: 'yearly', type: 'event' },
+  { name: 'Wedding Anniversary 💍', category: 'Personal', defaultDay: 10, defaultMonth: 11, defaultAmount: 0, frequency: 'yearly', type: 'event' },
+  { name: 'Review Quarterly Goals', category: 'Work', defaultDay: 30, defaultMonth: 3, defaultAmount: 0, frequency: 'one-off', type: 'event' },
+  { name: 'Health Checkup', category: 'Health', defaultDay: 10, defaultMonth: 6, defaultAmount: 2500, frequency: 'yearly', type: 'monetary' },
 ];
 
 export default function OnboardingWizard({
@@ -17,6 +48,8 @@ export default function OnboardingWizard({
   onSelectTheme,
   currentCurrency,
   onSelectCurrency,
+  currentFontSize = 'standard',
+  onSelectFontSize,
   onNext,
 }) {
   const [step, setStep] = useState(1);
@@ -26,12 +59,14 @@ export default function OnboardingWizard({
   // Custom Addition State
   const [customName, setCustomName] = useState('');
   const [customAmount, setCustomAmount] = useState('');
-  const [customCategory, setCustomCategory] = useState('Bills');
-  const [customDay, setCustomDay] = useState('5');
+  const [customDay, setCustomDay] = useState(1);
+  const [customMonth, setCustomMonth] = useState(1);
+  const [customYear, setCustomYear] = useState(new Date().getFullYear());
   const [customTime, setCustomTime] = useState('09:00');
-  const [customFrequency, setCustomFrequency] = useState('one-off');
+  const [customFrequency, setCustomFrequency] = useState('monthly');
 
   // WhatsApp & Profile State
+  const [phonePrefix, setPhonePrefix] = useState('+91');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -42,9 +77,10 @@ export default function OnboardingWizard({
   const firstName = rawName.split(' ')[0];
 
   const activeTheme = GEN_Z_THEMES[currentThemeKey] || GEN_Z_THEMES.light;
-  const cardClass = activeTheme?.card || 'bg-zinc-900 border-zinc-800 text-white';
-  const subTextClass = activeTheme?.subText || 'text-gray-400';
-  const inputBgClass = activeTheme?.inputBg || 'bg-zinc-950 border-zinc-800 text-white';
+  const cardClass = activeTheme?.card || 'bg-white border-slate-200 text-slate-900 shadow-sm';
+  const subTextClass = activeTheme?.subText || 'text-slate-500';
+  const inputBgClass = activeTheme?.inputBg || 'bg-white border-slate-200 text-slate-900 shadow-sm';
+  const primaryBtnClass = activeTheme?.primary || 'bg-slate-900 text-white hover:bg-slate-800';
 
   const themeOptions = [
     { key: 'light', label: 'Clean Light ☀️' },
@@ -52,13 +88,22 @@ export default function OnboardingWizard({
     { key: 'system', label: 'System Auto 💻' },
   ];
 
+  const fontSizeOptions = [
+    { key: 'compact', label: '📱 Compact (Dense)' },
+    { key: 'standard', label: '⚖️ Standard (Balanced)' },
+    { key: 'large', label: '🔍 Large (High Legibility)' },
+  ];
+
   const handleSelectPreset = (preset) => {
     setEditingPreset({
       name: preset.name,
       category: preset.category,
       dueDay: preset.defaultDay,
+      dueMonth: preset.defaultMonth,
+      dueYear: new Date().getFullYear(),
       amount: preset.defaultAmount,
       frequency: preset.frequency,
+      type: preset.type,
       dueTime: '09:00',
     });
   };
@@ -69,19 +114,20 @@ export default function OnboardingWizard({
     try {
       const parsedAmount = parseFloat(itemData.amount) || 0;
       const parsedDay = parseInt(itemData.dueDay, 10) || 1;
-      const now = new Date();
+      const parsedMonth = parseInt(itemData.dueMonth, 10) || (new Date().getMonth() + 1);
+      const parsedYear = parseInt(itemData.dueYear, 10) || new Date().getFullYear();
 
       const payload = {
         name: itemData.name,
         category: itemData.category || 'Bills',
-        due_day: parsedDay,
-        due_month: now.getMonth() + 1,
-        due_year: now.getFullYear(),
+        due_day: itemData.frequency === 'daily' ? null : parsedDay,
+        due_month: itemData.frequency === 'daily' || itemData.frequency === 'monthly' ? null : parsedMonth,
+        due_year: itemData.frequency === 'one-off' ? parsedYear : null,
         reminder_time: itemData.dueTime || '09:00',
         expected_amount: parsedAmount,
         amount: parsedAmount,
-        frequency: itemData.frequency || 'one-off',
-        type: parsedAmount > 0 ? 'monetary' : 'event',
+        frequency: itemData.frequency || 'monthly',
+        type: itemData.type || (parsedAmount > 0 ? 'monetary' : 'event'),
       };
 
       await obligationsService.saveObligation(user.id, payload);
@@ -103,21 +149,22 @@ export default function OnboardingWizard({
     setSaving(true);
     setError('');
 
-    const cleanedPhone = phoneNumber.replace(/\D/g, '');
-    if (cleanedPhone.length < 10) {
-      setError('Please enter a valid phone number with country code (e.g. 919876543210).');
+    const cleanedDigits = phoneNumber.replace(/\D/g, '');
+    if (cleanedDigits.length < 7) {
+      setError('Please enter a valid phone number.');
       setSaving(false);
       return;
     }
 
+    const fullCleanedPhone = `${phonePrefix.replace('+', '')}${cleanedDigits}`;
+
     try {
-      // 1. Save preferences, phone, and timezone to profiles table
       const { error: profileErr } = await supabase
         .from('profiles')
         .upsert({
           id: user.id,
           email: user.email,
-          phone_number: cleanedPhone,
+          phone_number: fullCleanedPhone,
           timezone: detectedTimezone,
           theme_preference: currentThemeKey,
           currency_symbol: currentCurrency,
@@ -126,15 +173,12 @@ export default function OnboardingWizard({
 
       if (profileErr) throw profileErr;
 
-      // 2. Pre-create or link whatsapp_session so bot recognizes them instantly
       await supabase
         .from('whatsapp_sessions')
-        .upsert({
-          phone_number: `+${cleanedPhone}`,
-          user_id: user.id,
-          step: 'idle',
-          payload: {}
-        }, { onConflict: 'phone_number' });
+        .upsert(
+          { phone_number: `+${fullCleanedPhone}`, user_id: user.id, step: 'idle', payload: {} },
+          { onConflict: 'phone_number' }
+        );
 
       onNext();
     } catch (err) {
@@ -149,15 +193,13 @@ export default function OnboardingWizard({
   if (step === 1) {
     return (
       <div className={`max-w-md w-full ${cardClass} rounded-3xl p-6 border shadow-2xl space-y-5`}>
-        <div className="flex justify-between items-center text-xs font-semibold text-gray-400">
-          <span>STEP 1 OF 4</span>
-          <span className="text-emerald-400">Appearance</span>
+        <div className="flex justify-between items-center text-xs font-bold opacity-60">
+          <span>STEP 1 OF 5</span>
+          <span className={activeTheme?.accentText}>Appearance</span>
         </div>
 
         <div>
-          <h2 className="text-2xl font-black tracking-tight">
-            Welcome, {firstName}! 👋
-          </h2>
+          <h2 className="text-xl font-extrabold tracking-tight">Welcome, {firstName}! 👋</h2>
           <p className={`text-xs ${subTextClass} mt-1`}>Choose your preferred aesthetic theme.</p>
         </div>
 
@@ -171,354 +213,554 @@ export default function OnboardingWizard({
                 onClick={() => onSelectTheme(key)}
                 className={`w-full p-3 rounded-xl border text-xs font-bold flex justify-between items-center transition-all ${
                   isSelected
-                    ? 'border-emerald-400 bg-emerald-400/10 text-emerald-400'
-                    : `border-black/10 dark:border-zinc-800 ${inputBgClass} ${subTextClass} hover:opacity-80`
+                    ? 'border-emerald-500 bg-emerald-500/10 text-emerald-600'
+                    : `${inputBgClass} ${subTextClass} hover:opacity-80`
                 }`}
               >
                 <span>{label}</span>
-                {isSelected && <span className="text-emerald-400">✓</span>}
+                {isSelected && <span>✓</span>}
               </button>
             );
           })}
         </div>
 
         <button
+          type="button"
           onClick={() => setStep(2)}
-          className="w-full bg-emerald-400 hover:bg-emerald-300 text-black font-extrabold py-3.5 rounded-2xl transition-all shadow-lg shadow-emerald-400/20 text-sm"
+          className={`w-full ${primaryBtnClass} font-extrabold py-3.5 rounded-2xl transition-all shadow-md text-xs`}
         >
-          Next: Currency ➔
+          Next: Text Size ➔
         </button>
       </div>
     );
   }
 
-  // --- STEP 2: CURRENCY ---
+  // --- STEP 2: TEXT SIZE PREFERENCE ---
   if (step === 2) {
     return (
       <div className={`max-w-md w-full ${cardClass} rounded-3xl p-6 border shadow-2xl space-y-5`}>
-        <div className="flex justify-between items-center text-xs font-semibold text-gray-400">
-          <span>STEP 2 OF 4</span>
-          <span className="text-emerald-400">Currency</span>
+        <div className="flex justify-between items-center text-xs font-bold opacity-60">
+          <span>STEP 2 OF 5</span>
+          <span className={activeTheme?.accentText}>Text Size</span>
         </div>
 
         <div>
-          <h2 className="text-xl font-black tracking-tight">
-            Select Currency 💱
-          </h2>
-          <p className={`text-xs ${subTextClass} mt-1`}>Select your preferred currency for bills and amounts.</p>
+          <h2 className="text-xl font-extrabold tracking-tight">Choose Text Scale 🔍</h2>
+          <p className={`text-xs ${subTextClass} mt-1`}>Select your comfortable interface reading size.</p>
         </div>
 
-        <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
-          {WORLD_CURRENCIES.map(({ code, symbol, name }) => (
-            <button
-              key={code}
-              type="button"
-              onClick={() => onSelectCurrency(symbol)}
-              className={`w-full p-2.5 rounded-xl border text-xs font-bold flex justify-between items-center transition-all ${
-                currentCurrency === symbol
-                  ? 'border-emerald-400 bg-emerald-400/10 text-emerald-400'
-                  : `border-black/10 dark:border-zinc-800 ${inputBgClass} ${subTextClass} hover:opacity-80`
-              }`}
-            >
-              <span>{code} ({symbol}) - {name}</span>
-              {currentCurrency === symbol && <span className="text-emerald-400">✓</span>}
-            </button>
-          ))}
+        <div className="space-y-2">
+          {fontSizeOptions.map(({ key, label }) => {
+            const isSelected = currentFontSize === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => {
+                  if (onSelectFontSize) {
+                    onSelectFontSize(key);
+                  }
+                }}
+                className={`w-full p-3 rounded-xl border text-xs font-bold flex justify-between items-center transition-all ${
+                  isSelected
+                    ? 'border-[#6556e8] bg-[#6556e8]/15 text-[#6556e8]'
+                    : `${inputBgClass} ${subTextClass} hover:opacity-80`
+                }`}
+              >
+                <span>{label}</span>
+                {isSelected && <span className="text-[#6556e8]">✓</span>}
+              </button>
+            );
+          })}
         </div>
 
         <div className="flex gap-3 pt-2">
           <button
+            type="button"
             onClick={() => setStep(1)}
-            className={`w-1/3 py-3 font-semibold rounded-xl text-xs border ${cardClass}`}
+            className={`w-1/3 py-3 font-bold rounded-xl text-xs border ${cardClass}`}
           >
-            ← Back
+            Back
           </button>
           <button
+            type="button"
             onClick={() => setStep(3)}
-            className="w-2/3 bg-emerald-400 hover:bg-emerald-300 text-black font-extrabold py-3 rounded-2xl text-xs transition-all shadow-md"
+            className={`w-2/3 ${primaryBtnClass} font-extrabold py-3.5 rounded-2xl transition-all shadow-md text-xs`}
           >
-            Next: WhatsApp ➔
+            Next: Currency ➔
           </button>
         </div>
       </div>
     );
   }
 
-  // --- STEP 3: WHATSAPP PHONE & TIMEZONE CAPTURE ---
+  // --- STEP 3: CURRENCY SELECTION ---
   if (step === 3) {
     return (
       <div className={`max-w-md w-full ${cardClass} rounded-3xl p-6 border shadow-2xl space-y-5`}>
-        <div className="flex justify-between items-center text-xs font-semibold text-gray-400">
-          <span>STEP 3 OF 4</span>
-          <span className="text-emerald-400">WhatsApp Link</span>
+        <div className="flex justify-between items-center text-xs font-bold opacity-60">
+          <span>STEP 3 OF 5</span>
+          <span className={activeTheme?.accentText}>Currency</span>
         </div>
 
         <div>
-          <h2 className="text-xl font-black tracking-tight">
-            Connect WhatsApp 📱
-          </h2>
-          <p className={`text-xs ${subTextClass} mt-1`}>
-            Enter your WhatsApp number so you can check and complete reminders via chat.
-          </p>
+          <h2 className="text-xl font-extrabold tracking-tight">Select Preferred Currency 💱</h2>
+          <p className={`text-xs ${subTextClass} mt-1`}>Used for formatting expenses and bill targets.</p>
         </div>
 
-        {error && <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-xl">{error}</div>}
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-bold mb-1">WhatsApp Phone Number *</label>
-            <input
-              type="tel"
-              placeholder="e.g. 919876543210"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              required
-              className={`w-full p-3 rounded-xl text-xs border ${inputBgClass} focus:border-emerald-400 outline-none`}
-            />
-            <p className={`text-[10px] ${subTextClass} mt-1`}>
-              Include your country code without '+' or spaces (e.g., 91 for India, 1 for US).
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold mb-1">Detected Timezone</label>
-            <input
-              type="text"
-              disabled
-              value={detectedTimezone}
-              className={`w-full p-3 rounded-xl text-xs border opacity-70 cursor-not-allowed ${inputBgClass}`}
-            />
-          </div>
+        <div className="grid grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
+          {WORLD_CURRENCIES.map(({ symbol, code, name }) => {
+            const isSelected = currentCurrency === symbol;
+            return (
+              <button
+                key={code}
+                type="button"
+                onClick={() => onSelectCurrency(symbol)}
+                className={`p-3 rounded-xl border text-xs font-bold text-left flex justify-between items-center transition-all ${
+                  isSelected
+                    ? 'border-emerald-500 bg-emerald-500/10 text-emerald-600'
+                    : `${inputBgClass} ${subTextClass} hover:opacity-80`
+                }`}
+              >
+                <span className="truncate">{symbol} - {name}</span>
+                {isSelected && <span>✓</span>}
+              </button>
+            );
+          })}
         </div>
 
         <div className="flex gap-3 pt-2">
           <button
             type="button"
             onClick={() => setStep(2)}
-            className={`w-1/3 py-3 font-semibold rounded-xl text-xs border ${cardClass}`}
+            className={`w-1/3 py-3 font-bold rounded-xl text-xs border ${cardClass}`}
           >
-            ← Back
+            Back
           </button>
           <button
             type="button"
-            onClick={() => {
-              const cleaned = phoneNumber.replace(/\D/g, '');
-              if (cleaned.length < 10) {
-                setError('Please enter a valid phone number with country code before continuing.');
-                return;
-              }
-              setError('');
-              setStep(4);
-            }}
-            className="w-2/3 py-3 bg-emerald-400 hover:bg-emerald-500 text-black font-extrabold rounded-xl text-xs transition-all shadow-md"
+            onClick={() => setStep(4)}
+            className={`w-2/3 ${primaryBtnClass} font-extrabold py-3.5 rounded-2xl transition-all shadow-md text-xs`}
           >
-            Next: Add Reminders ➔
+            Next: Presets ➔
           </button>
         </div>
       </div>
     );
   }
 
-  // --- STEP 4: REMINDERS SEEDING & FINISH ---
-  return (
-    <form onSubmit={handleFinalizeSetup} className={`max-w-md w-full ${cardClass} rounded-3xl p-6 border shadow-2xl space-y-5`}>
-      <div className="flex justify-between items-center text-xs font-semibold text-gray-400">
-        <span>STEP 4 OF 4</span>
-        <span className="text-emerald-400">Add Reminders</span>
-      </div>
-
-      <div>
-        <h2 className="text-xl font-black tracking-tight">
-          Add at least 1 reminder 📌
-        </h2>
-        <p className={`text-xs ${subTextClass} mt-1`}>
-          Tap a preset or create a custom reminder so your dashboard looks alive instantly.
-        </p>
-      </div>
-
-      {/* Quick Presets */}
-      <div className="space-y-2">
-        <label className={`text-[10px] font-bold uppercase tracking-wider ${subTextClass}`}>
-          Quick Presets
-        </label>
-        <div className="flex flex-wrap gap-2">
-          {PRESETS.map((preset) => {
-            const isAdded = addedItems.some((i) => i.name === preset.name);
-            return (
-              <button
-                key={preset.name}
-                type="button"
-                disabled={saving || isAdded}
-                onClick={() => handleSelectPreset(preset)}
-                className={`text-xs px-3 py-2 rounded-xl border flex items-center gap-1.5 transition-all ${
-                  isAdded
-                    ? 'bg-emerald-950/50 border-emerald-500 text-emerald-400 cursor-default'
-                    : 'bg-zinc-800/80 border-zinc-700 text-gray-200 hover:border-emerald-400 hover:bg-zinc-800'
-                }`}
-              >
-                <span>{CATEGORY_ICONS[preset.category] || '⚡'}</span>
-                <span>{preset.name}</span>
-                {isAdded ? '✓' : '+'}
-              </button>
-            );
-          })}
+  // --- STEP 4: PRESETS & REMINDERS ---
+  if (step === 4) {
+    return (
+      <div className={`max-w-md w-full ${cardClass} rounded-3xl p-6 border shadow-2xl space-y-5`}>
+        <div className="flex justify-between items-center text-xs font-bold opacity-60">
+          <span>STEP 4 OF 5</span>
+          <span className={activeTheme?.accentText}>Presets & Reminders</span>
         </div>
-      </div>
 
-      {/* Preset Customization */}
-      {editingPreset && (
-        <div className={`${inputBgClass} border border-emerald-500/50 rounded-2xl p-3.5 space-y-3`}>
-          <div className="flex justify-between items-center">
-            <span className="text-xs font-bold text-emerald-400">✏ Adjust {editingPreset.name}</span>
-            <button type="button" onClick={() => setEditingPreset(null)} className="text-xs text-gray-500 hover:text-white">✕</button>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-[10px] text-gray-400 block mb-1">Due Day (1-31)</label>
-              <input
-                type="number"
-                min="1"
-                max="31"
-                value={editingPreset.dueDay}
-                onChange={(e) => setEditingPreset({ ...editingPreset, dueDay: e.target.value })}
-                className="w-full bg-black/10 dark:bg-zinc-900 border border-black/10 dark:border-zinc-800 rounded-xl px-2.5 py-1.5 text-xs"
-              />
-            </div>
-            <div>
-              <label className="text-[10px] text-gray-400 block mb-1">Amount ({currentCurrency})</label>
-              <input
-                type="number"
-                value={editingPreset.amount}
-                onChange={(e) => setEditingPreset({ ...editingPreset, amount: e.target.value })}
-                className="w-full bg-black/10 dark:bg-zinc-900 border border-black/10 dark:border-zinc-800 rounded-xl px-2.5 py-1.5 text-xs"
-              />
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => handleSaveObligation(editingPreset)}
-            disabled={saving || !editingPreset.amount || !editingPreset.dueDay}
-            className="w-full bg-emerald-400 hover:bg-emerald-300 text-black font-extrabold py-2 rounded-xl text-xs"
-          >
-            {saving ? 'Adding...' : `Confirm & Add`}
-          </button>
+        <div>
+          <h2 className="text-xl font-extrabold tracking-tight">Quick Presets ⚡</h2>
+          <p className={`text-xs ${subTextClass} mt-1`}>Tap a preset to adjust details and reminder time.</p>
         </div>
-      )}
 
-      {/* Custom Addition Inputs */}
-      {!editingPreset && (
-        <div className="border-t border-black/10 dark:border-zinc-800 pt-3 space-y-3">
-          <label className={`text-[10px] font-bold uppercase tracking-wider ${subTextClass}`}>
-            Or Add Custom Reminder
-          </label>
-          <input
-            type="text"
-            placeholder="Reminder name (e.g. Electric Bill)"
-            value={customName}
-            onChange={(e) => setCustomName(e.target.value)}
-            className={`w-full p-2.5 rounded-xl text-xs border ${inputBgClass}`}
-          />
-          <div className="grid grid-cols-2 gap-2">
-            <select
-              value={customCategory}
-              onChange={(e) => setCustomCategory(e.target.value)}
-              className={`w-full p-2.5 rounded-xl text-xs border ${inputBgClass}`}
+        {/* Preset Cards */}
+        <div className="grid grid-cols-2 gap-2">
+          {PRESETS.map((preset) => (
+            <button
+              key={preset.name}
+              type="button"
+              onClick={() => handleSelectPreset(preset)}
+              className={`p-3 rounded-2xl border text-left flex flex-col justify-between transition-all hover:border-emerald-500/50 ${inputBgClass}`}
             >
-              {STANDARD_CATEGORIES.map((cat) => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-            <input
-              type="number"
-              placeholder={`Amount (${currentCurrency})`}
-              value={customAmount}
-              onChange={(e) => setCustomAmount(e.target.value)}
-              className={`w-full p-2.5 rounded-xl text-xs border ${inputBgClass}`}
-            />
+              <span className="text-xs font-bold line-clamp-1">{preset.name}</span>
+              <span className={`text-[10px] ${subTextClass} mt-1 capitalize`}>{preset.frequency} • 09:00 AM</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Preset Editing Overlay / Modal */}
+        {editingPreset && (
+          <div className="p-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 space-y-3">
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-bold text-emerald-600 dark:text-emerald-400">Adjust "{editingPreset.name}"</h3>
+              <button
+                type="button"
+                onClick={() => setEditingPreset(null)}
+                className={`text-xs ${subTextClass} hover:opacity-80`}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              {/* Conditional Date Pickers based on Frequency */}
+              {editingPreset.frequency === 'monthly' && (
+                <div className="col-span-2">
+                  <label className={`text-[10px] ${subTextClass} font-bold block mb-1`}>Day of Month</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="31"
+                    value={editingPreset.dueDay}
+                    onChange={(e) => setEditingPreset({ ...editingPreset, dueDay: e.target.value })}
+                    className={`w-full p-2 text-xs rounded-xl border ${inputBgClass}`}
+                  />
+                </div>
+              )}
+
+              {editingPreset.frequency === 'yearly' && (
+                <>
+                  <div>
+                    <label className={`text-[10px] ${subTextClass} font-bold block mb-1`}>Month</label>
+                    <select
+                      value={editingPreset.dueMonth}
+                      onChange={(e) => setEditingPreset({ ...editingPreset, dueMonth: e.target.value })}
+                      className={`w-full p-2 text-xs rounded-xl border ${inputBgClass}`}
+                    >
+                      {MONTHS.map((m) => (
+                        <option key={m.value} value={m.value}>{m.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={`text-[10px] ${subTextClass} font-bold block mb-1`}>Day</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="31"
+                      value={editingPreset.dueDay}
+                      onChange={(e) => setEditingPreset({ ...editingPreset, dueDay: e.target.value })}
+                      className={`w-full p-2 text-xs rounded-xl border ${inputBgClass}`}
+                    />
+                  </div>
+                </>
+              )}
+
+              {editingPreset.frequency === 'one-off' && (
+                <>
+                  <div>
+                    <label className={`text-[10px] ${subTextClass} font-bold block mb-1`}>Month</label>
+                    <select
+                      value={editingPreset.dueMonth}
+                      onChange={(e) => setEditingPreset({ ...editingPreset, dueMonth: e.target.value })}
+                      className={`w-full p-2 text-xs rounded-xl border ${inputBgClass}`}
+                    >
+                      {MONTHS.map((m) => (
+                        <option key={m.value} value={m.value}>{m.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={`text-[10px] ${subTextClass} font-bold block mb-1`}>Day</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="31"
+                      value={editingPreset.dueDay}
+                      onChange={(e) => setEditingPreset({ ...editingPreset, dueDay: e.target.value })}
+                      className={`w-full p-2 text-xs rounded-xl border ${inputBgClass}`}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className={`text-[10px] ${subTextClass} font-bold block mb-1`}>Year</label>
+                    <input
+                      type="number"
+                      value={editingPreset.dueYear}
+                      onChange={(e) => setEditingPreset({ ...editingPreset, dueYear: e.target.value })}
+                      className={`w-full p-2 text-xs rounded-xl border ${inputBgClass}`}
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Time Selection */}
+              <div className="col-span-2">
+                <label className={`text-[10px] ${subTextClass} font-bold block mb-1`}>Reminder Time</label>
+                <input
+                  type="time"
+                  value={editingPreset.dueTime}
+                  onChange={(e) => setEditingPreset({ ...editingPreset, dueTime: e.target.value })}
+                  className={`w-full p-2 text-xs rounded-xl border ${inputBgClass}`}
+                />
+              </div>
+
+              {/* Amount field if applicable */}
+              {editingPreset.type === 'monetary' && (
+                <div className="col-span-2">
+                  <label className={`text-[10px] ${subTextClass} font-bold block mb-1`}>Expected Amount ({currentCurrency})</label>
+                  <input
+                    type="number"
+                    value={editingPreset.amount}
+                    onChange={(e) => setEditingPreset({ ...editingPreset, amount: e.target.value })}
+                    className={`w-full p-2 text-xs rounded-xl border ${inputBgClass}`}
+                  />
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => handleSaveObligation(editingPreset)}
+              className="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-bold py-2 rounded-xl text-xs transition-all shadow-sm"
+            >
+              {saving ? 'Adding...' : 'Confirm & Add Preset'}
+            </button>
           </div>
-          <div className="grid grid-cols-3 gap-2">
+        )}
+
+        {/* Custom Addition Form */}
+        <div className={`pt-3 border-t border-slate-200 dark:border-zinc-800 space-y-3`}>
+          <h3 className="text-xs font-bold">Add Custom Reminder</h3>
+          <div className="grid grid-cols-2 gap-2">
             <input
-              type="number"
-              placeholder="Day (1-31)"
-              min="1"
-              max="31"
-              value={customDay}
-              onChange={(e) => setCustomDay(e.target.value)}
-              className={`w-full p-2 rounded-xl text-xs border text-center ${inputBgClass}`}
-            />
-            <input
-              type="time"
-              value={customTime}
-              onChange={(e) => setCustomTime(e.target.value)}
-              className={`w-full p-2 rounded-xl text-xs border text-center ${inputBgClass}`}
+              type="text"
+              placeholder="Title (e.g., Gym Workout)"
+              value={customName}
+              onChange={(e) => setCustomName(e.target.value)}
+              className={`col-span-2 p-2.5 text-xs rounded-xl border ${inputBgClass}`}
             />
             <select
               value={customFrequency}
               onChange={(e) => setCustomFrequency(e.target.value)}
-              className={`w-full p-2 rounded-xl text-xs border ${inputBgClass}`}
+              className={`p-2 text-xs rounded-xl border ${inputBgClass}`}
             >
-              <option value="one-off">One-off</option>
+              <option value="daily">Daily</option>
               <option value="monthly">Monthly</option>
-              <option value="quarterly">Quarterly</option>
               <option value="yearly">Yearly</option>
+              <option value="one-off">One-off</option>
             </select>
+            <input
+              type="time"
+              value={customTime}
+              onChange={(e) => setCustomTime(e.target.value)}
+              className={`p-2 text-xs rounded-xl border ${inputBgClass}`}
+            />
+
+            {/* Conditional Fields for Custom Reminders */}
+            {customFrequency === 'monthly' && (
+              <div className="col-span-2">
+                <label className={`text-[10px] ${subTextClass} font-bold block mb-1`}>Day of Month</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="31"
+                  value={customDay}
+                  onChange={(e) => setCustomDay(e.target.value)}
+                  className={`w-full p-2 text-xs rounded-xl border ${inputBgClass}`}
+                />
+              </div>
+            )}
+
+            {customFrequency === 'yearly' && (
+              <>
+                <div>
+                  <label className={`text-[10px] ${subTextClass} font-bold block mb-1`}>Month</label>
+                  <select
+                    value={customMonth}
+                    onChange={(e) => setCustomMonth(e.target.value)}
+                    className={`w-full p-2 text-xs rounded-xl border ${inputBgClass}`}
+                  >
+                    {MONTHS.map((m) => (
+                      <option key={m.value} value={m.value}>{m.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={`text-[10px] ${subTextClass} font-bold block mb-1`}>Day</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="31"
+                    value={customDay}
+                    onChange={(e) => setCustomDay(e.target.value)}
+                    className={`w-full p-2 text-xs rounded-xl border ${inputBgClass}`}
+                  />
+                </div>
+              </>
+            )}
+
+            {customFrequency === 'one-off' && (
+              <>
+                <div>
+                  <label className={`text-[10px] ${subTextClass} font-bold block mb-1`}>Month</label>
+                  <select
+                    value={customMonth}
+                    onChange={(e) => setCustomMonth(e.target.value)}
+                    className={`w-full p-2 text-xs rounded-xl border ${inputBgClass}`}
+                  >
+                    {MONTHS.map((m) => (
+                      <option key={m.value} value={m.value}>{m.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={`text-[10px] ${subTextClass} font-bold block mb-1`}>Day</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="31"
+                    value={customDay}
+                    onChange={(e) => setCustomDay(e.target.value)}
+                    className={`w-full p-2 text-xs rounded-xl border ${inputBgClass}`}
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className={`text-[10px] ${subTextClass} font-bold block mb-1`}>Year</label>
+                  <input
+                    type="number"
+                    value={customYear}
+                    onChange={(e) => setCustomYear(e.target.value)}
+                    className={`w-full p-2 text-xs rounded-xl border ${inputBgClass}`}
+                  />
+                </div>
+              </>
+            )}
+
+            <input
+              type="number"
+              placeholder={`Amount (${currentCurrency}) - Optional`}
+              value={customAmount}
+              onChange={(e) => setCustomAmount(e.target.value)}
+              className={`col-span-2 p-2.5 text-xs rounded-xl border ${inputBgClass}`}
+            />
           </div>
           <button
             type="button"
-            disabled={saving || !customName.trim() || !customAmount}
+            disabled={!customName.trim() || saving}
             onClick={() =>
               handleSaveObligation({
                 name: customName,
-                category: customCategory,
-                dueDay: customDay,
-                dueTime: customTime,
                 amount: customAmount,
                 frequency: customFrequency,
+                dueDay: customDay,
+                dueMonth: customMonth,
+                dueYear: customYear,
+                dueTime: customTime,
+                type: customAmount ? 'monetary' : 'event',
               })
             }
-            className="w-full bg-black/5 dark:bg-zinc-800 hover:bg-black/10 dark:hover:bg-zinc-700 text-emerald-400 font-bold text-xs py-2.5 rounded-xl border border-black/10 dark:border-zinc-700"
+            className="w-full border border-emerald-500/50 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 font-bold py-2 rounded-xl text-xs transition-all"
           >
-            + Add Custom Item
+            + Add Custom Reminder
           </button>
         </div>
-      )}
 
-      {addedItems.length > 0 && (
-        <div className={`p-3 rounded-2xl border ${inputBgClass} space-y-1`}>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Added ({addedItems.length})</span>
-          {addedItems.map((item, idx) => (
-            <div key={idx} className="flex justify-between text-xs opacity-90">
-              <span>• {item.name} ({item.frequency})</span>
-              <span className="font-semibold">{currentCurrency}{item.amount}</span>
+        {/* Added Items Rich Confirmation Preview List */}
+        {addedItems.length > 0 && (
+          <div className="space-y-2 pt-2">
+            <span className={`text-[11px] font-extrabold ${subTextClass}`}>
+              Configured Reminders ({addedItems.length}):
+            </span>
+            <div className="max-h-36 overflow-y-auto space-y-2 pr-1">
+              {addedItems.map((item, idx) => {
+                const monthLabel = MONTHS.find((m) => m.value === item.due_month)?.label || '';
+                return (
+                  <div key={idx} className="p-2.5 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 space-y-1 text-xs">
+                    <div className="flex justify-between items-center font-bold">
+                      <span className="truncate">{item.name}</span>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">🔔 {item.reminder_time}</span>
+                    </div>
+                    <div className={`flex flex-wrap gap-2 text-[10px] ${subTextClass}`}>
+                      <span className="capitalize bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded">
+                        🔁 {item.frequency}
+                      </span>
+                      {item.frequency === 'monthly' && (
+                        <span>📅 Day {item.due_day} of every month</span>
+                      )}
+                      {item.frequency === 'yearly' && (
+                        <span>📅 {monthLabel} {item.due_day}</span>
+                      )}
+                      {item.frequency === 'one-off' && (
+                        <span>📅 {monthLabel} {item.due_day}, {item.due_year}</span>
+                      )}
+                      {item.frequency === 'daily' && (
+                        <span>📅 Every day</span>
+                      )}
+                      {item.amount > 0 && (
+                        <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                          💰 {currentCurrency}{item.amount}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          ))}
+          </div>
+        )}
+
+        <div className="flex gap-3 pt-2">
+          <button
+            type="button"
+            onClick={() => setStep(3)}
+            className={`w-1/3 py-3 font-bold rounded-xl text-xs border ${cardClass}`}
+          >
+            Back
+          </button>
+          <button
+            type="button"
+            onClick={() => setStep(5)}
+            className={`w-2/3 ${primaryBtnClass} font-extrabold py-3.5 rounded-2xl transition-all shadow-md text-xs`}
+          >
+            Next: WhatsApp Link ➔
+          </button>
         </div>
-      )}
+      </div>
+    );
+  }
+
+  // --- STEP 5: WHATSAPP LINK & FINALIZE ---
+  return (
+    <form onSubmit={handleFinalizeSetup} className={`max-w-md w-full ${cardClass} rounded-3xl p-6 border shadow-2xl space-y-5 box-border`}>
+      <div className="flex justify-between items-center text-xs font-bold opacity-60">
+        <span>STEP 5 OF 5</span>
+        <span className={activeTheme?.accentText}>WhatsApp Link</span>
+      </div>
+
+      <div>
+        <h2 className="text-xl font-extrabold tracking-tight">Connect WhatsApp 📱</h2>
+        <p className={`text-xs ${subTextClass} mt-1`}>Get instant reminder alerts directly on WhatsApp.</p>
+      </div>
+
+      <div className="space-y-3 w-full">
+        <div className="flex flex-col sm:flex-row gap-2 w-full">
+          <select
+            value={phonePrefix}
+            onChange={(e) => setPhonePrefix(e.target.value)}
+            className={`p-3 text-xs rounded-xl border ${inputBgClass} shrink-0`}
+          >
+            {COUNTRY_CODES.map((c) => (
+              <option key={c.code} value={c.code}>{c.label}</option>
+            ))}
+          </select>
+          <input
+            type="tel"
+            required
+            placeholder="9876543210"
+            value={phoneNumber}
+            onChange={(e) => setPhoneNumber(e.target.value)}
+            className={`w-full min-w-0 flex-1 p-3 text-xs rounded-xl border ${inputBgClass} box-border`}
+          />
+        </div>
+        {error && <p className="text-xs text-red-500 font-bold">{error}</p>}
+      </div>
 
       <div className="flex gap-3 pt-2">
         <button
           type="button"
-          onClick={() => setStep(3)}
-          className={`w-1/3 py-3 font-semibold rounded-xl text-xs border ${cardClass}`}
+          onClick={() => setStep(4)}
+          className={`w-1/3 py-3 font-bold rounded-xl text-xs border ${cardClass}`}
         >
-          ← Back
+          Back
         </button>
-        
-        {addedItems.length > 0 ? (
-          <button
-            type="submit"
-            disabled={saving}
-            className="w-2/3 bg-emerald-400 hover:bg-emerald-300 text-black font-extrabold py-3 rounded-2xl text-xs transition-all shadow-md"
-          >
-            {saving ? 'Finishing Up...' : 'Finish Setup 🎉'}
-          </button>
-        ) : (
-          <div className="w-2/3 py-3 bg-zinc-800 text-gray-500 font-semibold rounded-xl text-xs text-center flex items-center justify-center cursor-not-allowed">
-            Add 1 reminder to finish
-          </div>
-        )}
+        <button
+          type="submit"
+          disabled={saving}
+          className={`w-2/3 ${primaryBtnClass} font-extrabold py-3.5 rounded-2xl transition-all shadow-md text-xs`}
+        >
+          {saving ? 'Saving...' : 'Finish Setup 🚀'}
+        </button>
       </div>
     </form>
   );

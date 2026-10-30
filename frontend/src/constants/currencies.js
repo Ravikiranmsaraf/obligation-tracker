@@ -9,7 +9,6 @@ export const WORLD_CURRENCIES = [
   { code: 'JPY', symbol: '¥', name: 'Japanese Yen' },
   { code: 'SGD', symbol: 'S$', name: 'Singapore Dollar' },
   { code: 'AED', symbol: 'AED', name: 'UAE Dirham' },
-  { code: 'AUD', symbol: 'A$', name: 'Australian Dollar' },
   { code: 'CHF', symbol: 'CHF', name: 'Swiss Franc' },
   { code: 'CNY', symbol: '¥', name: 'Chinese Yuan' },
   { code: 'HKD', symbol: 'HK$', name: 'Hong Kong Dollar' },
