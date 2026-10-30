@@ -102,6 +102,60 @@ export const cyclesService = {
       allMonthCompleted: currentMonthPendingCount === 0,
     };
   },
+  // Fetch completed/paid cycles for archive views (This month & Last month)
+  async fetchCompletedCyclesWithHistory(userId) {
+    if (!userId) return [];
+
+    const now = new Date();
+    // Start of last month
+    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
+    // End of current month
+    const endOfCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
+
+    const { data, error } = await supabase
+      .from('obligation_cycles')
+      .select('*')
+      .eq('user_id', userId)
+      .in('status', ['paid', 'completed'])
+      .gte('due_timestamp', startOfLastMonth)
+      .lt('due_timestamp', endOfCurrentMonth)
+      .order('due_timestamp', { ascending: false });
+
+    if (error) throw error;
+
+    return (data || []).map((cycle) => ({
+      ...cycle,
+      name: cycle.name || 'Untitled reminder',
+      category: cycle.category || 'Other',
+    }));
+  },
+
+  // Fetch pending scheduled cycles for the next calendar month (Forward planning)
+  async fetchNextMonthCycles(userId) {
+    if (!userId) return [];
+
+    const now = new Date();
+    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
+    const nextMonthEnd = new Date(now.getFullYear(), now.getMonth() + 2, 1).toISOString();
+
+    const { data, error } = await supabase
+      .from('obligation_cycles')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('status', 'pending')
+      .gte('due_timestamp', nextMonthStart)
+      .lt('due_timestamp', nextMonthEnd)
+      .order('due_timestamp', { ascending: true });
+
+    if (error) throw error;
+
+    return (data || []).map((cycle) => ({
+      ...cycle,
+      name: cycle.name || 'Untitled reminder',
+      category: cycle.category || 'Other',
+      frequency: cycle.frequency || 'monthly',
+    }));
+  },
   
   async updateCycleStatus(cycleId, statusOrAmount, noteOrStatus = 'paid') {
     // Support flexible parameter passing: (cycleId, amount, note) or (cycleId, status, details)

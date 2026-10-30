@@ -1,3 +1,4 @@
+// frontend/src/hooks/useObligationCycles.js
 import { useState, useEffect, useCallback } from 'react';
 import { cyclesService } from '../services/cyclesService';
 import { supabase } from '../lib/supabase';
@@ -18,9 +19,54 @@ export function useObligationCycles(userId) {
       const { combinedCycles, allMonthCompleted: isCompleted, stats } = 
         await cyclesService.fetchActiveCycles(userId);
 
+      // Fetch completed cycles history for this month's stats calculation
+      const completedHistory = await cyclesService.fetchCompletedCyclesWithHistory(userId);
+
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+
+      // Filter completed items for THIS calendar month strictly
+      const thisMonthCompleted = (completedHistory || []).filter((item) => {
+        if (!item.due_timestamp) return false;
+        const d = new Date(item.due_timestamp);
+        return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+      });
+
+      // Filter active pending items that fall strictly within THIS calendar month
+      const thisMonthPending = (combinedCycles || []).filter((item) => {
+        if (!item.due_timestamp && !item.due_date) return false;
+        const d = new Date(item.due_timestamp || item.due_date);
+        return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+      });
+
+      // Strict calendar month counts
+      const completedCount = thisMonthCompleted.length;
+      const remainingCount = thisMonthPending.length;
+
+      // Spent amount from items actually paid/completed this month
+      const spentAmount = thisMonthCompleted.reduce(
+        (sum, item) => sum + (Number(item.expected_amount) || 0),
+        0
+      );
+
+      // Planned amount = Spent so far this month + Pending obligations due strictly this month
+      const pendingThisMonthAmount = thisMonthPending.reduce(
+        (sum, item) => sum + (Number(item.expected_amount) || 0),
+        0
+      );
+
+      const plannedAmount = spentAmount + pendingThisMonthAmount;
+
       setCycles(combinedCycles || []);
       setAllMonthCompleted(isCompleted);
-      if (stats) setMonthlyStats(stats);
+      
+      setMonthlyStats({
+        completedCount,
+        remainingCount,
+        spentAmount,
+        plannedAmount,
+      });
     } catch (err) {
       console.error('Error in useObligationCycles:', err);
     } finally {

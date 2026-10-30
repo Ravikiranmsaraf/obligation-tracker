@@ -95,7 +95,7 @@ export default function PaymentModal({
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 font-sans">
-      {/* Exact same container geometry and border styling as EventModal */}
+      {/* Exact container geometry matching EventModal */}
       <div className={`${cardClass} rounded-3xl max-w-sm w-full p-6 shadow-2xl border transition-all space-y-4`}>
         
         <div className="flex justify-between items-center border-b pb-3 border-white/10">
@@ -106,7 +106,7 @@ export default function PaymentModal({
           <button onClick={onClose} className={`${subTextClass} hover:opacity-100 text-lg p-1`}>✕</button>
         </div>
 
-        {/* Due Date & Time Display Box (Parity with EventModal) */}
+        {/* Due Date & Time Display Box */}
         <div className="bg-slate-800/40 border border-white/5 rounded-2xl p-3 flex items-center justify-between text-xs">
           <span className={subTextClass}>Due Date</span>
           <span className="font-bold text-emerald-400">
@@ -124,7 +124,7 @@ export default function PaymentModal({
                   type="button"
                   disabled={loading}
                   onClick={() => handleQuickActionClick(action)}
-                  className={`py-2.5 px-1 rounded-xl text-[11px] font-extrabold border transition-all text-center truncate ${activeTheme.card} ${subTextClass} hover:border-emerald-400/50 hover:text-white`}
+                  className={`py-2.5 px-1 rounded-xl text-[11px] font-extrabold border transition-all text-center truncate ${cardClass} ${subTextClass} hover:border-emerald-400/50 hover:text-white`}
                 >
                   {action.label}
                 </button>
@@ -164,7 +164,7 @@ export default function PaymentModal({
                 onClick={onClose}
                 className={`w-1/3 font-semibold px-4 py-3 rounded-xl transition-all border text-xs ${cardClass}`}
               >
-                Back
+                Close
               </button>
               <button
                 type="submit"

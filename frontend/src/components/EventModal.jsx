@@ -37,7 +37,7 @@ export default function EventModal({ isOpen, onClose, eventItem, activeTheme, on
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 font-sans">
-      {/* Exact same container geometry and border styling as PaymentModal */}
+      {/* Exact container geometry matching PaymentModal */}
       <div className={`${cardClass} rounded-3xl max-w-sm w-full p-6 shadow-2xl border transition-all space-y-4`}>
         
         <div className="flex justify-between items-center border-b pb-3 border-white/10">
@@ -48,16 +48,12 @@ export default function EventModal({ isOpen, onClose, eventItem, activeTheme, on
           <button onClick={onClose} className={`${subTextClass} hover:opacity-100 text-lg p-1`}>✕</button>
         </div>
 
-        {/* Due Date & Time Display Box (Parity with PaymentModal) */}
+        {/* Due Date & Time Display Box */}
         <div className="bg-slate-800/40 border border-white/5 rounded-2xl p-3 flex items-center justify-between text-xs">
           <span className={subTextClass}>Due Date</span>
           <span className="font-bold text-emerald-400">
             {formatLocalDueDate(eventItem.due_timestamp, eventItem.user_timezone || 'UTC')}
           </span>
-        </div>
-
-        <div className="text-xs opacity-80 leading-relaxed bg-slate-800/20 p-3 rounded-2xl border border-white/5">
-          {eventItem.description || 'No additional details provided for this event.'}
         </div>
 
         <div className="space-y-2 pt-2">
@@ -70,7 +66,7 @@ export default function EventModal({ isOpen, onClose, eventItem, activeTheme, on
                 className={`py-2.5 px-1 rounded-xl text-[11px] font-extrabold border transition-all text-center truncate ${
                   action.type === 'complete'
                     ? 'bg-[#6556e8] text-white border-[#6556e8] hover:bg-[#5344d6] col-span-3'
-                    : `${activeTheme.card} ${subTextClass} hover:border-[#6556e8]/50 hover:text-white`
+                    : `${cardClass} ${subTextClass} hover:border-[#6556e8]/50 hover:text-white`
                 }`}
               >
                 {action.type === 'complete' ? 'Mark Done ✓' : action.label}
@@ -81,7 +77,7 @@ export default function EventModal({ isOpen, onClose, eventItem, activeTheme, on
           <div className="flex items-center gap-2 pt-2">
             <button
               onClick={onClose}
-              className={`w-full py-2.5 rounded-xl border text-xs font-semibold ${subTextClass} hover:opacity-90`}
+              className={`w-full py-2.5 rounded-xl border text-xs font-semibold ${cardClass} ${subTextClass} hover:opacity-90`}
             >
               Close
             </button>

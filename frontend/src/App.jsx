@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Link, useSearchParams } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Link, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { App as CapApp } from '@capacitor/app';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ObligationListView from './components/ObligationListView';
 import ObligationsPage from './pages/ObligationsPage';
-import CompletedItemsPage from './pages/CompletedItemsPage';
 import SettingsModal from './components/SettingsModal';
 import HelpModal from './components/HelpModal';
 import ObligationFormModal from './components/ObligationFormModal';
@@ -12,6 +11,7 @@ import OnboardingWizard from './components/OnboardingWizard';
 import PaywallModal from './components/PaywallModal';
 import PaymentModal from './components/PaymentModal';
 import EventModal from './components/EventModal';
+import TapToSpeakPillBar from './components/TapToSpeakPillBar';
 import { GEN_Z_THEMES } from './constants/categories';
 import { useObligationCycles } from './hooks/useObligationCycles';
 import { obligationsService } from './services/obligationsService';
@@ -21,6 +21,7 @@ import { useSubscription } from './hooks/useSubscription';
 import { supabase } from './lib/supabase';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
+import CompletedOrNextMonthPage from './pages/CompletedOrNextMonthPage';
 
 function InlineLoginPage() {
   const [loading, setLoading] = useState(false);
@@ -83,6 +84,42 @@ function ProtectedRoute({ children }) {
   return <>{children}</>;
 }
 
+function FloatingActionCapsule() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isMasterList = location.pathname === '/obligations';
+
+  return (
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
+      <nav className="bg-slate-900/90 dark:bg-slate-800/90 backdrop-blur-xl border border-white/10 p-1.5 rounded-full shadow-2xl flex items-center gap-1">
+        <button
+          onClick={() => navigate('/')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all ${
+            !isMasterList
+              ? 'bg-[#6556e8] text-white shadow-md'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <span>🏠</span>
+          <span>Home</span>
+        </button>
+
+        <button
+          onClick={() => navigate('/obligations')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all ${
+            isMasterList
+              ? 'bg-[#6556e8] text-white shadow-md'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <span>📌</span>
+          <span>Master List</span>
+        </button>
+      </nav>
+    </div>
+  );
+}
+
 function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol }) {
   const { user, signOut } = useAuth();
   useNotifications(user);
@@ -93,11 +130,11 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
   const [showForm, setShowForm] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Victory card modal
+  const [showVictoryModal, setShowVictoryModal] = useState(false);
 
   // Profile Drawer State
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  // Bottom Capsule Active Tab: 'today' or 'master'
-  const [activeTab, setActiveTab] = useState('today');
 
   const [searchParams, setSearchParams] = useSearchParams();
   const reminderId = searchParams.get('reminderId');
@@ -150,7 +187,7 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
   };
 
   const handleVoiceClick = (e) => {
-    e.stopPropagation();
+    if (e) e.stopPropagation();
     if (!subscription.isPro) {
       setShowPaywall(true);
     } else {
@@ -180,146 +217,130 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
   return (
     <div className={`min-h-screen pb-28 transition-colors duration-300 ${activeTheme.bg} ${activeTheme.text} font-sans relative`}>
       
-      {/* Top Header Bar: Minimalistic Logo (Violet box with C) + Cuenuvo + Profile Avatar Top Right */}
-      <header className={`px-4 py-3 flex justify-between items-center border-b ${activeTheme.card} backdrop-blur-md sticky top-0 z-30`}>
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-[#6556e8] flex items-center justify-center shadow-xs">
-            <span className="text-white font-extrabold text-base tracking-tight">C</span>
+      {/* Top Header Bar (Hidden when Form is active) */}
+      {!showForm && (
+        <header className={`px-4 py-3 flex justify-between items-center border-b ${activeTheme.card} backdrop-blur-md sticky top-0 z-30`}>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-[#6556e8] flex items-center justify-center shadow-xs">
+              <span className="text-white font-extrabold text-base tracking-tight">C</span>
+            </div>
+            <h1 className="text-lg font-extrabold tracking-tight">Cuenuvo</h1>
           </div>
-          <h1 className="text-lg font-extrabold tracking-tight">Cuenuvo</h1>
-        </div>
 
-        <button
-          onClick={() => setIsProfileOpen(true)}
-          className="w-9 h-9 rounded-full bg-[#6556e8]/15 border border-[#6556e8]/30 flex items-center justify-center text-[#6556e8] font-bold text-xs hover:scale-105 transition-transform"
-          aria-label="User Profile & Menu"
-        >
-          {(user?.user_metadata?.full_name || user?.email || 'U')[0].toUpperCase()}
-        </button>
-      </header>
+          <button
+            onClick={() => setIsProfileOpen(true)}
+            className="w-9 h-9 rounded-full bg-[#6556e8]/15 border border-[#6556e8]/30 flex items-center justify-center text-[#6556e8] font-bold text-xs hover:scale-105 transition-transform"
+            aria-label="User Profile & Menu"
+          >
+            {(user?.user_metadata?.full_name || user?.email || 'U')[0].toUpperCase()}
+          </button>
+        </header>
+      )}
 
       <div className="max-w-md mx-auto px-4 pt-4 space-y-4">
         
-        {/* Step 1: Compact Single-Line "This month" Banner */}
-        <div className={`mx-4 mt-3 ${activeTheme.card} rounded-2xl px-3.5 py-2.5 shadow-xs border flex items-center justify-between text-xs`}>
-          <div className="flex items-center gap-1.5">
-            <span className="font-bold tracking-tight text-[11px] opacity-80">This month:</span>
-            <Link
-              to="/completed"
-              className="inline-flex items-center gap-1 bg-emerald-400/15 hover:bg-emerald-400/25 text-emerald-400 font-extrabold px-2 py-0.5 rounded-md border border-emerald-400/30 transition-all text-xs"
-            >
-              {monthlyStats.completedCount} done ➔
-            </Link>
-            <span className={`text-[11px] ${activeTheme.subText}`}>
-              of {monthlyStats.completedCount + monthlyStats.remainingCount}
-            </span>
+        {/* If Form is Open, hide everything else and display full screen modal card */}
+        {showForm ? (
+          <div className="pt-2">
+            <ObligationFormModal
+              editingItem={null}
+              activeTheme={activeTheme}
+              currencySymbol={currencySymbol}
+              onSave={handleSave}
+              onCancel={() => setShowForm(false)}
+              saving={saving}
+              user={user}
+            />
           </div>
+        ) : (
+          <>
+            {/* Achievement Banner */}
+            <div 
+              onClick={() => setShowVictoryModal(true)}
+              className={`w-full mt-1 ${activeTheme.card} rounded-2xl px-5 py-3.5 shadow-sm border border-emerald-500/30 bg-gradient-to-r from-emerald-500/5 via-[#6556e8]/5 to-emerald-500/5 cursor-pointer hover:border-emerald-400/60 transition-all group`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-base shrink-0 group-hover:scale-110 transition-transform">✨</span>
+                  <span className="text-xs font-bold tracking-tight text-emerald-400 leading-normal">
+                    This month: {monthlyStats.completedCount} of {monthlyStats.completedCount + monthlyStats.remainingCount} done &nbsp;•&nbsp; {currencySymbol}{monthlyStats.spentAmount.toLocaleString('en-IN')} spent of {currencySymbol}{monthlyStats.plannedAmount.toLocaleString('en-IN')} planned
+                  </span>
+                </div>
+                <span className="text-xs font-bold text-[#6556e8] shrink-0"> › </span>
+              </div>
+            </div>
 
-          <div className="text-right text-xs">
-            <span className="font-bold text-emerald-400">{currencySymbol}{monthlyStats.spentAmount.toLocaleString('en-IN')}</span>
-            <span className={`text-[11px] ${activeTheme.subText}`}> / {currencySymbol}{monthlyStats.plannedAmount.toLocaleString('en-IN')}</span>
+            {/* TapToSpeakPillBar */}
+            <TapToSpeakPillBar
+              onVoiceClick={handleVoiceClick}
+              onOpenForm={() => setShowForm(true)}
+              isPro={subscription.isPro}
+              activeTheme={activeTheme}
+            />
+
+            {loading ? (
+              <div className={`flex items-center justify-center min-h-[40vh] ${activeTheme.subText} text-sm`}>Loading upcoming items...</div>
+            ) : (
+              <ObligationListView
+                cycles={cycles}
+                onMarkPaid={markCyclePaid}
+                currencySymbol={currencySymbol}
+                activeTheme={activeTheme}
+                user={user}
+                onDefer={async (cycleId, action) => {
+                  await obligationsService.deferCycle(cycleId, action, user.id);
+                  await refreshCycles();
+                }}
+              />
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Floating Action Capsule Navigation (Hidden when Form is active) */}
+      {!showForm && <FloatingActionCapsule />}
+
+      {/* Zen Victory Card Modal */}
+      {showVictoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className={`w-full max-w-xs ${activeTheme.card} border rounded-3xl p-6 shadow-2xl text-center space-y-4 relative`}>
+            <div className="w-12 h-12 mx-auto rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 text-xl font-bold">
+              💎
+            </div>
+            
+            <div className="space-y-1">
+              <h3 className="text-base font-extrabold tracking-tight">In Control 💎</h3>
+              <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed font-medium">
+                You are aligned and moving forward effortlessly.
+              </p>
+            </div>
+
+            <div className="py-2.5 px-3 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+              {monthlyStats.remainingCount} items left to complete this month
+            </div>
+
+            <div className="space-y-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowVictoryModal(false)}
+                className="w-full py-2.5 rounded-xl bg-[#6556e8] hover:bg-[#5344d6] text-white text-xs font-bold transition-all shadow-md active:scale-95"
+              >
+                Keep Rolling ✨
+              </button>
+              
+              <Link
+                to="/completed?tab=completed"
+                onClick={() => setShowVictoryModal(false)}
+                className="block w-full py-2 text-[11px] font-bold text-emerald-400 hover:underline"
+              >
+                View completed history & undo items ➔
+              </Link>
+            </div>
           </div>
         </div>
+      )}
 
-        {showForm ? (
-          <ObligationFormModal
-            editingItem={null}
-            activeTheme={activeTheme}
-            currencySymbol={currencySymbol}
-            onSave={handleSave}
-            onCancel={() => setShowForm(false)}
-            saving={saving}
-            user={user}
-          />
-        ) : (
-          <div className={`${activeTheme.inputBg} rounded-2xl p-4 shadow-sm border space-y-3`}>
-            <div onClick={() => setShowForm(true)} className="cursor-pointer flex items-center justify-between group">
-              <div>
-                <p className="font-bold text-xs tracking-wide">Add reminder by typing...</p>
-                <p className={`text-[11px] ${activeTheme.subText} mt-0.5`}>Tap to manually add bill or event</p>
-              </div>
-              <span className="text-xs font-bold text-emerald-500 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 group-hover:bg-emerald-400 group-hover:text-black transition-all">
-                + New Item
-              </span>
-            </div>
-            <div className="pt-2 border-t border-black/10 dark:border-white/10 flex items-center justify-between">
-              <div onClick={handleVoiceClick} className="flex items-center gap-2 cursor-pointer group">
-                <span className="w-8 h-8 rounded-lg bg-emerald-400/10 border border-emerald-400/20 flex items-center justify-center text-sm">🎙️</span>
-                <div>
-                  <p className="font-bold text-[11px] flex items-center gap-1">
-                    Voice Quick Capture
-                    {!subscription.isPro && <span className="text-[9px] bg-emerald-400/20 text-emerald-400 px-1.5 py-0.2 rounded-md font-extrabold">PRO 👑</span>}
-                  </p>
-                  <p className={`text-[10px] ${activeTheme.subText}`}>Hands-free AI speech parser</p>
-                </div>
-              </div>
-              <button type="button" onClick={handleVoiceClick} className="text-[11px] font-bold text-emerald-400 hover:underline">
-                {subscription.isPro ? 'Speak ➔' : 'Unlock 🔒'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {loading ? (
-          <div className={`flex items-center justify-center min-h-[40vh] ${activeTheme.subText} text-sm`}>Loading upcoming items...</div>
-        ) : (
-          /* Conditional view based on Floating Capsule activeTab */
-          activeTab === 'today' ? (
-            <ObligationListView
-              cycles={cycles}
-              onMarkPaid={markCyclePaid}
-              currencySymbol={currencySymbol}
-              activeTheme={activeTheme}
-              user={user}
-              onDefer={async (cycleId, action) => {
-                await obligationsService.deferCycle(cycleId, action, user.id);
-                await refreshCycles();
-              }}
-            />
-          ) : (
-            <div className="space-y-3">
-              <h2 className="text-xs font-extrabold uppercase tracking-wider text-[#6556e8] px-1">Master Obligations List</h2>
-              <p className={`text-xs ${activeTheme.subText} px-1`}>Viewing all active and recurring obligations.</p>
-              {/* Master list summary/link */}
-              <div className={`p-4 rounded-2xl border ${activeTheme.card} flex items-center justify-between`}>
-                <span className="text-xs font-bold">Manage full master database</span>
-                <Link to="/obligations" className="text-xs font-bold text-emerald-400 hover:underline">Open Master Page ➔</Link>
-              </div>
-            </div>
-          )
-        )}
-      </div>
-
-      {/* Step 4: Floating Action Capsule (Bottom-Center Navigation) */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
-        <nav className="bg-slate-900/90 dark:bg-slate-800/90 backdrop-blur-xl border border-white/10 p-1.5 rounded-full shadow-2xl flex items-center gap-1">
-          <button
-            onClick={() => setActiveTab('today')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all ${
-              activeTab === 'today'
-                ? 'bg-[#6556e8] text-white shadow-md'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <span>🏠</span>
-            <span>Today</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('master')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all ${
-              activeTab === 'master'
-                ? 'bg-[#6556e8] text-white shadow-md'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <span>📌</span>
-            <span>Master List</span>
-          </button>
-        </nav>
-      </div>
-
-      {/* Top-Right Profile Drawer (Secondary Hub: Settings, Completed, Help, Next Month) */}
+      {/* Profile Drawer */}
       {isProfileOpen && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-xs">
           <div className={`w-72 h-full ${activeTheme.card} border-l p-5 shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200`}>
@@ -344,7 +365,7 @@ function HomeContent({ themeKey, setThemeKey, currencySymbol, setCurrencySymbol 
 
               <div className="space-y-1">
                 <Link
-                  to="/completed"
+                  to="/completed?tab=completed"
                   onClick={() => setIsProfileOpen(false)}
                   className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#6556e8]/10 text-xs font-semibold transition-colors"
                 >
@@ -470,9 +491,10 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<InlineLoginPage />} />
-          <Route path="/completed" element={<ProtectedRoute><CompletedItemsPage currencySymbol={currencySymbol} themeKey={themeKey} /></ProtectedRoute>} />
           <Route path="/obligations" element={<ProtectedRoute><ObligationsPage themeKey={themeKey} currencySymbol={currencySymbol} /></ProtectedRoute>} />
           <Route path="/" element={<ProtectedRoute><HomeContent themeKey={themeKey} setThemeKey={(key) => { localStorage.setItem('Cuenuvo_theme', key); setThemeKey(key); }} currencySymbol={currencySymbol} setCurrencySymbol={(symbol) => { localStorage.setItem('currencySymbol', symbol); setCurrencySymbol(symbol); }} /></ProtectedRoute>} />
+          <Route path="/completed" element={<ProtectedRoute><CompletedOrNextMonthPage currencySymbol={currencySymbol} themeKey={themeKey} /></ProtectedRoute>} />
+          <Route path="/archive" element={<ProtectedRoute><CompletedOrNextMonthPage currencySymbol={currencySymbol} themeKey={themeKey} /></ProtectedRoute>} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
