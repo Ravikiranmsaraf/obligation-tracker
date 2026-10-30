@@ -38,7 +38,6 @@ const PRESETS = [
   { name: 'Electricity Bill', category: 'Bills', defaultDay: 5, defaultMonth: 1, defaultAmount: 1500, frequency: 'monthly', type: 'monetary' },
   { name: "Spouse's Birthday 🎂", category: 'Personal', defaultDay: 15, defaultMonth: 3, defaultAmount: 0, frequency: 'yearly', type: 'event' },
   { name: 'Wedding Anniversary 💍', category: 'Personal', defaultDay: 10, defaultMonth: 11, defaultAmount: 0, frequency: 'yearly', type: 'event' },
-  { name: 'Review Quarterly Goals', category: 'Work', defaultDay: 30, defaultMonth: 3, defaultAmount: 0, frequency: 'one-off', type: 'event' },
   { name: 'Health Checkup', category: 'Health', defaultDay: 10, defaultMonth: 6, defaultAmount: 2500, frequency: 'yearly', type: 'monetary' },
 ];
 
@@ -48,8 +47,6 @@ export default function OnboardingWizard({
   onSelectTheme,
   currentCurrency,
   onSelectCurrency,
-  currentFontSize = 'standard',
-  onSelectFontSize,
   onNext,
 }) {
   const [step, setStep] = useState(1);
@@ -86,12 +83,6 @@ export default function OnboardingWizard({
     { key: 'light', label: 'Clean Light ☀️' },
     { key: 'cyberLime', label: 'Cyber Dark 🌙' },
     { key: 'system', label: 'System Auto 💻' },
-  ];
-
-  const fontSizeOptions = [
-    { key: 'compact', label: '📱 Compact (Dense)' },
-    { key: 'standard', label: '⚖️ Standard (Balanced)' },
-    { key: 'large', label: '🔍 Large (High Legibility)' },
   ];
 
   const handleSelectPreset = (preset) => {
@@ -194,7 +185,7 @@ export default function OnboardingWizard({
     return (
       <div className={`max-w-md w-full ${cardClass} rounded-3xl p-6 border shadow-2xl space-y-5`}>
         <div className="flex justify-between items-center text-xs font-bold opacity-60">
-          <span>STEP 1 OF 5</span>
+          <span>STEP 1 OF 4</span>
           <span className={activeTheme?.accentText}>Appearance</span>
         </div>
 
@@ -229,77 +220,18 @@ export default function OnboardingWizard({
           onClick={() => setStep(2)}
           className={`w-full ${primaryBtnClass} font-extrabold py-3.5 rounded-2xl transition-all shadow-md text-xs`}
         >
-          Next: Text Size ➔
+          Next: Currency ➔
         </button>
       </div>
     );
   }
 
-  // --- STEP 2: TEXT SIZE PREFERENCE ---
+  // --- STEP 2: CURRENCY SELECTION ---
   if (step === 2) {
     return (
       <div className={`max-w-md w-full ${cardClass} rounded-3xl p-6 border shadow-2xl space-y-5`}>
         <div className="flex justify-between items-center text-xs font-bold opacity-60">
-          <span>STEP 2 OF 5</span>
-          <span className={activeTheme?.accentText}>Text Size</span>
-        </div>
-
-        <div>
-          <h2 className="text-xl font-extrabold tracking-tight">Choose Text Scale 🔍</h2>
-          <p className={`text-xs ${subTextClass} mt-1`}>Select your comfortable interface reading size.</p>
-        </div>
-
-        <div className="space-y-2">
-          {fontSizeOptions.map(({ key, label }) => {
-            const isSelected = currentFontSize === key;
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => {
-                  if (onSelectFontSize) {
-                    onSelectFontSize(key);
-                  }
-                }}
-                className={`w-full p-3 rounded-xl border text-xs font-bold flex justify-between items-center transition-all ${
-                  isSelected
-                    ? 'border-[#6556e8] bg-[#6556e8]/15 text-[#6556e8]'
-                    : `${inputBgClass} ${subTextClass} hover:opacity-80`
-                }`}
-              >
-                <span>{label}</span>
-                {isSelected && <span className="text-[#6556e8]">✓</span>}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="flex gap-3 pt-2">
-          <button
-            type="button"
-            onClick={() => setStep(1)}
-            className={`w-1/3 py-3 font-bold rounded-xl text-xs border ${cardClass}`}
-          >
-            Back
-          </button>
-          <button
-            type="button"
-            onClick={() => setStep(3)}
-            className={`w-2/3 ${primaryBtnClass} font-extrabold py-3.5 rounded-2xl transition-all shadow-md text-xs`}
-          >
-            Next: Currency ➔
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // --- STEP 3: CURRENCY SELECTION ---
-  if (step === 3) {
-    return (
-      <div className={`max-w-md w-full ${cardClass} rounded-3xl p-6 border shadow-2xl space-y-5`}>
-        <div className="flex justify-between items-center text-xs font-bold opacity-60">
-          <span>STEP 3 OF 5</span>
+          <span>STEP 2 OF 4</span>
           <span className={activeTheme?.accentText}>Currency</span>
         </div>
 
@@ -332,14 +264,14 @@ export default function OnboardingWizard({
         <div className="flex gap-3 pt-2">
           <button
             type="button"
-            onClick={() => setStep(2)}
+            onClick={() => setStep(1)}
             className={`w-1/3 py-3 font-bold rounded-xl text-xs border ${cardClass}`}
           >
             Back
           </button>
           <button
             type="button"
-            onClick={() => setStep(4)}
+            onClick={() => setStep(3)}
             className={`w-2/3 ${primaryBtnClass} font-extrabold py-3.5 rounded-2xl transition-all shadow-md text-xs`}
           >
             Next: Presets ➔
@@ -349,12 +281,12 @@ export default function OnboardingWizard({
     );
   }
 
-  // --- STEP 4: PRESETS & REMINDERS ---
-  if (step === 4) {
+  // --- STEP 3: PRESETS & REMINDERS ---
+  if (step === 3) {
     return (
       <div className={`max-w-md w-full ${cardClass} rounded-3xl p-6 border shadow-2xl space-y-5`}>
         <div className="flex justify-between items-center text-xs font-bold opacity-60">
-          <span>STEP 4 OF 5</span>
+          <span>STEP 3 OF 4</span>
           <span className={activeTheme?.accentText}>Presets & Reminders</span>
         </div>
 
@@ -693,14 +625,14 @@ export default function OnboardingWizard({
         <div className="flex gap-3 pt-2">
           <button
             type="button"
-            onClick={() => setStep(3)}
+            onClick={() => setStep(2)}
             className={`w-1/3 py-3 font-bold rounded-xl text-xs border ${cardClass}`}
           >
             Back
           </button>
           <button
             type="button"
-            onClick={() => setStep(5)}
+            onClick={() => setStep(4)}
             className={`w-2/3 ${primaryBtnClass} font-extrabold py-3.5 rounded-2xl transition-all shadow-md text-xs`}
           >
             Next: WhatsApp Link ➔
@@ -710,11 +642,11 @@ export default function OnboardingWizard({
     );
   }
 
-  // --- STEP 5: WHATSAPP LINK & FINALIZE ---
+  // --- STEP 4: WHATSAPP LINK & FINALIZE ---
   return (
     <form onSubmit={handleFinalizeSetup} className={`max-w-md w-full ${cardClass} rounded-3xl p-6 border shadow-2xl space-y-5 box-border`}>
       <div className="flex justify-between items-center text-xs font-bold opacity-60">
-        <span>STEP 5 OF 5</span>
+        <span>STEP 4 OF 4</span>
         <span className={activeTheme?.accentText}>WhatsApp Link</span>
       </div>
 
@@ -749,7 +681,7 @@ export default function OnboardingWizard({
       <div className="flex gap-3 pt-2">
         <button
           type="button"
-          onClick={() => setStep(4)}
+          onClick={() => setStep(3)}
           className={`w-1/3 py-3 font-bold rounded-xl text-xs border ${cardClass}`}
         >
           Back
