@@ -10,6 +10,7 @@ export default function PaymentModal({
   onDefer,
   user,
   activeTheme,
+  isForwardPlanning = false,
 }) {
   if (!isOpen || !cycle) return null;
 
@@ -21,9 +22,9 @@ export default function PaymentModal({
   const subTextClass = activeTheme?.subText || 'text-gray-400';
   const inputBgClass = activeTheme?.inputBg || 'bg-zinc-950';
 
-  const actions = getQuickDeferralActions(cycle.frequency).filter(
-    (action) => action.type !== 'complete'
-  );
+  const actions = isForwardPlanning
+    ? []
+    : getQuickDeferralActions(cycle.frequency).filter((action) => action.type !== 'complete');
 
   const formatLocalDueDate = (timestamp, timeZone = 'UTC') => {
     if (!timestamp) return 'Scheduled';
@@ -112,7 +113,7 @@ export default function PaymentModal({
           </span>
         </div>
 
-        {actions.length > 0 && (
+        {!isForwardPlanning && actions.length > 0 && (
           <div>
             <p className={`text-[10px] uppercase font-bold tracking-wider ${subTextClass} mb-1.5`}>Quick Actions</p>
             <div className={`grid gap-2 ${actions.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>

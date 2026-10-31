@@ -1,13 +1,17 @@
 import React from 'react';
 import { getQuickDeferralActions } from '../utils/quickDeferralUtils';
 
-export default function EventModal({ isOpen, onClose, eventItem, activeTheme, onConfirm, onDefer, user }) {
+export default function EventModal({ isOpen, onClose, eventItem, activeTheme, onConfirm, onDefer, user, isForwardPlanning = false }) {
   if (!isOpen || !eventItem) return null;
 
   const cardClass = activeTheme?.card || 'bg-zinc-900 border-zinc-800 text-white';
   const subTextClass = activeTheme?.subText || 'text-gray-400';
 
-  const actions = getQuickDeferralActions(eventItem.frequency);
+  // If forward planning, only keep the complete/mark done action, strip out snooze/skip
+  const rawActions = getQuickDeferralActions(eventItem.frequency);
+  const actions = isForwardPlanning
+    ? rawActions.filter((action) => action.type === 'complete')
+    : rawActions;
 
   const formatLocalDueDate = (timestamp, timeZone = 'UTC') => {
     if (!timestamp) return 'Scheduled';
@@ -56,22 +60,26 @@ export default function EventModal({ isOpen, onClose, eventItem, activeTheme, on
         </div>
 
         <div className="space-y-2 pt-2">
-          <p className={`text-[10px] uppercase font-bold tracking-wider ${subTextClass} mb-1`}>Quick Actions</p>
-          <div className="grid grid-cols-3 gap-2">
-            {actions.map((action) => (
-              <button
-                key={action.id}
-                onClick={() => handleActionClick(action)}
-                className={`py-2.5 px-1 rounded-xl text-[11px] font-extrabold border transition-all text-center truncate ${
-                  action.type === 'complete'
-                    ? 'bg-[#6556e8] text-white border-[#6556e8] hover:bg-[#5344d6] col-span-3'
-                    : `${cardClass} ${subTextClass} hover:border-[#6556e8]/50 hover:text-white`
-                }`}
-              >
-                {action.type === 'complete' ? 'Mark Done ✓' : action.label}
-              </button>
-            ))}
-          </div>
+          {actions.length > 0 && (
+            <>
+              <p className={`text-[10px] uppercase font-bold tracking-wider ${subTextClass} mb-1`}>Quick Actions</p>
+              <div className="grid grid-cols-3 gap-2">
+                {actions.map((action) => (
+                  <button
+                    key={action.id}
+                    onClick={() => handleActionClick(action)}
+                    className={`py-2.5 px-1 rounded-xl text-[11px] font-extrabold border transition-all text-center truncate ${
+                      action.type === 'complete'
+                        ? 'bg-[#6556e8] text-white border-[#6556e8] hover:bg-[#5344d6] col-span-3'
+                        : `${cardClass} ${subTextClass} hover:border-[#6556e8]/50 hover:text-white`
+                    }`}
+                  >
+                    {action.type === 'complete' ? 'Mark Done ✓' : action.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
 
           <div className="flex items-center gap-2 pt-2">
             <button

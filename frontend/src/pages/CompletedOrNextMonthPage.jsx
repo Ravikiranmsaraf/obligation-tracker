@@ -145,7 +145,7 @@ export default function CompletedOrNextMonthPage({ currencySymbol = '₹', theme
                       return (
                         <div
                           key={item.id}
-                          onClick={() => setReopenCycle(item)} // Clicking row opens Reopen Modal on Completed Tab
+                          onClick={() => setReopenCycle(item)}
                           className="p-3 rounded-xl bg-black/5 dark:bg-white/5 border border-white/5 flex items-center justify-between text-xs cursor-pointer hover:border-[#6556e8]/40 transition-all gap-3"
                         >
                           <div className="min-w-0 flex-1">
@@ -201,7 +201,7 @@ export default function CompletedOrNextMonthPage({ currencySymbol = '₹', theme
                     lastMonthCompleted.map((item) => (
                       <div
                         key={item.id}
-                        onClick={() => setReopenCycle(item)} // Clicking row opens Reopen Modal on Completed Tab
+                        onClick={() => setReopenCycle(item)}
                         className="p-3 rounded-xl bg-black/5 dark:bg-white/5 border border-white/5 flex items-center justify-between text-xs opacity-90 cursor-pointer hover:border-[#6556e8]/40 transition-all gap-3"
                       >
                         <div className="min-w-0 flex-1">
@@ -246,7 +246,7 @@ export default function CompletedOrNextMonthPage({ currencySymbol = '₹', theme
                 {nextMonthItems.map((item) => (
                   <div
                     key={item.id}
-                    onClick={() => setSelectedCycle(item)} // Clicking row opens Payment/Event Modal on Next Month Tab
+                    onClick={() => setSelectedCycle(item)}
                     className={`${activeTheme.card} p-4 rounded-2xl border flex items-center justify-between shadow-xs gap-3 cursor-pointer hover:border-[#6556e8]/50 transition-all`}
                   >
                     <div className="min-w-0 flex-1">
@@ -287,7 +287,7 @@ export default function CompletedOrNextMonthPage({ currencySymbol = '₹', theme
         />
       )}
 
-      {/* Payment / Event Modals for Next Month Tab */}
+      {/* Payment / Event Modals for Next Month Tab (with forward planning flag to disable snooze) */}
       {selectedCycle && activeTab === 'next_month' && (
         isMonetary ? (
           <PaymentModal
@@ -296,6 +296,7 @@ export default function CompletedOrNextMonthPage({ currencySymbol = '₹', theme
             activeTheme={activeTheme}
             currencySymbol={currencySymbol}
             user={user}
+            isForwardPlanning={true}
             onClose={() => setSelectedCycle(null)}
             onConfirmPayment={async (cycleId, amountOrStatus, notes) => {
               await cyclesService.updateCycleStatus(cycleId, amountOrStatus, notes);
@@ -309,6 +310,7 @@ export default function CompletedOrNextMonthPage({ currencySymbol = '₹', theme
             eventItem={selectedCycle}
             activeTheme={activeTheme}
             user={user}
+            isForwardPlanning={true}
             onClose={() => setSelectedCycle(null)}
             onConfirm={async (status = 'completed') => {
               await cyclesService.updateCycleStatus(selectedCycle.id, status, 'Updated status');
