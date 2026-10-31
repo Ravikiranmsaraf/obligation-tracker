@@ -1,9 +1,14 @@
 {
   "devDependencies": {
-    "supabase": "^2.119.0"
+    "supabase": "^2.119.0",
+    "vitest": "^5.0.5"
   },
   "dependencies": {
     "dotenv": "^18.0.5",
     "ws": "^8.22.0"
+  },
+  "scripts": {
+  "test": "vitest",
+  "test:run": "vitest run"
   }
 }

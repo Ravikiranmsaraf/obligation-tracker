@@ -37,12 +37,11 @@ export default function EventModal({ isOpen, onClose, eventItem, activeTheme, on
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 font-sans">
-      {/* Exact container geometry matching PaymentModal */}
       <div className={`${cardClass} rounded-3xl max-w-sm w-full p-6 shadow-2xl border transition-all space-y-4`}>
         
         <div className="flex justify-between items-center border-b pb-3 border-white/10">
           <div>
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#6556e8]">Scheduled Event</span>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#6556e8]">Scheduled Event / Task</span>
             <h3 className="text-base font-bold tracking-tight mt-0.5">{eventItem.name || eventItem.obligation_name}</h3>
           </div>
           <button onClick={onClose} className={`${subTextClass} hover:opacity-100 text-lg p-1`}>✕</button>

@@ -157,18 +157,26 @@ export const cyclesService = {
     }));
   },
   
-  async updateCycleStatus(cycleId, statusOrAmount, noteOrStatus = 'paid') {
-    // Support flexible parameter passing: (cycleId, amount, note) or (cycleId, status, details)
+  async updateCycleStatus(cycleId, statusOrAmount, noteOrStatus = 'paid', newDueTimestamp = null) {
+    if (statusOrAmount && typeof statusOrAmount === 'object') {
+      const payload = statusOrAmount;
+      statusOrAmount = payload.amount_paid ?? payload.status ?? 'paid';
+      noteOrStatus = payload.notes ?? payload.payment_note ?? 'paid';
+    }
+
     let status = 'paid';
     let updateData = { paid_at: new Date().toISOString() };
 
-    if (['paid', 'completed', 'skipped', 'cancelled'].includes(statusOrAmount)) {
+    if (['paid', 'completed', 'skipped', 'cancelled', 'pending'].includes(statusOrAmount)) {
       status = statusOrAmount;
+      if (status === 'pending') {
+        updateData.paid_at = null; // Clear completion timestamp when reopening
+        updateData.payment_note = null;
+      }
       if (typeof noteOrStatus === 'string' && noteOrStatus) {
         updateData.payment_note = noteOrStatus.trim();
       }
     } else {
-      // Legacy monetary payment flow
       const amount = Number(statusOrAmount) || 0;
       status = 'paid';
       updateData.expected_amount = amount;
@@ -179,40 +187,28 @@ export const cyclesService = {
 
     updateData.status = status;
 
-    // 1. Fetch cycle info to check if it's a one-off reminder
+    // If a new due timestamp was provided (e.g., from ReopenCycleModal), update it!
+    if (newDueTimestamp) {
+      updateData.due_timestamp = newDueTimestamp;
+    }
+
     const { data: cycleData, error: fetchErr } = await supabase
       .from('obligation_cycles')
-      .select('obligation_id, frequency')
+      .select('obligation_id, frequency, user_id')
       .eq('id', cycleId)
       .single();
 
     if (fetchErr) throw fetchErr;
 
-    // 2. Update cycle status
     const { data, error } = await supabase
       .from('obligation_cycles')
       .update(updateData)
       .eq('id', cycleId)
+      .eq('user_id', cycleData.user_id)
       .select()
       .single();
 
     if (error) throw error;
-
-    // 3. Auto-archive (deactivate) parent obligation if it's a one-off reminder and finished
-    if (cycleData?.obligation_id && FINISHED_STATUSES.includes(status)) {
-      const { data: oblData } = await supabase
-        .from('obligations')
-        .select('frequency')
-        .eq('id', cycleData.obligation_id)
-        .single();
-
-      if (oblData?.frequency === 'one-off' || cycleData?.frequency === 'one-off') {
-        await supabase
-          .from('obligations')
-          .update({ is_active: false })
-          .eq('id', cycleData.obligation_id);
-      }
-    }
 
     return data;
   },

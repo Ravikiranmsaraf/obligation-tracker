@@ -44,7 +44,7 @@ export default function PaymentModal({
     e.preventDefault();
     setLoading(true);
     try {
-      await onConfirmPayment(cycle.id, { amount_paid: Number(amountPaid), notes: notes.trim() });
+      await onConfirmPayment(cycle.id, Number(amountPaid), notes.trim());
       onClose();
     } catch (err) {
       console.error('Error recording payment:', err);
@@ -58,7 +58,7 @@ export default function PaymentModal({
     if (action.type === 'skip') {
       setLoading(true);
       try {
-        await onConfirmPayment(cycle.id, { amount_paid: 'skipped', notes: 'Quick action: Skipped' });
+        await onConfirmPayment(cycle.id, 'skipped', 'Quick action: Skipped');
         onClose();
       } catch (err) {
         console.error('Error skipping cycle:', err);
@@ -83,7 +83,7 @@ export default function PaymentModal({
     if (!confirm('Cancel this bill occurrence? It will be removed from your active list.')) return;
     setLoading(true);
     try {
-      await onConfirmPayment(cycle.id, { amount_paid: 'cancelled', notes: 'Cancelled by user' });
+      await onConfirmPayment(cycle.id, 'cancelled', 'Cancelled by user');
       onClose();
     } catch (err) {
       console.error('Error cancelling bill:', err);
@@ -95,7 +95,6 @@ export default function PaymentModal({
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 font-sans">
-      {/* Exact container geometry matching EventModal */}
       <div className={`${cardClass} rounded-3xl max-w-sm w-full p-6 shadow-2xl border transition-all space-y-4`}>
         
         <div className="flex justify-between items-center border-b pb-3 border-white/10">
@@ -106,7 +105,6 @@ export default function PaymentModal({
           <button onClick={onClose} className={`${subTextClass} hover:opacity-100 text-lg p-1`}>✕</button>
         </div>
 
-        {/* Due Date & Time Display Box */}
         <div className="bg-slate-800/40 border border-white/5 rounded-2xl p-3 flex items-center justify-between text-xs">
           <span className={subTextClass}>Due Date</span>
           <span className="font-bold text-emerald-400">

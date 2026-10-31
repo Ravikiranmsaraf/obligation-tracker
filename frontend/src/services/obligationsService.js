@@ -192,12 +192,17 @@ export const obligationsService = {
     const now = new Date();
     const localToday = getLocalDateParts(now, userTimezone);
 
+    // Filter out one-off obligations that are in the past
     const filteredData = (data || []).filter((item) => {
       if (item.frequency !== 'one-off') return true;
       const day = item.due_day;
       const month = item.due_month || (localToday.month + 1);
       const year = item.due_year || localToday.year;
-      return !isBeforeToday(year, month - 1, day, localToday);
+      
+      // Hide one-offs that are in the past
+      if (isBeforeToday(year, month - 1, day, localToday)) return false;
+      
+      return true;
     });
 
     return filteredData;
@@ -570,8 +575,19 @@ export const obligationsService = {
 
     return obligation;
   },
-
+  // Soft delete an obligation and its future cycles, keeping past history for audits
   async deleteObligation(userId, id) {
+    // 1. Delete all pending (future/upcoming) cycles for this obligation so they clear out and stop triggering
+    const { error: cyclesError } = await supabase
+      .from('obligation_cycles')
+      .delete()
+      .eq('obligation_id', id)
+      .eq('user_id', userId)
+      .eq('status', 'pending');
+
+    if (cyclesError) throw cyclesError;
+
+    // 2. Mark parent obligation inactive (soft-archive) so past completed/paid history cycles remain linked for audits
     const { error } = await supabase
       .from('obligations')
       .update({ is_active: false })
@@ -580,6 +596,7 @@ export const obligationsService = {
 
     if (error) throw error;
   },
+  
 };
 
 export default obligationsService;

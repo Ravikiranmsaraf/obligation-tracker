@@ -18,10 +18,10 @@ export default function CompletedOrNextMonthPage({ currencySymbol = '₹', theme
   const [nextMonthItems, setNextMonthItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Selected item state for Modals
+  // Selected item states
   const [selectedCycle, setSelectedCycle] = useState(null);
+  const [reopenCycle, setReopenCycle] = useState(null);
 
-  // Accordion state
   const [isThisMonthOpen, setIsThisMonthOpen] = useState(true);
   const [isLastMonthOpen, setIsLastMonthOpen] = useState(false);
 
@@ -70,6 +70,8 @@ export default function CompletedOrNextMonthPage({ currencySymbol = '₹', theme
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
   const thisMonthCompleted = completedItems.filter((item) => {
     if (!item.due_timestamp) return false;
@@ -88,7 +90,6 @@ export default function CompletedOrNextMonthPage({ currencySymbol = '₹', theme
 
   return (
     <div className={`min-h-screen pb-24 transition-colors duration-300 ${activeTheme.bg} ${activeTheme.text} font-sans`}>
-      {/* Header */}
       <div className={`px-4 py-4 flex items-center justify-between border-b ${activeTheme.card} backdrop-blur-md sticky top-0 z-20`}>
         <div className="flex items-center gap-3">
           <Link to="/" className="text-xs font-bold text-emerald-400 hover:underline">← Home</Link>
@@ -97,15 +98,12 @@ export default function CompletedOrNextMonthPage({ currencySymbol = '₹', theme
       </div>
 
       <div className="max-w-md mx-auto px-4 pt-4 space-y-4">
-        {/* Segmented Tab Switcher */}
         <div className="grid grid-cols-2 gap-2 bg-black/10 dark:bg-black/50 p-1 rounded-2xl border border-black/10 dark:border-white/10">
           <button
             type="button"
             onClick={() => handleTabChange('completed')}
             className={`py-2 text-xs font-bold rounded-xl transition-all ${
-              activeTab === 'completed'
-                ? 'bg-[#6556e8] text-white shadow-md'
-                : `${activeTheme.subText} hover:opacity-80`
+              activeTab === 'completed' ? 'bg-[#6556e8] text-white shadow-md' : `${activeTheme.subText} hover:opacity-80`
             }`}
           >
             ✅ Completed ({completedItems.length})
@@ -114,9 +112,7 @@ export default function CompletedOrNextMonthPage({ currencySymbol = '₹', theme
             type="button"
             onClick={() => handleTabChange('next_month')}
             className={`py-2 text-xs font-bold rounded-xl transition-all ${
-              activeTab === 'next_month'
-                ? 'bg-[#6556e8] text-white shadow-md'
-                : `${activeTheme.subText} hover:opacity-80`
+              activeTab === 'next_month' ? 'bg-[#6556e8] text-white shadow-md' : `${activeTheme.subText} hover:opacity-80`
             }`}
           >
             🗓️ Next Month ({nextMonthItems.length})
@@ -126,7 +122,6 @@ export default function CompletedOrNextMonthPage({ currencySymbol = '₹', theme
         {loading ? (
           <div className={`text-center py-12 ${activeTheme.subText} text-xs`}>Loading obligations...</div>
         ) : activeTab === 'completed' ? (
-          /* 1. COMPLETED VIEW */
           <div className="space-y-4">
             {/* This Month Accordion */}
             <div className={`rounded-2xl border ${activeTheme.card} p-4 space-y-3`}>
@@ -141,43 +136,48 @@ export default function CompletedOrNextMonthPage({ currencySymbol = '₹', theme
               {isThisMonthOpen && (
                 <div className="pt-2 space-y-2 border-t border-white/5">
                   {thisMonthCompleted.length === 0 ? (
-                    <p className={`text-center py-4 ${activeTheme.subText} text-xs`}>
-                      No completed items for this month yet.
-                    </p>
+                    <p className={`text-center py-4 ${activeTheme.subText} text-xs`}>No completed items for this month yet.</p>
                   ) : (
-                    thisMonthCompleted.map((item) => (
-                      <div
-                        key={item.id}
-                        onClick={() => setSelectedCycle(item)}
-                        className="p-3 rounded-xl bg-black/5 dark:bg-white/5 border border-white/5 flex items-center justify-between text-xs cursor-pointer hover:border-emerald-400/40 transition-all gap-3"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-mono font-semibold opacity-70 shrink-0">
-                              {formatDate(item.paid_at || item.due_timestamp)}
-                            </span>
-                            <h3 className="font-bold truncate">{item.name}</h3>
-                          </div>
-                          <p className={`text-[10px] ${activeTheme.subText} mt-0.5 capitalize truncate`}>
-                            {item.category || 'General'} • <span className="text-emerald-400 font-semibold">{item.status}</span>
-                          </p>
-                        </div>
+                    thisMonthCompleted.map((item) => {
+                      const completionTime = new Date(item.paid_at || item.updated_at || item.due_timestamp);
+                      const isToday = completionTime >= todayStart && completionTime <= todayEnd;
 
-                        <div className="flex items-center gap-2.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-                          <span className="font-extrabold text-emerald-400">
-                            {Number(item.expected_amount || 0) > 0 ? `${currencySymbol}${Number(item.expected_amount).toLocaleString('en-IN')}` : 'Event ✓'}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedCycle(item)}
-                            className="px-2.5 py-1 rounded-lg bg-[#6556e8]/10 hover:bg-[#6556e8]/20 border border-[#6556e8]/30 text-[#6556e8] text-[10px] font-bold transition-all active:scale-95"
-                            title="Undo / Reopen item"
-                          >
-                            ↩️ Undo
-                          </button>
+                      return (
+                        <div
+                          key={item.id}
+                          onClick={() => setReopenCycle(item)} // Clicking row opens Reopen Modal on Completed Tab
+                          className="p-3 rounded-xl bg-black/5 dark:bg-white/5 border border-white/5 flex items-center justify-between text-xs cursor-pointer hover:border-[#6556e8]/40 transition-all gap-3"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-mono font-semibold opacity-70 shrink-0">
+                                {formatDate(item.paid_at || item.due_timestamp)}
+                              </span>
+                              <h3 className="font-bold truncate">{item.name}</h3>
+                            </div>
+                            <p className={`text-[10px] ${activeTheme.subText} mt-0.5 capitalize truncate`}>
+                              {item.category || 'General'} • <span className="text-emerald-400 font-semibold">{item.status}</span>
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-2.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                            <span className="font-extrabold text-emerald-400">
+                              {Number(item.expected_amount || 0) > 0 ? `${currencySymbol}${Number(item.expected_amount).toLocaleString('en-IN')}` : 'Event ✓'}
+                            </span>
+                            {isToday && (
+                              <button
+                                type="button"
+                                onClick={() => setReopenCycle(item)}
+                                className="px-2.5 py-1 rounded-lg bg-[#6556e8]/10 hover:bg-[#6556e8]/20 border border-[#6556e8]/30 text-[#6556e8] text-[10px] font-bold transition-all active:scale-95"
+                                title="Undo / Reopen item completed today"
+                              >
+                                ↩️ Undo
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               )}
@@ -196,15 +196,13 @@ export default function CompletedOrNextMonthPage({ currencySymbol = '₹', theme
               {isLastMonthOpen && (
                 <div className="pt-2 space-y-2 border-t border-white/5">
                   {lastMonthCompleted.length === 0 ? (
-                    <p className={`text-center py-4 ${activeTheme.subText} text-xs`}>
-                      No completed records found for last month.
-                    </p>
+                    <p className={`text-center py-4 ${activeTheme.subText} text-xs`}>No completed records found for last month.</p>
                   ) : (
                     lastMonthCompleted.map((item) => (
                       <div
                         key={item.id}
-                        onClick={() => setSelectedCycle(item)}
-                        className="p-3 rounded-xl bg-black/5 dark:bg-white/5 border border-white/5 flex items-center justify-between text-xs opacity-90 cursor-pointer hover:border-emerald-400/40 transition-all gap-3"
+                        onClick={() => setReopenCycle(item)} // Clicking row opens Reopen Modal on Completed Tab
+                        className="p-3 rounded-xl bg-black/5 dark:bg-white/5 border border-white/5 flex items-center justify-between text-xs opacity-90 cursor-pointer hover:border-[#6556e8]/40 transition-all gap-3"
                       >
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
@@ -224,7 +222,7 @@ export default function CompletedOrNextMonthPage({ currencySymbol = '₹', theme
                           </span>
                           <button
                             type="button"
-                            onClick={() => setSelectedCycle(item)}
+                            onClick={() => setReopenCycle(item)}
                             className="px-2.5 py-1 rounded-lg bg-[#6556e8]/10 hover:bg-[#6556e8]/20 border border-[#6556e8]/30 text-[#6556e8] text-[10px] font-bold transition-all active:scale-95"
                             title="Undo / Reopen item"
                           >
@@ -239,40 +237,28 @@ export default function CompletedOrNextMonthPage({ currencySymbol = '₹', theme
             </div>
           </div>
         ) : (
-          /* 2. NEXT MONTH FORWARD PLANNING VIEW */
           <div className="space-y-3">
-            <h2 className="text-xs font-extrabold uppercase tracking-wider text-[#6556e8] px-1">
-              Next Calendar Month Obligations
-            </h2>
+            <h2 className="text-xs font-extrabold uppercase tracking-wider text-[#6556e8] px-1">Next Calendar Month Obligations</h2>
             {nextMonthItems.length === 0 ? (
-              <div className={`text-center py-12 ${activeTheme.subText} text-xs`}>
-                No obligations scheduled for next month yet. All clear! 🌿
-              </div>
+              <div className={`text-center py-12 ${activeTheme.subText} text-xs`}>No obligations scheduled for next month yet. All clear! 🌿</div>
             ) : (
               <div className="space-y-2">
                 {nextMonthItems.map((item) => (
                   <div
                     key={item.id}
-                    onClick={() => setSelectedCycle(item)}
+                    onClick={() => setSelectedCycle(item)} // Clicking row opens Payment/Event Modal on Next Month Tab
                     className={`${activeTheme.card} p-4 rounded-2xl border flex items-center justify-between shadow-xs gap-3 cursor-pointer hover:border-[#6556e8]/50 transition-all`}
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-mono font-semibold text-emerald-400 shrink-0">
-                          {formatDate(item.due_timestamp)}
-                        </span>
+                        <span className="text-[10px] font-mono font-semibold text-emerald-400 shrink-0">{formatDate(item.due_timestamp)}</span>
                         <h3 className="font-bold text-xs truncate">{item.name}</h3>
                       </div>
-                      <p className={`text-[10px] ${activeTheme.subText} mt-0.5 truncate`}>
-                        Scheduled for next month • {item.frequency || 'Monthly'}
-                      </p>
+                      <p className={`text-[10px] ${activeTheme.subText} mt-0.5 truncate`}>Scheduled for next month • {item.frequency || 'Monthly'}</p>
                     </div>
                     <button
                       type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedCycle(item);
-                      }}
+                      onClick={(e) => { e.stopPropagation(); setSelectedCycle(item); }}
                       className="px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold hover:bg-emerald-400 hover:text-black transition-all shrink-0"
                     >
                       Clear Early ✓
@@ -285,54 +271,51 @@ export default function CompletedOrNextMonthPage({ currencySymbol = '₹', theme
         )}
       </div>
 
-      {/* Action Modals: Reopen Modal for Completed Tab vs Payment/Event Modals for Next Month Tab */}
-      {selectedCycle && (
-        activeTab === 'completed' ? (
-          <ReopenCycleModal
+      {/* Reopen Modal for Completed Tab */}
+      {reopenCycle && (
+        <ReopenCycleModal
+          isOpen={Boolean(reopenCycle)}
+          onClose={() => setReopenCycle(null)}
+          cycle={reopenCycle}
+          activeTheme={activeTheme}
+          currencySymbol={currencySymbol}
+          onReopen={async (cycleId, newTimestamp) => {
+            await cyclesService.updateCycleStatus(cycleId, 'pending', 'Reopened accidentally closed item', newTimestamp);
+            setReopenCycle(null);
+            await loadData();
+          }}
+        />
+      )}
+
+      {/* Payment / Event Modals for Next Month Tab */}
+      {selectedCycle && activeTab === 'next_month' && (
+        isMonetary ? (
+          <PaymentModal
             isOpen={Boolean(selectedCycle)}
-            onClose={() => setSelectedCycle(null)}
             cycle={selectedCycle}
             activeTheme={activeTheme}
             currencySymbol={currencySymbol}
-            onReopen={async (cycleId, newTimestamp) => {
-              await cyclesService.updateCycleStatus(cycleId, 'pending', 'Reopened accidentally closed item');
+            user={user}
+            onClose={() => setSelectedCycle(null)}
+            onConfirmPayment={async (cycleId, amountOrStatus, notes) => {
+              await cyclesService.updateCycleStatus(cycleId, amountOrStatus, notes);
               setSelectedCycle(null);
               await loadData();
             }}
           />
         ) : (
-          isMonetary ? (
-            <PaymentModal
-              isOpen={Boolean(selectedCycle)}
-              cycle={selectedCycle}
-              activeTheme={activeTheme}
-              currencySymbol={currencySymbol}
-              user={user}
-              onClose={() => setSelectedCycle(null)}
-              onConfirmPayment={async (cycleId, paymentData) => {
-                await cyclesService.updateCycleStatus(
-                  cycleId,
-                  paymentData.amount_paid,
-                  paymentData.notes
-                );
-                setSelectedCycle(null);
-                await loadData();
-              }}
-            />
-          ) : (
-            <EventModal
-              isOpen={Boolean(selectedCycle)}
-              eventItem={selectedCycle}
-              activeTheme={activeTheme}
-              user={user}
-              onClose={() => setSelectedCycle(null)}
-              onConfirm={async (status = 'completed') => {
-                await cyclesService.updateCycleStatus(selectedCycle.id, status, 'Updated status');
-                setSelectedCycle(null);
-                await loadData();
-              }}
-            />
-          )
+          <EventModal
+            isOpen={Boolean(selectedCycle)}
+            eventItem={selectedCycle}
+            activeTheme={activeTheme}
+            user={user}
+            onClose={() => setSelectedCycle(null)}
+            onConfirm={async (status = 'completed') => {
+              await cyclesService.updateCycleStatus(selectedCycle.id, status, 'Updated status');
+              setSelectedCycle(null);
+              await loadData();
+            }}
+          />
         )
       )}
     </div>
